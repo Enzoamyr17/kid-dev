@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
@@ -22,7 +24,21 @@ export default function RootLayout({
       <body
         className={`${poppins.variable} antialiased w-[100vw] h-[100dvh] overflow-x-hidden`}
       >
-        {children}
+        <SidebarProvider>
+          <Sidebar>
+            <SidebarContent>
+              <SidebarHeader>
+                <h2 className="text-lg font-semibold">Dashboard</h2>
+              </SidebarHeader>
+            </SidebarContent>
+          </Sidebar>
+          <main>
+            <SidebarTrigger />
+            {children}
+          </main>
+
+        </SidebarProvider>
+        <Toaster />
       </body>
     </html>
   );
