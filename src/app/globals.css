@@ -3,7 +3,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: hsl(0 0% 100%);
+  --background: hsl(0, 0%, 100%);
   --foreground: hsl(0 0% 9%);
   --card: hsl(0 0% 100%);
   --card-foreground: hsl(0 0% 9%);
@@ -64,30 +64,6 @@
   --color-sidebar: var(--sidebar);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: hsl(0 0% 4%);
-    --foreground: hsl(0 0% 93%);
-    --card: hsl(0 0% 4%);
-    --card-foreground: hsl(0 0% 93%);
-    --popover: hsl(0 0% 4%);
-    --popover-foreground: hsl(0 0% 93%);
-    --primary: hsl(0 0% 98%);
-    --primary-foreground: hsl(0 0% 9%);
-    --secondary: hsl(0 0% 15%);
-    --secondary-foreground: hsl(0 0% 98%);
-    --muted: hsl(0 0% 15%);
-    --muted-foreground: hsl(0 0% 64%);
-    --accent: hsl(0 0% 15%);
-    --accent-foreground: hsl(0 0% 98%);
-    --destructive: hsl(0 62.8% 30.6%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(0 0% 15%);
-    --input: hsl(0 0% 15%);
-    --ring: hsl(0 0% 83%);
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
@@ -95,7 +71,26 @@ body {
 }
 
 .dark {
-  --sidebar: hsl(240 5.9% 10%);
+  --background: hsl(0, 0%, 38%);
+  --foreground: hsl(0 0% 93%);
+  --card: hsl(0 0% 4%);
+  --card-foreground: hsl(0 0% 93%);
+  --popover: hsl(0 0% 4%);
+  --popover-foreground: hsl(0 0% 93%);
+  --primary: hsl(0 0% 98%);
+  --primary-foreground: hsl(0 0% 9%);
+  --secondary: hsl(0 0% 15%);
+  --secondary-foreground: hsl(0 0% 98%);
+  --muted: hsl(0 0% 15%);
+  --muted-foreground: hsl(0 0% 64%);
+  --accent: hsl(0 0% 15%);
+  --accent-foreground: hsl(0 0% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: hsl(0 0% 15%);
+  --input: hsl(0 0% 15%);
+  --ring: hsl(0 0% 83%);
+  --sidebar: hsl(0, 0%, 25%);
   --sidebar-foreground: hsl(240 4.8% 95.9%);
   --sidebar-primary: hsl(224.3 76.3% 48%);
   --sidebar-primary-foreground: hsl(0 0% 100%);

@@ -1,12 +1,31 @@
-import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter, SidebarMenuAction } from "@/components/ui/sidebar";
-import { ChartBar, LogOut } from "lucide-react";
+"use client";
+
+import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter, SidebarMenuSub } from "@/components/ui/sidebar";
+import { ChartBar, FileText, LogOut, MoonIcon, SunIcon } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
 
 const sidebarItems = [
   {
     label: "Dashboard",
     href: "/dashboard",
     icon: ChartBar,
+  }
+];
+
+const purchasingItems = [
+  {
+    label: "Quotations",
+    href: "/quotations",
   },
+  {
+    label: "Purchase Requests",
+    href: "/purchase-requests",
+  },
+  {
+    label: "Purchase Orders",
+    href: "/purchase-orders",
+  }
 ];
 
 export default function DashboardLayout({
@@ -14,8 +33,12 @@ export default function DashboardLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+  const router = useRouter();
+  const title = usePathname().split('/').pop();
+
   return (
-    <SidebarProvider>
+    <SidebarProvider className="">
       <Sidebar variant="inset">
         <SidebarHeader className="flex items-center justify-center h-16">
           <h2 className="text-5xl font-bold">Kingland</h2>
@@ -30,6 +53,18 @@ export default function DashboardLayout({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+            <SidebarMenuButton className="hover:bg-transparent">
+              <FileText className="mr-2 h-4 w-4" /> Purchasing
+            </SidebarMenuButton>
+            <SidebarMenuSub>
+              {purchasingItems.map((item) => (
+                <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
+                  <SidebarMenuButton>
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenuSub>
           </SidebarGroup>
           <SidebarFooter>
               <SidebarMenuButton>
@@ -40,8 +75,19 @@ export default function DashboardLayout({
         </SidebarContent>
       </Sidebar>
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
+        <header className="sticky top-0 bg-background flex h-16 shrink-0 items-center justify-between border-b px-4 z-40">
+          <div className="flex justify-evenly items-center gap-2">
+            <SidebarTrigger />
+            <div className="flex items-center font-semibold text-2xl tracking-wide capitalize">{title || "Kingland"}</div>
+          </div>
+          <div className="flex justify-evenly items-center gap-2">
+            <Button onClick={() => {
+              document.documentElement.classList.toggle("dark");
+            }} variant="ghost" size="icon">
+              <MoonIcon className="dark:hidden"/>
+              <SunIcon className="hidden dark:block"/>
+            </Button>
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-1">
           {children}

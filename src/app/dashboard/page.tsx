@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-1 h-full w-full">
-      <div className="flex flex-col gap-1 border">
+      <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">Header</h1>
       </div>
       <div className="h-auto flex flex-wrap items-start justify-center gap-0">
