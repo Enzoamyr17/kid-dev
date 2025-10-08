@@ -1,0 +1,7 @@
+deployment:
+  tasks:
+    - export NODE_ENV=production
+    - cd project
+    - npm install
+    - npm run build
+    - rsync -a . /home/z16j1l9e4l18/public_html/kid-dev/
