@@ -5,8 +5,7 @@ deployment:
     - export NODE_ENV=production
     - /bin/rm -rf $DEPLOYPATH
     - /bin/mkdir -p $DEPLOYPATH
-    - /bin/cp -R * $DEPLOYPATH
-    - /bin/cp .next.config.ts $DEPLOYPATH 2>/dev/null || :
+    - /bin/cp -R . $DEPLOYPATH
     - cd $DEPLOYPATH && npm ci --production=false
     - cd $DEPLOYPATH && npm run build
     - cd $DEPLOYPATH && /bin/mkdir -p tmp && touch tmp/restart.txt
