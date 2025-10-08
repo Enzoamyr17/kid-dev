@@ -13,44 +13,73 @@ This document outlines the styling conventions and component usage patterns for 
 
 ### Forms
 
-#### Input Fields
-- Always use `<Input>` from `@/components/ui/input`
-- Include labels with semantic HTML `<label htmlFor="...">`
-- Mark required fields with `<span className="text-red-500">*</span>`
-- Use consistent spacing with `space-y-2` for label and input containers
+#### Field Component (Unified Input)
+- **ALWAYS use** `<Field>` from `@/components/ui/field` for ALL inputs
+- **NEVER use** raw `<input>`, `<select>`, or `<Input>` components directly
+- Supports: text, number (with validation), date, and select types
+- Number inputs use text-based validation (no spinner arrows)
+- Includes built-in label and error message support
 
 ```tsx
-<div className="space-y-2">
-  <label htmlFor="fieldName" className="text-sm font-medium">
-    Field Name <span className="text-red-500">*</span>
-  </label>
-  <Input
-    id="fieldName"
-    value={value}
-    onChange={handleChange}
-    placeholder="Enter field name"
-    required
-  />
-</div>
+import { Field } from "@/components/ui/field"
+
+// Text input
+<Field
+  type="text"
+  label={<>Field Name <span className="text-red-500">*</span></>}
+  placeholder="Enter field name"
+  value={value}
+  onChange={setValue}
+/>
+
+// Number input (text-based with validation)
+<Field
+  type="number"
+  label="Price"
+  placeholder="0.00"
+  value={price}
+  onChange={setPrice}
+  decimals={2}
+  min={0}
+/>
+
+// Date picker
+<Field
+  type="date"
+  label={<>Date Required <span className="text-red-500">*</span></>}
+  placeholder="Select date"
+  value={date}
+  onChange={setDate}
+/>
+
+// Select dropdown
+<Field
+  type="select"
+  label="Status"
+  value={status}
+  onChange={setStatus}
+  options={[
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" }
+  ]}
+/>
+
+// With error message
+<Field
+  type="text"
+  label="Email"
+  value={email}
+  onChange={setEmail}
+  error="Invalid email address"
+/>
 ```
 
-#### Date Pickers
-- **Always use** `<DatePicker>` from `@/components/ui/date-picker`
-- **Never use** `<Input type="date">` for date selection
-- Pass Date objects, not strings
-
-```tsx
-<div className="space-y-2">
-  <label htmlFor="dateField" className="text-sm font-medium">
-    Date Required <span className="text-red-500">*</span>
-  </label>
-  <DatePicker
-    date={formData.dateField}
-    onSelect={(date) => handleChange("dateField", date)}
-    placeholder="Select date"
-  />
-</div>
-```
+#### Number Input Validation
+- Number fields use `type="text"` with numeric-only validation
+- No spinner arrows (better UX)
+- Supports `decimals` prop for automatic formatting
+- Supports `min` and `max` constraints
+- Mobile-friendly with `inputMode="decimal"`
 
 #### Buttons
 - Use `<Button>` from `@/components/ui/button`
@@ -439,14 +468,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 All components are located in [src/components/ui](src/components/ui):
 
 - **Button** - All button variants
-- **DatePicker** - Date selection (custom wrapper)
-- **Calendar** - Calendar component (used by DatePicker)
+- **Field** - Unified input component (text, number, date, select) - ALWAYS USE THIS
+- **DatePicker** - Date selection (integrated into Field component)
+- **Calendar** - Calendar component (used by Field/DatePicker)
 - **Sidebar** - Main navigation sidebar
 - **Popover** - Floating content
 - **Dropdown Menu** - Context menus
 - **Tabs** - Tabbed navigation
 - **Sonner** - Toast notifications
-- **Input** - Text inputs
+- **Input** - Text inputs (deprecated - use Field instead)
 - **Separator** - Visual dividers
 - **Sheet** - Slide-out panels
 - **Tooltip** - Hover information
@@ -454,17 +484,19 @@ All components are located in [src/components/ui](src/components/ui):
 
 ## Best Practices
 
-1. **Never hardcode dates as strings** - Always use Date objects with DatePicker
-2. **Always use shadcn/ui components** - Check available components before creating custom ones
-3. **Never use `<Input type="date">`** - Always use DatePicker component
-4. **Always include loading states** - Use Button loading states or Skeleton components
-5. **Use Sonner for notifications** - Especially when reverting optimistic updates
-6. **Use semantic HTML** - Proper use of form, label, table elements
-7. **Maintain keyboard navigation** - All interactive elements should be keyboard accessible
-8. **Responsive tables** - Always wrap tables in overflow containers
-9. **Consistent spacing** - Use Tailwind spacing utilities consistently
-10. **Icon usage** - Import from `lucide-react`, size with `h-4 w-4` or `h-5 w-5`
-11. **Use Tooltip for icon buttons** - Improve accessibility and UX
+1. **Always use Field component** - Use `<Field>` for ALL inputs (text, number, date, select)
+2. **Never use raw inputs** - Don't use `<input>`, `<select>`, or `<Input>` directly
+3. **Never use `<input type="number">`** - Use `<Field type="number">` with text-based validation instead
+4. **Never hardcode dates as strings** - Always use Date objects with Field date type
+5. **Always use shadcn/ui components** - Check available components before creating custom ones
+6. **Always include loading states** - Use Button loading states or Skeleton components
+7. **Use Sonner for notifications** - Especially when reverting optimistic updates
+8. **Use semantic HTML** - Proper use of form, label, table elements
+9. **Maintain keyboard navigation** - All interactive elements should be keyboard accessible
+10. **Responsive tables** - Always wrap tables in overflow containers
+11. **Consistent spacing** - Use Tailwind spacing utilities consistently
+12. **Icon usage** - Import from `lucide-react`, size with `h-4 w-4` or `h-5 w-5`
+13. **Use Tooltip for icon buttons** - Improve accessibility and UX
 
 ## Currency Formatting
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { X } from "lucide-react";
 
 interface Product {
@@ -221,7 +222,12 @@ const products: Product[] = [
 export default function QuotationPage(){
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("products");
-  const [bidPercentage, setBidPercentage] = useState(40);
+  const [bidPercentage, setBidPercentage] = useState(15);
+  const [supplierPriceVatInclusive, setSupplierPriceVatInclusive] = useState("no");
+  const [ewtPercentage, setEwtPercentage] = useState(1);
+  const [contingencyPercentage, setContingencyPercentage] = useState(5);
+  const [loanInterestPercentage, setLoanInterestPercentage] = useState(3);
+  const [loanMonths, setLoanMonths] = useState(0);
 
   const handleAddToCart = (product: Product) => {
     const existingItem = cart.find(item => item.sku === product.sku);
@@ -299,12 +305,17 @@ export default function QuotationPage(){
     ));
   };
 
+  const handleUpdateSupplierPriceVatInclusive = (value: string) => {
+    setSupplierPriceVatInclusive(value);
+  };
+
   const handleBidPercentageChange = (percentage: number) => {
     setBidPercentage(percentage);
     // Update all proposal prices based on new bid percentage, capped by ABC price
     setCart(cart.map(item => {
       const calculatedPrice = item.internalPrice * (1 + percentage / 100);
-      const proposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
+      let proposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
+      proposalPrice = Math.ceil(proposalPrice * 100) / 100;
       return { ...item, proposalPrice };
     }));
   };
@@ -313,30 +324,47 @@ export default function QuotationPage(){
   const calculateFinancials = () => {
     const VAT_RATE = 0.12;
     const INCOME_TAX_RATE = 0.25;
-    const EWT_RATE = 0.01;
-    const CONTINGENCY_RATE = 0.05;
 
     const totalInternal = cart.reduce((sum, item) => sum + (item.internalPrice * item.quantity), 0);
     const totalProposal = cart.reduce((sum, item) => sum + (item.proposalPrice * item.quantity), 0);
 
+    // Bid price is always VAT-inclusive
     const totalBidPrice = totalProposal;
     const vatExcludedSales = totalBidPrice / (1 + VAT_RATE);
     const outputVat = totalBidPrice - vatExcludedSales;
 
-    const totalCost = totalInternal;
-    const vatExcludedCost = totalCost / (1 + VAT_RATE);
-    const inputVat = totalCost - vatExcludedCost;
+    // Cost calculation depends on whether supplier prices include VAT
+    let totalCost: number;
+    let vatExcludedCost: number;
+    let inputVat: number;
+
+    if (supplierPriceVatInclusive === "yes") {
+      // Supplier prices already include VAT
+      totalCost = totalInternal;
+      vatExcludedCost = totalCost / (1 + VAT_RATE);
+      inputVat = totalCost - vatExcludedCost;
+    } else {
+      // Supplier prices don't include VAT, need to add it
+      vatExcludedCost = totalInternal;
+      inputVat = vatExcludedCost * VAT_RATE;
+      totalCost = vatExcludedCost + inputVat;
+    }
 
     const vatPayable = outputVat - inputVat;
     const grossProfit = vatExcludedSales - vatExcludedCost;
-    const ewtAmount = vatExcludedSales * EWT_RATE;
+    const ewtAmount = vatExcludedSales * (ewtPercentage / 100);
     const incomeTax25 = grossProfit * INCOME_TAX_RATE;
     const finalIncomeTax = Math.max(0, incomeTax25 - ewtAmount);
 
     const netProfit = grossProfit - finalIncomeTax;
-    const contingencyAmount = totalCost * CONTINGENCY_RATE;
+    const contingencyAmount = totalCost * (contingencyPercentage / 100);
     const finalNetProfit = netProfit - contingencyAmount;
     const netProfitMargin = totalInternal > 0 ? (netProfit / totalInternal) * 100 : 0;
+
+    // Loan calculations (based on Total Cost)
+    const calculatedLoanAmount = loanMonths > 0 ? totalCost : 0;
+    const loanInterest = calculatedLoanAmount * (loanInterestPercentage / 100) * loanMonths;
+    const netProfitWithLoan = finalNetProfit - loanInterest;
 
     return {
       totalBidPrice,
@@ -354,6 +382,9 @@ export default function QuotationPage(){
       contingencyAmount,
       finalNetProfit,
       netProfitMargin,
+      loanAmount: calculatedLoanAmount,
+      loanInterest,
+      netProfitWithLoan,
     };
   };
 
@@ -361,12 +392,17 @@ export default function QuotationPage(){
 
   return (
     <div className="flex flex-col justify-start items-center gap-1 h-full w-full">
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col justify-start items-center gap-1 h-full w-full">
+
+        {/* Tabs List */}
         <TabsList className="">
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="form">Form</TabsTrigger>
           <TabsTrigger value="list">List</TabsTrigger>
         </TabsList>
+
+        {/* Products Tab */}
         <TabsContent value="products" className="w-full p-2">
           <div className="bg-sidebar border border-blue-900/10 rounded-lg w-full h-full">
             <Table>
@@ -392,13 +428,22 @@ export default function QuotationPage(){
                     <TableCell>{product.subcategory}</TableCell>
                     <TableCell>{product.additionalCategory}</TableCell>
                     <TableCell>{product.uom}</TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-28 flex justify-center items-center">
+                    {cart.some(item => item.sku === product.sku) ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleRemoveFromCart(product.sku)}
+                      >
+                        Remove
+                      </Button>
+                    ) : (
                       <Button
                         variant="outline"
                         onClick={() => handleAddToCart(product)}
                       >
                         Add
                       </Button>
+                    )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -406,60 +451,78 @@ export default function QuotationPage(){
             </Table>
           </div>
         </TabsContent>
+
+        {/* Form Tab */}
         <TabsContent value="form" className="w-full p-2">
           <div className="bg-sidebar border border-blue-900/10 rounded-lg w-full p-6">
             <h2 className="text-xl font-semibold mb-6">New Quotation</h2>
 
             {/* Basic Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Quote No. <span className="text-red-500">*</span></label>
-                <input type="text" placeholder="RFQ25-0001" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
+              <Field
+                type="text"
+                label={<>Quote No. <span className="text-red-500">*</span></>}
+                placeholder="RFQ25-0001"
+                className="h-10"
+              />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Client <span className="text-red-500">*</span></label>
-                <input type="text" placeholder="Enter client name" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
+              <Field
+                type="text"
+                label={<>Client <span className="text-red-500">*</span></>}
+                placeholder="Enter client name"
+                className="h-10"
+              />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Requested By <span className="text-red-500">*</span></label>
-                <input type="text" placeholder="Enter requester name" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
+              <Field
+                type="text"
+                label={<>Requested By <span className="text-red-500">*</span></>}
+                placeholder="Enter requester name"
+                className="h-10"
+              />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Department <span className="text-red-500">*</span></label>
-                <input type="text" placeholder="Enter department" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
+              <Field
+                type="text"
+                label={<>Department <span className="text-red-500">*</span></>}
+                placeholder="Enter department"
+                className="h-10"
+              />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Date Required <span className="text-red-500">*</span></label>
-                <input type="date" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
+              <Field
+                type="date"
+                label={<>Date Required <span className="text-red-500">*</span></>}
+                placeholder="Select date"
+                className="h-10"
+              />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Approved Budget Cost (ABC) <span className="text-red-500">*</span></label>
-                <input type="number" placeholder="0.00" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Bid Percentage (Markup %)</label>
-                <input
-                  type="number"
-                  placeholder="40"
-                  value={bidPercentage}
-                  onChange={(e) => handleBidPercentageChange(parseFloat(e.target.value) || 0)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                />
-              </div>
+              <Field
+                type="number"
+                label="Approved Budget Cost (ABC)"
+                placeholder="0.00"
+                decimals={2}
+                className="h-10"
+              />
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Supplier Price VAT Inclusive?</label>
-                <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
-                  <option value="no">No</option>
-                  <option value="yes">Yes</option>
-                </select>
-              </div>
+              <Field
+                type="number"
+                label="Bid Percentage (Markup %)"
+                placeholder="40"
+                value={bidPercentage}
+                onChange={handleBidPercentageChange}
+                decimals={2}
+                className="h-10"
+              />
+
+              <Field
+                type="select"
+                label="Supplier Price VAT Inclusive?"
+                value={supplierPriceVatInclusive}
+                onChange={(value) => handleUpdateSupplierPriceVatInclusive(value)}
+                options={[
+                  { value: "no", label: "No" },
+                  { value: "yes", label: "Yes" }
+                ]}
+                className="h-10"
+              />
             </div>
 
 
@@ -529,24 +592,27 @@ export default function QuotationPage(){
                           <TableCell className="bg-amber-50/20">
                             <div className="flex items-center gap-1">
                               <span className="text-xs font-medium">₱</span>
-                              <input
+                              <Field
                                 type="number"
                                 value={item.internalPrice}
-                                onChange={(e) => handleUpdateInternalPrice(item.sku, parseFloat(e.target.value) || 0)}
-                                className="h-8 text-xs w-24 font-medium rounded-md border border-input bg-background px-2"
+                                onChange={(value) => handleUpdateInternalPrice(item.sku, value)}
+                                decimals={2}
+                                className="h-8 text-xs w-24 font-medium"
                               />
                             </div>
                           </TableCell>
                           <TableCell className="bg-amber-50/20">
-                            <select
+                            <Field
+                              type="select"
                               value={item.supplier}
-                              onChange={(e) => handleUpdateSupplier(item.sku, e.target.value)}
-                              className="h-8 text-xs w-full rounded-md border border-input bg-background px-2"
-                            >
-                              <option value="OFPS">OFPS</option>
-                              <option value="Shopee">Shopee</option>
-                              <option value="P-lim">P-lim</option>
-                            </select>
+                              onChange={(value) => handleUpdateSupplier(item.sku, value)}
+                              options={[
+                                { value: "OFPS", label: "OFPS" },
+                                { value: "Shopee", label: "Shopee" },
+                                { value: "P-lim", label: "P-lim" }
+                              ]}
+                              className="h-8 text-xs w-full"
+                            />
                           </TableCell>
                           <TableCell className="border-r-2 border-border bg-amber-50/20">
                             <span className="text-xs font-bold">₱{(item.internalPrice * item.quantity).toFixed(2)}</span>
@@ -556,30 +622,33 @@ export default function QuotationPage(){
                           <TableCell className="bg-blue-50/20">
                             <div className="flex items-center gap-1">
                               <span className="text-xs font-medium">₱</span>
-                              <input
+                              <Field
                                 type="number"
                                 value={item.abcPrice}
-                                onChange={(e) => handleUpdateABCPrice(item.sku, parseFloat(e.target.value) || 0)}
-                                className="h-8 text-xs w-24 rounded-md border border-input bg-background px-2"
+                                onChange={(value) => handleUpdateABCPrice(item.sku, value)}
+                                decimals={2}
+                                className="h-8 text-xs w-24"
                               />
                             </div>
                           </TableCell>
                           <TableCell className="bg-blue-50/20">
-                            <input
+                            <Field
                               type="number"
                               value={item.quantity}
-                              onChange={(e) => handleUpdateQuantity(item.sku, parseInt(e.target.value) || 1)}
-                              className="h-8 text-xs w-16 rounded-md border border-input bg-background px-2"
+                              onChange={(value) => handleUpdateQuantity(item.sku, Math.round(value))}
+                              decimals={2}
+                              className="h-8 text-xs w-16"
                             />
                           </TableCell>
                           <TableCell className="bg-blue-50/20">
                             <div className="flex items-center gap-1">
                               <span className="text-xs font-medium">₱</span>
-                              <input
+                              <Field
                                 type="number"
                                 value={item.proposalPrice}
-                                onChange={(e) => handleUpdateProposalPrice(item.sku, parseFloat(e.target.value) || 0)}
-                                className="h-8 text-xs w-24 font-medium rounded-md border border-input bg-background px-2 border-blue-300"
+                                onChange={(value) => handleUpdateProposalPrice(item.sku, value)}
+                                decimals={2}
+                                className="h-8 text-xs w-24 font-medium border-blue-300"
                               />
                             </div>
                           </TableCell>
@@ -611,10 +680,7 @@ export default function QuotationPage(){
                 {/* Bid Price Column */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-3">Bid Price (VAT-inclusive)</h4>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-bold">Total Bid Price:</span>
-                    <span className="font-bold text-blue-600">₱{financials.totalBidPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
+
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>VAT-excluded Sales Revenue:</span>
                     <span>₱{financials.vatExcludedSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -623,15 +689,16 @@ export default function QuotationPage(){
                     <span>Output VAT (12%):</span>
                     <span>₱{financials.outputVat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="font-bold">Total Bid Price:</span>
+                    <span className="font-bold text-blue-600">₱{financials.totalBidPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
 
                 {/* Cost Column */}
                 <div className="space-y-2 border-l pl-6">
-                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost (VAT-inclusive)</h4>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-bold">Total Cost:</span>
-                    <span className="font-bold text-amber-600">₱{financials.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
+                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost {supplierPriceVatInclusive === "yes" ? "(VAT-inclusive)" : "(VAT-exclusive)"}</h4>
+                  
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>VAT-excluded Cost:</span>
                     <span>₱{financials.vatExcludedCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -639,6 +706,10 @@ export default function QuotationPage(){
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Input VAT (12%):</span>
                     <span>₱{financials.inputVat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="font-bold">Total Cost:</span>
+                    <span className="font-bold text-amber-600">₱{financials.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
 
@@ -653,9 +724,18 @@ export default function QuotationPage(){
                     <span>Gross Profit:</span>
                     <span className="font-medium">₱{financials.grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>EWT (1% goods / 2% services):</span>
-                    <span>₱{financials.ewtAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <div className="flex justify-between text-xs items-center">
+                    <span>EWT:</span>
+                    <div className="flex items-center gap-2">
+                      <Field
+                        type="number"
+                        value={ewtPercentage}
+                        onChange={setEwtPercentage}
+                        className="h-7 w-16 text-xs text-right"
+                      />
+                      <span className="text-xs">%</span>
+                      <span className="text-xs text-muted-foreground">= ₱{financials.ewtAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -668,6 +748,10 @@ export default function QuotationPage(){
                     <span>Income Tax @ 25%:</span>
                     <span className="font-medium">₱{financials.incomeTax25.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>EWT ({ewtPercentage}%):</span>
+                    <span>₱{financials.ewtAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                   <div className="flex justify-between text-sm">
                     <span>Final Income Tax (Less EWT):</span>
                     <span className="font-medium">₱{financials.finalIncomeTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -676,9 +760,18 @@ export default function QuotationPage(){
                     <span>Net Profit (Gross - Tax):</span>
                     <span className="font-medium text-green-600">₱{financials.netProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Contingency Amount (5%):</span>
-                    <span>₱{financials.contingencyAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <div className="flex justify-between text-sm items-center">
+                    <span>Contingency:</span>
+                    <div className="flex items-center gap-2">
+                      <Field
+                        type="number"
+                        value={contingencyPercentage}
+                        onChange={setContingencyPercentage}
+                        className="h-7 w-16 text-xs text-right"
+                      />
+                      <span className="text-xs">%</span>
+                      <span className="text-xs text-muted-foreground">= ₱{financials.contingencyAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
                   </div>
                   <div className="flex justify-between text-base font-bold pt-2 border-t">
                     <span>Final Net Profit:</span>
@@ -695,21 +788,35 @@ export default function QuotationPage(){
                   <div className="flex justify-between text-sm">
                     <span>Capital Loan % Interest:</span>
                     <div className="flex items-center gap-2">
-                      <input type="number" defaultValue="3" className="h-7 w-16 text-xs text-right rounded-md border border-input bg-background px-2" />
+                      <Field
+                        type="number"
+                        value={loanInterestPercentage}
+                        onChange={setLoanInterestPercentage}
+                        className="h-7 w-16 text-xs text-right"
+                      />
                       <span className="text-xs">%</span>
                     </div>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span>Number of Months:</span>
-                    <input type="number" defaultValue="0" className="h-7 w-16 text-xs text-right rounded-md border border-input bg-background px-2" />
+                    <Field
+                      type="number"
+                      value={loanMonths}
+                      onChange={setLoanMonths}
+                      className="h-7 w-16 text-xs text-right"
+                    />
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Loan Amount:</span>
-                    <span>₱0.00</span>
+                    <span>Loan Amount (Total Cost):</span>
+                    <span>₱{financials.loanAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Loan Interest:</span>
+                    <span>₱{financials.loanInterest.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-base font-bold pt-2 border-t">
                     <span>Net Profit (with Loan):</span>
-                    <span className="text-green-600">₱0.00</span>
+                    <span className="text-green-600">₱{financials.netProfitWithLoan.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
@@ -722,9 +829,12 @@ export default function QuotationPage(){
             </div>
           </div>
         </TabsContent>
+
+        {/* List Tab */}
         <TabsContent value="list">
           <div>List</div>
         </TabsContent>
+
       </Tabs>
     </div>
   );

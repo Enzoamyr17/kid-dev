@@ -53,14 +53,15 @@ This project uses [shadcn/ui](https://ui.shadcn.com) as the primary component li
 
 **Installed Components:**
 - `Button` - Standard buttons with variants (primary, secondary, ghost, destructive, outline)
-- `DatePicker` - Custom wrapper combining Calendar + Popover
+- `Field` - Unified input component for text, numbers, dates, and dropdowns (ALWAYS use this instead of raw inputs)
+- `DatePicker` - Custom wrapper combining Calendar + Popover (integrated into Field component)
 - `Calendar` - Date selection component
 - `Sidebar` - Collapsible sidebar with icon-only collapsed state
 - `Popover` - Floating content container
 - `Dropdown Menu` - Context menus and dropdowns
 - `Tabs` - Tabbed navigation
 - `Sonner` - Toast notifications (use for error handling and optimistic updates)
-- `Input` - Text input fields
+- `Input` - Text input fields (deprecated - use Field component instead)
 - `Separator` - Visual dividers
 - `Sheet` - Side panels and modals
 - `Tooltip` - Hover information
@@ -69,7 +70,10 @@ This project uses [shadcn/ui](https://ui.shadcn.com) as the primary component li
 **Component Usage Rules:**
 - All page components use `"use client"` directive (client-side interactivity required for charts and state)
 - **ALWAYS** use existing shadcn/ui components before creating custom ones
-- **NEVER** use `<Input type="date">` - always use the `DatePicker` component from [src/components/ui/date-picker.tsx](src/components/ui/date-picker.tsx)
+- **ALWAYS** use `Field` component from [src/components/ui/field.tsx](src/components/ui/field.tsx) for all inputs (text, number, date, select)
+- **NEVER** use `<input type="text">`, `<input type="number">`, `<input type="date">`, or `<select>` directly
+- **NEVER** use `<Input type="date">` or `<Input type="number">` - always use the `Field` component
+- Number inputs use text input with validation (no spinner arrows) - controlled via Field component
 - Follow the ui/ folder pattern for all UI components
 - Use `class-variance-authority` for component variants
 - Dashboard metrics use gradient backgrounds with Tailwind classes
