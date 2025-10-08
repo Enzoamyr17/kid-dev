@@ -14,6 +14,7 @@ interface Product {
   subcategory: string;
   additionalCategory: string;
   uom: string;
+  basePrice: number;
 }
 
 interface CartItem extends Product {
@@ -33,6 +34,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy20",
+    basePrice: 185.50,
   },
   {
     sku: "PAP-000002",
@@ -42,6 +44,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy20",
+    basePrice: 195.75,
   },
   {
     sku: "PAP-000003",
@@ -51,6 +54,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy20",
+    basePrice: 188.25,
   },
   {
     sku: "PAP-000004",
@@ -60,6 +64,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 215.00,
   },
   {
     sku: "PAP-000005",
@@ -69,6 +74,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 228.50,
   },
   {
     sku: "PAP-000006",
@@ -78,6 +84,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 220.00,
   },
   {
     sku: "STG-000001",
@@ -87,6 +94,7 @@ const products: Product[] = [
     subcategory: "Storage Solutions",
     additionalCategory: "Balikbayan Boxes",
     uom: "Box - Balikbayan",
+    basePrice: 450.00,
   },
   {
     sku: "STG-000002",
@@ -96,6 +104,7 @@ const products: Product[] = [
     subcategory: "Storage Solutions",
     additionalCategory: "Balikbayan Boxes",
     uom: "Box - Balikbayan",
+    basePrice: 475.00,
   },
   {
     sku: "STG-000003",
@@ -105,6 +114,7 @@ const products: Product[] = [
     subcategory: "Storage Solutions",
     additionalCategory: "Storage Boxes",
     uom: "Box - Storage",
+    basePrice: 325.00,
   },
   {
     sku: "PAP-000007",
@@ -114,6 +124,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy20",
+    basePrice: 165.00,
   },
   {
     sku: "PAP-000008",
@@ -123,6 +134,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy20",
+    basePrice: 175.50,
   },
   {
     sku: "PAP-000009",
@@ -132,6 +144,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy20",
+    basePrice: 168.75,
   },
   {
     sku: "PAP-000010",
@@ -141,6 +154,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 198.00,
   },
   {
     sku: "PAP-000011",
@@ -150,6 +164,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 210.25,
   },
   {
     sku: "PAP-000012",
@@ -159,6 +174,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 203.50,
   },
   {
     sku: "PAP-000013",
@@ -168,6 +184,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 212.00,
   },
   {
     sku: "PAP-000014",
@@ -177,6 +194,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 205.00,
   },
   {
     sku: "PAP-000015",
@@ -186,6 +204,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 213.75,
   },
   {
     sku: "PAP-000016",
@@ -195,6 +214,7 @@ const products: Product[] = [
     subcategory: "Paper Products",
     additionalCategory: "Copy Paper",
     uom: "Paper - Copy24",
+    basePrice: 207.50,
   },
 ];
 
@@ -214,17 +234,16 @@ export default function QuotationPage(){
           : item
       ));
     } else {
-      // Add new item with default values
-      const basePrice = 100; // Placeholder base price
-      const abcPrice = 140; // Placeholder ABC price
-      const proposalPrice = basePrice * (1 + bidPercentage / 100);
+      // Add new item with product's base price
+      const calculatedPrice = product.basePrice * (1 + bidPercentage / 100);
+      const proposalPrice = calculatedPrice; // ABC is 0 by default, so no cap initially
 
       const newItem: CartItem = {
         ...product,
         quantity: 1,
-        internalPrice: basePrice,
+        internalPrice: product.basePrice,
         supplier: "OFPS",
-        abcPrice: abcPrice,
+        abcPrice: 0,
         proposalPrice: proposalPrice,
       };
       setCart([...cart, newItem]);
@@ -245,7 +264,8 @@ export default function QuotationPage(){
   const handleUpdateInternalPrice = (sku: string, price: number) => {
     setCart(cart.map(item => {
       if (item.sku === sku) {
-        const newProposalPrice = price * (1 + bidPercentage / 100);
+        const calculatedPrice = price * (1 + bidPercentage / 100);
+        const newProposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
         return { ...item, internalPrice: price, proposalPrice: newProposalPrice };
       }
       return item;
@@ -253,15 +273,24 @@ export default function QuotationPage(){
   };
 
   const handleUpdateProposalPrice = (sku: string, price: number) => {
-    setCart(cart.map(item =>
-      item.sku === sku ? { ...item, proposalPrice: price } : item
-    ));
+    setCart(cart.map(item => {
+      if (item.sku === sku) {
+        const cappedPrice = item.abcPrice > 0 ? Math.min(price, item.abcPrice) : price;
+        return { ...item, proposalPrice: cappedPrice };
+      }
+      return item;
+    }));
   };
 
   const handleUpdateABCPrice = (sku: string, price: number) => {
-    setCart(cart.map(item =>
-      item.sku === sku ? { ...item, abcPrice: price } : item
-    ));
+    setCart(cart.map(item => {
+      if (item.sku === sku) {
+        // Cap proposal price if it exceeds new ABC price
+        const cappedProposalPrice = price > 0 ? Math.min(item.proposalPrice, price) : item.proposalPrice;
+        return { ...item, abcPrice: price, proposalPrice: cappedProposalPrice };
+      }
+      return item;
+    }));
   };
 
   const handleUpdateSupplier = (sku: string, supplier: string) => {
@@ -272,11 +301,12 @@ export default function QuotationPage(){
 
   const handleBidPercentageChange = (percentage: number) => {
     setBidPercentage(percentage);
-    // Update all proposal prices based on new bid percentage
-    setCart(cart.map(item => ({
-      ...item,
-      proposalPrice: item.internalPrice * (1 + percentage / 100)
-    })));
+    // Update all proposal prices based on new bid percentage, capped by ABC price
+    setCart(cart.map(item => {
+      const calculatedPrice = item.internalPrice * (1 + percentage / 100);
+      const proposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
+      return { ...item, proposalPrice };
+    }));
   };
 
   // Financial Calculations based on Philippine tax regulations
