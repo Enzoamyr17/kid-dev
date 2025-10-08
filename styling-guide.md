@@ -127,31 +127,187 @@ import { Field } from "@/components/ui/field"
 
 ### Tables
 
-#### Standard Tables
-- Use semantic HTML table elements
-- Header row: `className="bg-muted"`
-- Cell padding: `className="px-4 py-3"`
-- Text size: `className="text-sm"`
-- Wrap in overflow container for responsiveness
+#### Standard Tables (Read-only)
+- Use shadcn/ui `<Table>` components from `@/components/ui/table`
+- Components: `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableCell`, `TableHead`
+- Wrap in `rounded-md border` container
 
 ```tsx
-<div className="border rounded-lg overflow-hidden">
-  <div className="overflow-x-auto">
-    <table className="w-full">
-      <thead className="bg-muted">
-        <tr>
-          <th className="px-4 py-3 text-left text-sm font-medium">Header</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr className="border-t">
-          <td className="px-4 py-3 text-sm">Content</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+<div className="rounded-md border">
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead>Header</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      <TableRow>
+        <TableCell>Content</TableCell>
+      </TableRow>
+    </TableBody>
+  </Table>
 </div>
 ```
+
+#### Management Tables (Inline Editing Pattern)
+**Use this pattern for ALL Management pages** (Product Management, User Management, etc.)
+
+**Key Features:**
+- Inline add row at the top
+- Click-to-edit cells with `<Input>` component
+- Auto-generated IDs/SKUs (format: `PREFIX{YY}-{00001}`)
+- Optimistic updates with automatic rollback on error
+- Status toggle button
+- Keyboard shortcuts (Enter to save, Escape to cancel)
+
+**Required State:**
+```tsx
+const [items, setItems] = useState([]);
+const [loading, setLoading] = useState(true);
+const [isAddingRow, setIsAddingRow] = useState(false);
+const [isSubmitting, setIsSubmitting] = useState(false);
+const [editingCell, setEditingCell] = useState<{ itemId: string; field: string } | null>(null);
+const [editValue, setEditValue] = useState("");
+```
+
+**Implementation:**
+```tsx
+// Auto-generate ID/SKU
+const generateNextId = () => {
+  const currentYear = new Date().getFullYear().toString().slice(-2);
+  const prefix = `KMCI${currentYear}-`; // Change prefix per page
+  const currentYearItems = items.filter(i => i.sku.startsWith(prefix));
+  if (currentYearItems.length === 0) return `${prefix}00001`;
+  const numbers = currentYearItems.map(i => parseInt(i.sku.split('-')[1] || '0', 10));
+  const maxNumber = Math.max(...numbers);
+  return `${prefix}${(maxNumber + 1).toString().padStart(5, '0')}`;
+};
+
+// Edit handlers
+const handleCellClick = (itemId: string, field: string, currentValue: string) => {
+  setEditingCell({ itemId, field });
+  setEditValue(currentValue);
+};
+
+const saveEdit = async (itemId: string, field: string, oldValue: string) => {
+  if (editValue === oldValue) {
+    setEditingCell(null);
+    return;
+  }
+
+  // Optimistic update
+  setItems(prev => prev.map(i => i.id === itemId ? { ...i, [field]: editValue } : i));
+  setEditingCell(null);
+
+  try {
+    const response = await fetch("/api/endpoint", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: itemId, [field]: editValue }),
+    });
+    if (!response.ok) throw new Error("Failed to update");
+    toast.success("Updated successfully");
+  } catch (error) {
+    // Revert on error
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, [field]: oldValue } : i));
+    toast.error("Failed to update");
+  }
+};
+
+const handleKeyPress = (e: React.KeyboardEvent, itemId: string, field: string, oldValue: string) => {
+  if (e.key === 'Enter') saveEdit(itemId, field, oldValue);
+  else if (e.key === 'Escape') { setEditingCell(null); setEditValue(""); }
+};
+
+// Table structure
+<div className="rounded-md border">
+  <Table>
+    <TableHeader>
+      <TableRow>
+        <TableHead>ID</TableHead>
+        <TableHead>Name</TableHead>
+        <TableHead className="w-[100px]">Actions</TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {/* Add Row */}
+      {isAddingRow && (
+        <TableRow className="bg-muted/50">
+          <TableCell>
+            <Input placeholder="Auto-generated" value={newItem.id} disabled className="h-8 bg-muted/30" />
+          </TableCell>
+          <TableCell>
+            <Input 
+              placeholder="Name"
+              value={newItem.name}
+              onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+              disabled={isSubmitting}
+              className="h-8"
+            />
+          </TableCell>
+          <TableCell>
+            <div className="flex gap-1">
+              <Button size="icon" variant="ghost" onClick={handleSubmit} disabled={isSubmitting} className="h-8 w-8">
+                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 text-green-600" />}
+              </Button>
+              <Button size="icon" variant="ghost" onClick={handleCancel} disabled={isSubmitting} className="h-8 w-8">
+                <X className="h-4 w-4 text-red-600" />
+              </Button>
+            </div>
+          </TableCell>
+        </TableRow>
+      )}
+
+      {/* Data Rows with Inline Editing */}
+      {items.map((item) => (
+        <TableRow key={item.id}>
+          <TableCell className="font-medium">{item.id}</TableCell>
+          <TableCell
+            onClick={() => handleCellClick(item.id, 'name', item.name)}
+            className="cursor-pointer hover:bg-muted/50"
+          >
+            {editingCell?.itemId === item.id && editingCell?.field === 'name' ? (
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={() => saveEdit(item.id, 'name', item.name)}
+                onKeyDown={(e) => handleKeyPress(e, item.id, 'name', item.name)}
+                className="h-8"
+                autoFocus
+              />
+            ) : (
+              item.name
+            )}
+          </TableCell>
+          <TableCell>
+            <button
+              onClick={() => toggleStatus(item.id, item.isActive)}
+              className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium transition-colors cursor-pointer hover:opacity-80 ${
+                item.isActive 
+                  ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' 
+                  : 'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
+              }`}
+            >
+              {item.isActive ? 'Active' : 'Inactive'}
+            </button>
+          </TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</div>
+```
+
+**Styling Rules:**
+- Add row background: `bg-muted/50`
+- Editable cells hover: `cursor-pointer hover:bg-muted/50`
+- Disabled ID field: `bg-muted/30`
+- Input height: `h-8`
+- Action buttons: `h-8 w-8` with icon size `h-4 w-4`
+- Check icon: `text-green-600`
+- X icon: `text-red-600`
 
 #### Table Totals Row
 - Use `bg-muted/50` or `bg-muted/30` for total rows

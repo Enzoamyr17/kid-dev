@@ -60,6 +60,22 @@ type FieldProps = TextFieldProps | NumberFieldProps | DateFieldProps | SelectFie
 export function Field(props: FieldProps) {
   const { className, disabled, placeholder, label, error } = props
 
+  // Number field state (only initialized when type is number)
+  const [internalValue, setInternalValue] = React.useState<string>("")
+  const [isFocused, setIsFocused] = React.useState(false)
+  const [selectOpen, setSelectOpen] = React.useState(false)
+
+  // Sync external value to internal state when not focused (for number fields)
+  React.useEffect(() => {
+    if (props.type === "number" && !isFocused) {
+      const value = props.type === "number" ? props.value : undefined
+      const valueStr = value !== undefined && value !== "" && value !== 0
+        ? value.toString()
+        : ""
+      setInternalValue(valueStr)
+    }
+  }, [props.type, props.type === "number" ? props.value : undefined, isFocused])
+
   const renderField = () => {
     if (props.type === "text") {
       return (
@@ -81,18 +97,6 @@ export function Field(props: FieldProps) {
     }
 
     if (props.type === "number") {
-      const [internalValue, setInternalValue] = React.useState<string>("")
-      const [isFocused, setIsFocused] = React.useState(false)
-
-      // Sync external value to internal state when not focused
-      React.useEffect(() => {
-        if (!isFocused) {
-          const valueStr = props.value !== undefined && props.value !== "" && props.value !== 0
-            ? props.value.toString()
-            : ""
-          setInternalValue(valueStr)
-        }
-      }, [props.value, isFocused])
 
       const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const inputValue = e.target.value
@@ -215,10 +219,8 @@ export function Field(props: FieldProps) {
     }
 
     if (props.type === "select") {
-      const [open, setOpen] = React.useState(false)
-
       return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={selectOpen} onOpenChange={setSelectOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
@@ -245,7 +247,7 @@ export function Field(props: FieldProps) {
                   key={option.value}
                   onClick={() => {
                     props.onChange?.(option.value)
-                    setOpen(false)
+                    setSelectOpen(false)
                   }}
                   className={cn(
                     "w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground transition-colors",

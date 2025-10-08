@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,11 @@ import { X } from "lucide-react";
 interface Product {
   sku: string;
   name: string;
+  description?: string;
   brand: string;
   category: string;
-  subcategory: string;
-  additionalCategory: string;
+  subCategory: string;
+  adCategory: string;
   uom: string;
   basePrice: number;
 }
@@ -26,208 +27,67 @@ interface CartItem extends Product {
   proposalPrice: number;
 }
 
-const products: Product[] = [
-  {
-    sku: "PAP-000001",
-    name: "Hard Copy Paper (Substance 20) - A4",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy20",
-    basePrice: 185.50,
-  },
-  {
-    sku: "PAP-000002",
-    name: "Hard Copy Paper (Substance 20) - Legal (8.5x13)",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy20",
-    basePrice: 195.75,
-  },
-  {
-    sku: "PAP-000003",
-    name: "Hard Copy Paper (Substance 20) - Letter",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy20",
-    basePrice: 188.25,
-  },
-  {
-    sku: "PAP-000004",
-    name: "Hard Copy Paper (Substance 24) - A4",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 215.00,
-  },
-  {
-    sku: "PAP-000005",
-    name: "Hard Copy Paper (Substance 24) - Legal (8.5x13)",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 228.50,
-  },
-  {
-    sku: "PAP-000006",
-    name: "Hard Copy Paper (Substance 24) - Letter",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 220.00,
-  },
-  {
-    sku: "STG-000001",
-    name: "ADVANCE BALIKBAYAN BOX (20X20X20 IN) - BROWN",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Storage Solutions",
-    additionalCategory: "Balikbayan Boxes",
-    uom: "Box - Balikbayan",
-    basePrice: 450.00,
-  },
-  {
-    sku: "STG-000002",
-    name: "ADVANCE BALIKBAYAN BOX (20X20X20 IN) - WHITE",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Storage Solutions",
-    additionalCategory: "Balikbayan Boxes",
-    uom: "Box - Balikbayan",
-    basePrice: 475.00,
-  },
-  {
-    sku: "STG-000003",
-    name: "ADVANCE STORE-ALL (10.25X12.5X15.75)",
-    brand: "Advance",
-    category: "School and Office Supplies",
-    subcategory: "Storage Solutions",
-    additionalCategory: "Storage Boxes",
-    uom: "Box - Storage",
-    basePrice: 325.00,
-  },
-  {
-    sku: "PAP-000007",
-    name: "A-Plus Copy Paper (Substance 20) - A4",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy20",
-    basePrice: 165.00,
-  },
-  {
-    sku: "PAP-000008",
-    name: "A-Plus Copy Paper (Substance 20) - Legal",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy20",
-    basePrice: 175.50,
-  },
-  {
-    sku: "PAP-000009",
-    name: "A-Plus Copy Paper (Substance 20) - Letter",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy20",
-    basePrice: 168.75,
-  },
-  {
-    sku: "PAP-000010",
-    name: "A-Plus Copy Paper (Substance 24) - A4",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 198.00,
-  },
-  {
-    sku: "PAP-000011",
-    name: "A-Plus Copy Paper (Substance 24) - Legal",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 210.25,
-  },
-  {
-    sku: "PAP-000012",
-    name: "A-Plus Copy Paper (Substance 24) - Letter",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 203.50,
-  },
-  {
-    sku: "PAP-000013",
-    name: "A-Plus Copy Paper (Substance 24) - Legal",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 212.00,
-  },
-  {
-    sku: "PAP-000014",
-    name: "A-Plus Copy Paper (Substance 24) - Letter",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 205.00,
-  },
-  {
-    sku: "PAP-000015",
-    name: "A-Plus Copy Paper (Substance 24) - Legal",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 213.75,
-  },
-  {
-    sku: "PAP-000016",
-    name: "A-Plus Copy Paper (Substance 24) - Letter",
-    brand: "A-Plus",
-    category: "School and Office Supplies",
-    subcategory: "Paper Products",
-    additionalCategory: "Copy Paper",
-    uom: "Paper - Copy24",
-    basePrice: 207.50,
-  },
-];
+interface QuotationFormData {
+  // Basic Info
+  quoteNo: string;
+  forCompanyId: string;
+  requestorId: string;
+  deliveryDate: string;
+  approvedBudget: number;
+
+  // Pricing & Settings
+  bidPercentage: number;
+  supplierPriceVatInclusive: "yes" | "no";
+  paymentMethod: string;
+
+  // Tax & Financial
+  ewtPercentage: number;
+  contingencyPercentage: number;
+  loanInterestPercentage: number;
+  loanMonths: number;
+}
+
+
 
 export default function QuotationPage(){
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("products");
-  const [bidPercentage, setBidPercentage] = useState(15);
-  const [supplierPriceVatInclusive, setSupplierPriceVatInclusive] = useState("no");
-  const [ewtPercentage, setEwtPercentage] = useState(1);
-  const [contingencyPercentage, setContingencyPercentage] = useState(5);
-  const [loanInterestPercentage, setLoanInterestPercentage] = useState(3);
-  const [loanMonths, setLoanMonths] = useState(0);
+
+  const [formData, setFormData] = useState<QuotationFormData>({
+    quoteNo: "",
+    forCompanyId: "",
+    requestorId: "",
+    deliveryDate: "",
+    approvedBudget: 0,
+    bidPercentage: 15,
+    supplierPriceVatInclusive: "no",
+    paymentMethod: "",
+    ewtPercentage: 1,
+    contingencyPercentage: 5,
+    loanInterestPercentage: 3,
+    loanMonths: 0,
+  });
+
+  const [products, setProducts] = useState<Product[]>([]);
+
+  const fetchProducts = async () => {
+    const response = await fetch("/api/products");
+    const data = await response.json();
+    if (!response.ok) throw new Error("Failed to fetch products");    
+    setProducts(data);
+    console.log(data);
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const updateFormData = <K extends keyof QuotationFormData>(
+    field: K,
+    value: QuotationFormData[K]
+  ) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   const handleAddToCart = (product: Product) => {
     const existingItem = cart.find(item => item.sku === product.sku);
@@ -241,7 +101,7 @@ export default function QuotationPage(){
       ));
     } else {
       // Add new item with product's base price
-      const calculatedPrice = product.basePrice * (1 + bidPercentage / 100);
+      const calculatedPrice = product.basePrice * (1 + formData.bidPercentage / 100);
       const proposalPrice = calculatedPrice; // ABC is 0 by default, so no cap initially
 
       const newItem: CartItem = {
@@ -270,7 +130,7 @@ export default function QuotationPage(){
   const handleUpdateInternalPrice = (sku: string, price: number) => {
     setCart(cart.map(item => {
       if (item.sku === sku) {
-        const calculatedPrice = price * (1 + bidPercentage / 100);
+        const calculatedPrice = price * (1 + formData.bidPercentage / 100);
         const newProposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
         return { ...item, internalPrice: price, proposalPrice: newProposalPrice };
       }
@@ -305,12 +165,8 @@ export default function QuotationPage(){
     ));
   };
 
-  const handleUpdateSupplierPriceVatInclusive = (value: string) => {
-    setSupplierPriceVatInclusive(value);
-  };
-
   const handleBidPercentageChange = (percentage: number) => {
-    setBidPercentage(percentage);
+    updateFormData("bidPercentage", percentage);
     // Update all proposal prices based on new bid percentage, capped by ABC price
     setCart(cart.map(item => {
       const calculatedPrice = item.internalPrice * (1 + percentage / 100);
@@ -338,7 +194,7 @@ export default function QuotationPage(){
     let vatExcludedCost: number;
     let inputVat: number;
 
-    if (supplierPriceVatInclusive === "yes") {
+    if (formData.supplierPriceVatInclusive === "yes") {
       // Supplier prices already include VAT
       totalCost = totalInternal;
       vatExcludedCost = totalCost / (1 + VAT_RATE);
@@ -352,18 +208,18 @@ export default function QuotationPage(){
 
     const vatPayable = outputVat - inputVat;
     const grossProfit = vatExcludedSales - vatExcludedCost;
-    const ewtAmount = vatExcludedSales * (ewtPercentage / 100);
+    const ewtAmount = vatExcludedSales * (formData.ewtPercentage / 100);
     const incomeTax25 = grossProfit * INCOME_TAX_RATE;
     const finalIncomeTax = Math.max(0, incomeTax25 - ewtAmount);
 
     const netProfit = grossProfit - finalIncomeTax;
-    const contingencyAmount = totalCost * (contingencyPercentage / 100);
+    const contingencyAmount = totalCost * (formData.contingencyPercentage / 100);
     const finalNetProfit = netProfit - contingencyAmount;
     const netProfitMargin = totalInternal > 0 ? (netProfit / totalInternal) * 100 : 0;
 
     // Loan calculations (based on Total Cost)
-    const calculatedLoanAmount = loanMonths > 0 ? totalCost : 0;
-    const loanInterest = calculatedLoanAmount * (loanInterestPercentage / 100) * loanMonths;
+    const calculatedLoanAmount = formData.loanMonths > 0 ? totalCost : 0;
+    const loanInterest = calculatedLoanAmount * (formData.loanInterestPercentage / 100) * formData.loanMonths;
     const netProfitWithLoan = finalNetProfit - loanInterest;
 
     return {
@@ -389,6 +245,33 @@ export default function QuotationPage(){
   };
 
   const financials = calculateFinancials();
+
+  const handleSaveQuotation = () => {
+    // TODO: Implement save as draft and submit functionality later
+    console.log("Quotation Data:", {
+      ...formData,
+      cartItems: cart,
+      financials
+    });
+  };
+
+  const handleClearForm = () => {
+    setFormData({
+      quoteNo: "",
+      forCompanyId: "",
+      requestorId: "",
+      deliveryDate: "",
+      approvedBudget: 0,
+      bidPercentage: 15,
+      supplierPriceVatInclusive: "no",
+      paymentMethod: "",
+      ewtPercentage: 1,
+      contingencyPercentage: 5,
+      loanInterestPercentage: 3,
+      loanMonths: 0,
+    });
+    setCart([]);
+  };
 
   return (
     <div className="flex flex-col justify-start items-center gap-1 h-full w-full">
@@ -425,8 +308,8 @@ export default function QuotationPage(){
                     <TableCell>{product.name}</TableCell>
                     <TableCell>{product.brand}</TableCell>
                     <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.subcategory}</TableCell>
-                    <TableCell>{product.additionalCategory}</TableCell>
+                    <TableCell>{product.subCategory}</TableCell>
+                    <TableCell>{product.adCategory}</TableCell>
                     <TableCell>{product.uom}</TableCell>
                     <TableCell className="min-w-28 flex justify-center items-center">
                     {cart.some(item => item.sku === product.sku) ? (
@@ -463,6 +346,8 @@ export default function QuotationPage(){
                 type="text"
                 label={<>Quote No. <span className="text-red-500">*</span></>}
                 placeholder="RFQ25-0001"
+                value={formData.quoteNo}
+                onChange={(value) => updateFormData("quoteNo", value)}
                 className="h-10"
               />
 
@@ -470,6 +355,8 @@ export default function QuotationPage(){
                 type="text"
                 label={<>Client <span className="text-red-500">*</span></>}
                 placeholder="Enter client name"
+                value={formData.forCompanyId}
+                onChange={(value) => updateFormData("forCompanyId", value)}
                 className="h-10"
               />
 
@@ -477,13 +364,17 @@ export default function QuotationPage(){
                 type="text"
                 label={<>Requested By <span className="text-red-500">*</span></>}
                 placeholder="Enter requester name"
+                value={formData.requestorId}
+                onChange={(value) => updateFormData("requestorId", value)}
                 className="h-10"
               />
 
               <Field
                 type="text"
-                label={<>Department <span className="text-red-500">*</span></>}
-                placeholder="Enter department"
+                label={<>Payment Method</>}
+                placeholder="Enter payment method"
+                value={formData.paymentMethod}
+                onChange={(value) => updateFormData("paymentMethod", value)}
                 className="h-10"
               />
 
@@ -491,6 +382,8 @@ export default function QuotationPage(){
                 type="date"
                 label={<>Date Required <span className="text-red-500">*</span></>}
                 placeholder="Select date"
+                value={formData.deliveryDate ? new Date(formData.deliveryDate) : undefined}
+                onChange={(value) => updateFormData("deliveryDate", value ? value.toISOString().split('T')[0] : "")}
                 className="h-10"
               />
 
@@ -498,6 +391,8 @@ export default function QuotationPage(){
                 type="number"
                 label="Approved Budget Cost (ABC)"
                 placeholder="0.00"
+                value={formData.approvedBudget}
+                onChange={(value) => updateFormData("approvedBudget", value)}
                 decimals={2}
                 className="h-10"
               />
@@ -506,7 +401,7 @@ export default function QuotationPage(){
                 type="number"
                 label="Bid Percentage (Markup %)"
                 placeholder="40"
-                value={bidPercentage}
+                value={formData.bidPercentage}
                 onChange={handleBidPercentageChange}
                 decimals={2}
                 className="h-10"
@@ -515,8 +410,8 @@ export default function QuotationPage(){
               <Field
                 type="select"
                 label="Supplier Price VAT Inclusive?"
-                value={supplierPriceVatInclusive}
-                onChange={(value) => handleUpdateSupplierPriceVatInclusive(value)}
+                value={formData.supplierPriceVatInclusive}
+                onChange={(value) => updateFormData("supplierPriceVatInclusive", value as "yes" | "no")}
                 options={[
                   { value: "no", label: "No" },
                   { value: "yes", label: "Yes" }
@@ -582,7 +477,7 @@ export default function QuotationPage(){
                             <span className="text-xs font-medium">{item.name}</span>
                           </TableCell>
                           <TableCell>
-                            <span className="text-xs text-muted-foreground">{item.subcategory}</span>
+                            <span className="text-xs text-muted-foreground">{item.description}</span>
                           </TableCell>
                           <TableCell className="border-r-2 border-border">
                             <span className="text-xs">{item.brand}</span>
@@ -697,7 +592,7 @@ export default function QuotationPage(){
 
                 {/* Cost Column */}
                 <div className="space-y-2 border-l pl-6">
-                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost {supplierPriceVatInclusive === "yes" ? "(VAT-inclusive)" : "(VAT-exclusive)"}</h4>
+                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost {formData.supplierPriceVatInclusive === "yes" ? "(VAT-inclusive)" : "(VAT-exclusive)"}</h4>
                   
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>VAT-excluded Cost:</span>
@@ -729,8 +624,8 @@ export default function QuotationPage(){
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={ewtPercentage}
-                        onChange={setEwtPercentage}
+                        value={formData.ewtPercentage}
+                        onChange={(value) => updateFormData("ewtPercentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -749,7 +644,7 @@ export default function QuotationPage(){
                     <span className="font-medium">₱{financials.incomeTax25.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>EWT ({ewtPercentage}%):</span>
+                    <span>EWT ({formData.ewtPercentage}%):</span>
                     <span>₱{financials.ewtAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -765,8 +660,8 @@ export default function QuotationPage(){
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={contingencyPercentage}
-                        onChange={setContingencyPercentage}
+                        value={formData.contingencyPercentage}
+                        onChange={(value) => updateFormData("contingencyPercentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -790,8 +685,8 @@ export default function QuotationPage(){
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={loanInterestPercentage}
-                        onChange={setLoanInterestPercentage}
+                        value={formData.loanInterestPercentage}
+                        onChange={(value) => updateFormData("loanInterestPercentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -801,8 +696,8 @@ export default function QuotationPage(){
                     <span>Number of Months:</span>
                     <Field
                       type="number"
-                      value={loanMonths}
-                      onChange={setLoanMonths}
+                      value={formData.loanMonths}
+                      onChange={(value) => updateFormData("loanMonths", value)}
                       className="h-7 w-16 text-xs text-right"
                     />
                   </div>
@@ -824,8 +719,8 @@ export default function QuotationPage(){
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-4">
-              <Button variant="outline">Clear Form</Button>
-              <Button>Save Quotation</Button>
+              <Button variant="outline" onClick={handleClearForm}>Clear Form</Button>
+              <Button onClick={handleSaveQuotation}>Save Quotation</Button>
             </div>
           </div>
         </TabsContent>

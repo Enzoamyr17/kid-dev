@@ -1,7 +1,7 @@
 "use client";
 
 import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter, SidebarMenuSub } from "@/components/ui/sidebar";
-import { ChartBar, FileText, LogOut, MoonIcon, SunIcon } from "lucide-react";
+import { ChartBar, FileText, LogOut, MoonIcon, SunIcon, Package } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
@@ -25,6 +25,13 @@ const purchasingItems = [
   {
     label: "Purchase Orders",
     href: "/purchase-orders",
+  }
+];
+
+const managementItems = [
+  {
+    label: "Product Management",
+    href: "/products",
   }
 ];
 
@@ -58,6 +65,18 @@ export default function DashboardLayout({
             </SidebarMenuButton>
             <SidebarMenuSub>
               {purchasingItems.map((item) => (
+                <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
+                  <SidebarMenuButton>
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenuSub>
+            <SidebarMenuButton className="hover:bg-transparent">
+              <Package className="mr-2 h-4 w-4" /> Management
+            </SidebarMenuButton>
+            <SidebarMenuSub>
+              {managementItems.map((item) => (
                 <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
                   <SidebarMenuButton>
                     <span>{item.label}</span>

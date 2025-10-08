@@ -1,0 +1,284 @@
+// Prisma Schema for Kingland Internal Management System
+// Database: MySQL (CPanel Hosted)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// COMPANIES & CLIENTS
+// ============================================
+
+model Company {
+  id           BigInt   @id @default(autoincrement())
+  companyName  String   @map("company_name") @db.VarChar(255)
+  tinNumber    String   @map("tin_number") @db.VarChar(255)
+  type         CompanyType
+
+  addresses    ClientAddress[]
+  proponents   ClientProponent[]
+  projects     Project[]
+  quotationsFor QuotationDetail[] @relation("QuotationForCompany")
+  prFor        PrDetail[] @relation("PrForCompany")
+  poFor        PoDetail[] @relation("PoForCompany")
+
+  @@map("companies")
+}
+
+model ClientAddress {
+  id         BigInt   @id @default(autoincrement())
+  companyId  BigInt   @map("company_id")
+  street1    String   @db.VarChar(255)
+  street2    String   @db.VarChar(255)
+  subd       String   @db.VarChar(255)
+  city       String   @db.VarChar(255)
+  province   String   @db.VarChar(255)
+  zipcode    Int
+
+  company    Company  @relation(fields: [companyId], references: [id])
+
+  @@map("client_addresses")
+}
+
+model ClientProponent {
+  id            BigInt   @id @default(autoincrement())
+  companyId     BigInt   @map("company_id")
+  contactPerson String   @map("contact_person") @db.VarChar(255)
+  contactNumber String   @map("contact_number") @db.VarChar(255)
+
+  company       Company  @relation(fields: [companyId], references: [id])
+
+  @@map("client_proponents")
+}
+
+// ============================================
+// PROJECTS & LIFECYCLES
+// ============================================
+
+model Project {
+  id          BigInt   @id @default(autoincrement())
+  companyId   BigInt   @map("company_id")
+  code        String   @db.VarChar(255)
+  description String   @db.Text
+
+  company     Company  @relation(fields: [companyId], references: [id])
+  lifecycles  Lifecycle[]
+
+  @@map("projects")
+}
+
+model LifecycleTemplate {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  name        String   @db.VarChar(255)
+  description String   @db.VarChar(255)
+
+  stages      LifecycleStage[]
+  lifecycles  Lifecycle[]
+
+  @@map("lifecycle_templates")
+}
+
+model LifecycleStage {
+  id               BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  templateId       BigInt   @map("template_id") @db.UnsignedBigInt
+  name             String   @db.VarChar(255)
+  code             String   @db.VarChar(255)
+  order            Int
+  requiresApproval Boolean  @map("requires_approval")
+
+  template         LifecycleTemplate @relation(fields: [templateId], references: [id])
+  forms            Form[]
+  lifecycles       Lifecycle[]
+
+  @@map("lifecycle_stages")
+}
+
+model Lifecycle {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  templateId BigInt   @map("template_id") @db.UnsignedBigInt
+  projectId  BigInt   @map("project_id")
+  stageId    BigInt   @map("stage_id") @db.UnsignedBigInt
+  status     LifecycleStatus
+
+  template   LifecycleTemplate @relation(fields: [templateId], references: [id])
+  project    Project  @relation(fields: [projectId], references: [id])
+  stage      LifecycleStage @relation(fields: [stageId], references: [id])
+  forms      Form[]
+
+  @@map("lifecycles")
+}
+
+// ============================================
+// FORMS (QUOTATIONS, PR, PO)
+// ============================================
+
+model Form {
+  id          BigInt   @id @default(autoincrement())
+  lifecycleId BigInt   @map("lifecycle_id") @db.UnsignedBigInt
+  projectId   BigInt   @map("project_id")
+  parentId    BigInt?  @map("parent_id")
+  detailId    BigInt   @map("detail_id")
+  stageId     BigInt   @map("stage_id") @db.UnsignedBigInt
+  type        FormType
+
+  lifecycle   Lifecycle @relation(fields: [lifecycleId], references: [id])
+  stage       LifecycleStage @relation(fields: [stageId], references: [id])
+  parent      Form?    @relation("FormHierarchy", fields: [parentId], references: [id])
+  children    Form[]   @relation("FormHierarchy")
+
+  items       FormItem[]
+  remarks     FormRemark[]
+
+  @@map("forms")
+}
+
+model QuotationDetail {
+  id                BigInt   @id @default(autoincrement())
+  quoteNo           String   @map("quote_no") @db.VarChar(255)
+  forCompanyId      BigInt?  @map("for_company_id")
+  requestorId       BigInt?  @map("requestor_id")
+  deliveryDate      DateTime? @map("delivery_date") @db.Date
+  approvedBudget    BigInt?  @map("approved_budget")
+  bidPercentage     Int?     @map("bid_percentage")
+  paymentMethod     String?  @map("payment_method") @db.VarChar(255)
+  totalCost         BigInt?  @map("total_cost")
+  bidPrice          BigInt?  @map("bid_price")
+
+  forCompany        Company? @relation("QuotationForCompany", fields: [forCompanyId], references: [id])
+
+  @@map("quotation_details")
+}
+
+model PrDetail {
+  id              BigInt   @id @default(autoincrement())
+  prNo            String   @map("pr_no") @db.VarChar(255)
+  dateRequired    DateTime? @map("date_required") @db.Date
+  forCompanyId    BigInt?  @map("for_company_id")
+  fromSupplierId  BigInt?  @map("from_supplier_id")
+  preparedBy      String?  @map("prepared_by") @db.VarChar(255)
+  approvedBy      String?  @map("approved_by") @db.VarChar(255)
+  totalCost       BigInt?  @map("total_cost")
+  bidPrice        BigInt?  @map("bid_price")
+
+  forCompany      Company? @relation("PrForCompany", fields: [forCompanyId], references: [id])
+
+  @@map("pr_details")
+}
+
+model PoDetail {
+  id              BigInt   @id @default(autoincrement())
+  poNo            BigInt   @map("po_no")
+  fromSupplierId  BigInt?  @map("from_supplier_id")
+  forCompanyId    BigInt?  @map("for_company_id")
+  paymentMethod   String?  @map("payment_method") @db.VarChar(255)
+  deliveryDate    BigInt?  @map("delivery_date")
+  totalCost       BigInt?  @map("total_cost")
+  bidPrice        BigInt?  @map("bid_price")
+
+  forCompany      Company? @relation("PoForCompany", fields: [forCompanyId], references: [id])
+
+  @@map("po_details")
+}
+
+model FormItem {
+  id            BigInt   @id @default(autoincrement())
+  formId        BigInt   @map("form_id")
+  productId     BigInt?  @map("product_id") @db.UnsignedBigInt
+  quantity      BigInt?
+  supplierName  String?  @map("supplier_name") @db.VarChar(255)
+  supplierPrice BigInt?  @map("supplier_price")
+  clientPrice   BigInt?  @map("client_price")
+  total         BigInt?
+  remarks       String?  @db.LongText
+
+  form          Form     @relation(fields: [formId], references: [id])
+  product       Product? @relation(fields: [productId], references: [id])
+
+  @@map("form_items")
+}
+
+model FormRemark {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  formId    BigInt   @map("form_id")
+  userId    BigInt   @map("user_id") @db.UnsignedBigInt
+  remarks   String   @db.LongText
+
+  form      Form     @relation(fields: [formId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("form_remarks")
+}
+
+// ============================================
+// PRODUCTS
+// ============================================
+
+model Product {
+  id          BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  sku         String   @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  description String   @db.Text
+  brand       String   @db.VarChar(255)
+  category    String   @db.VarChar(255)
+  subCategory String   @map("sub_category") @db.VarChar(255)
+  adCategory  String   @map("ad_category") @db.VarChar(255)
+  uom         String   @db.VarChar(255)
+  isActive    Boolean  @map("is_active") @default(true)
+
+  formItems   FormItem[]
+
+  @@index([sku], map: "products_sku_index")
+  @@map("products")
+}
+
+// ============================================
+// USERS
+// ============================================
+
+model User {
+  id         BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  firstName  String   @map("first_name") @db.VarChar(255)
+  secondName String   @map("second_name") @db.VarChar(255)
+  middleName String   @map("middle_name") @db.VarChar(255)
+  lastName   String   @map("last_name") @db.VarChar(255)
+  birthdate  DateTime @db.Date
+  contact    String   @db.VarChar(255)
+  email      String   @unique @db.VarChar(255)
+  password   String   @db.VarChar(255)
+  department String   @db.VarChar(255)
+  position   String   @db.VarChar(255)
+
+  formRemarks FormRemark[]
+
+  @@map("users")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum CompanyType {
+  client
+  supplier
+  internal
+  vendor
+}
+
+enum LifecycleStatus {
+  TO_BID
+  BID
+  AWARDED
+  PROCESSING
+  COMPLETED
+}
+
+enum FormType {
+  q      // Quotation
+  pr     // Purchase Request
+  po     // Purchase Order
+}
