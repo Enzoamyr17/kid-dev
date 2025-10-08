@@ -7,8 +7,6 @@ deployment:
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R * $DEPLOYPATH
     - /bin/cp .next.config.ts $DEPLOYPATH 2>/dev/null || :
-    - cd $DEPLOYPATH
-    - npm ci --production=false
-    - npm run build
-    - /bin/mkdir -p tmp
-    - touch tmp/restart.txt
+    - cd $DEPLOYPATH && npm ci --production=false
+    - cd $DEPLOYPATH && npm run build
+    - cd $DEPLOYPATH && /bin/mkdir -p tmp && touch tmp/restart.txt
