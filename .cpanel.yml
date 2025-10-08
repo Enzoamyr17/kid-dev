@@ -1,7 +1,10 @@
+---
 deployment:
   tasks:
+    - export DEPLOYPATH=/home/z16j1l9e4l18/public_html/kid-dev
     - export NODE_ENV=production
-    - npm ci
-    - npm install
+    - /bin/cp -R * $DEPLOYPATH
+    - /bin/cp .next.config.ts $DEPLOYPATH 2>/dev/null || :
+    - cd $DEPLOYPATH
+    - npm ci --production=false
     - npm run build
-    - rsync -a . /home/z16j1l9e4l18/public_html/kid-dev/
