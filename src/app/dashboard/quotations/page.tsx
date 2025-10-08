@@ -483,7 +483,7 @@ export default function QuotationPage(){
                             <span className="text-xs">{item.brand}</span>
                           </TableCell>
 
-                          {/* Internal Pricing */}
+                          {/* Internal Pricing bat ganon */}
                           <TableCell className="bg-amber-50/20">
                             <div className="flex items-center gap-1">
                               <span className="text-xs font-medium">₱</span>
