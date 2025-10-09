@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // Helper function to convert BigInt to string
 function serializeProduct(product: { id: bigint; [key: string]: unknown }) {
   return {
