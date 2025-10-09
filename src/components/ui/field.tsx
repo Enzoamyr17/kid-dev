@@ -74,7 +74,7 @@ export function Field(props: FieldProps) {
         : ""
       setInternalValue(valueStr)
     }
-  }, [props.type, props.type === "number" ? props.value : undefined, isFocused])
+  }, [props.type, props.value, isFocused])
 
   const renderField = () => {
     if (props.type === "text") {

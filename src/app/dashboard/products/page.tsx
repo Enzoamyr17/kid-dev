@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Loader2, Check, X } from "lucide-react";
+import { Plus, Loader2, Check, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -112,7 +112,16 @@ export default function ProductsPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(newProduct),
+        body: JSON.stringify({
+          sku: newProduct.sku,
+          name: newProduct.name,
+          description: newProduct.description,
+          brand: newProduct.brand,
+          category: newProduct.category,
+          sub_category: newProduct.subCategory,
+          ad_category: newProduct.adCategory,
+          uom: newProduct.uom,
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to create product");
@@ -190,7 +199,7 @@ export default function ProductsPage() {
         },
         body: JSON.stringify({
           id: productId,
-          isActive: newStatus,
+          is_active: newStatus,
         }),
       });
 
@@ -233,6 +242,14 @@ export default function ProductsPage() {
     setEditingCell(null);
 
     try {
+      // Map camelCase field names to snake_case for API
+      const fieldMap: Record<string, string> = {
+        subCategory: 'sub_category',
+        adCategory: 'ad_category',
+        isActive: 'is_active',
+      };
+      const apiField = fieldMap[field] || field;
+
       const response = await fetch("/api/products", {
         method: "PATCH",
         headers: {
@@ -240,7 +257,7 @@ export default function ProductsPage() {
         },
         body: JSON.stringify({
           id: productId,
-          [field]: editValue,
+          [apiField]: editValue,
         }),
       });
 
@@ -271,6 +288,24 @@ export default function ProductsPage() {
     }
   };
 
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      const response = await fetch("/api/products", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+            body: JSON.stringify({ id: productId }),
+      });
+      if (!response.ok) throw new Error("Failed to delete product");
+      setProducts(products.filter(p => p.id !== productId));
+      toast.success("Product deleted successfully");
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Failed to delete product");
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -298,6 +333,7 @@ export default function ProductsPage() {
               <TableHead>Ad Category</TableHead>
               <TableHead>Sub Category</TableHead>
               <TableHead>UOM</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -374,6 +410,8 @@ export default function ProductsPage() {
                     disabled={isSubmitting}
                     className="h-8"
                   />
+                </TableCell>
+                <TableCell>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
@@ -558,6 +596,11 @@ export default function ProductsPage() {
                     >
                       {product.isActive ? 'Active' : 'Inactive'}
                     </button>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleDeleteProduct(product.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))

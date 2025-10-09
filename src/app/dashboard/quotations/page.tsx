@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Product {
+  id: string;
   sku: string;
   name: string;
   description?: string;
@@ -16,7 +18,7 @@ interface Product {
   subCategory: string;
   adCategory: string;
   uom: string;
-  basePrice: number;
+  isActive: boolean;
 }
 
 interface CartItem extends Product {
@@ -27,24 +29,46 @@ interface CartItem extends Product {
   proposalPrice: number;
 }
 
+interface Company {
+  id: string;
+  companyName: string;
+  type: string;
+}
+
+interface Project {
+  id: string;
+  code: string;
+  company_id: string;
+  description: string;
+  company: Company;
+}
+
+interface User {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
 interface QuotationFormData {
   // Basic Info
-  quoteNo: string;
-  forCompanyId: string;
-  requestorId: string;
-  deliveryDate: string;
-  approvedBudget: number;
+  quote_no: string;
+  for_company_id: string;
+  project_id: string;
+  requestor_id: string;
+  delivery_date: string;
+  approved_budget: number;
 
   // Pricing & Settings
-  bidPercentage: number;
-  supplierPriceVatInclusive: "yes" | "no";
-  paymentMethod: string;
+  bid_percentage: number;
+  supplier_price_vat_inclusive: "yes" | "no";
+  payment_method: string;
 
   // Tax & Financial
-  ewtPercentage: number;
-  contingencyPercentage: number;
-  loanInterestPercentage: number;
-  loanMonths: number;
+  ewt_percentage: number;
+  contingency_percentage: number;
+  loan_interest_percentage: number;
+  loan_months: number;
 }
 
 
@@ -52,20 +76,25 @@ interface QuotationFormData {
 export default function QuotationPage(){
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("products");
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
 
   const [formData, setFormData] = useState<QuotationFormData>({
-    quoteNo: "",
-    forCompanyId: "",
-    requestorId: "",
-    deliveryDate: "",
-    approvedBudget: 0,
-    bidPercentage: 15,
-    supplierPriceVatInclusive: "no",
-    paymentMethod: "",
-    ewtPercentage: 1,
-    contingencyPercentage: 5,
-    loanInterestPercentage: 3,
-    loanMonths: 0,
+    quote_no: "",
+    for_company_id: "",
+    project_id: "",
+    requestor_id: "",
+    delivery_date: "",
+    approved_budget: 0,
+    bid_percentage: 15,
+    supplier_price_vat_inclusive: "no",
+    payment_method: "",
+    ewt_percentage: 1,
+    contingency_percentage: 5,
+    loan_interest_percentage: 3,
+    loan_months: 0,
   });
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -73,21 +102,59 @@ export default function QuotationPage(){
   const fetchProducts = async () => {
     const response = await fetch("/api/products");
     const data = await response.json();
-    if (!response.ok) throw new Error("Failed to fetch products");    
+    if (!response.ok) throw new Error("Failed to fetch products");
     setProducts(data);
-    console.log(data);
+  };
+
+  const fetchCompanies = async () => {
+    const response = await fetch("/api/companies");
+    const data = await response.json();
+    if (!response.ok) throw new Error("Failed to fetch companies");
+    setCompanies(data);
+  };
+
+  const fetchProjects = async () => {
+    const response = await fetch("/api/projects");
+    const data = await response.json();
+    if (!response.ok) throw new Error("Failed to fetch projects");
+    setProjects(data);
+  };
+
+  const fetchUsers = async () => {
+    const response = await fetch("/api/users");
+    const data = await response.json();
+    if (!response.ok) throw new Error("Failed to fetch users");
+    setUsers(data);
   };
 
   useEffect(() => {
     fetchProducts();
+    fetchCompanies();
+    fetchProjects();
+    fetchUsers();
   }, []);
 
-  const updateFormData = <K extends keyof QuotationFormData>(
+  const updateFormData = useCallback(<K extends keyof QuotationFormData>(
     field: K,
     value: QuotationFormData[K]
   ) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  }, []);
+
+  // Filter projects when company changes
+  useEffect(() => {
+    if (formData.for_company_id) {
+      const filtered = projects.filter(p => p.company_id === formData.for_company_id);
+      setFilteredProjects(filtered);
+      // Reset project if not in filtered list
+      if (formData.project_id && !filtered.find(p => p.id === formData.project_id)) {
+        updateFormData("project_id", "");
+      }
+    } else {
+      setFilteredProjects([]);
+      updateFormData("project_id", "");
+    }
+  }, [formData.for_company_id, formData.project_id, projects, updateFormData]);
 
   const handleAddToCart = (product: Product) => {
     const existingItem = cart.find(item => item.sku === product.sku);
@@ -100,14 +167,15 @@ export default function QuotationPage(){
           : item
       ));
     } else {
-      // Add new item with product's base price
-      const calculatedPrice = product.basePrice * (1 + formData.bidPercentage / 100);
+      // Add new item with default internal price of 0
+      const basePrice = 0;
+      const calculatedPrice = basePrice * (1 + formData.bid_percentage / 100);
       const proposalPrice = calculatedPrice; // ABC is 0 by default, so no cap initially
 
       const newItem: CartItem = {
         ...product,
         quantity: 1,
-        internalPrice: product.basePrice,
+        internalPrice: basePrice,
         supplier: "OFPS",
         abcPrice: 0,
         proposalPrice: proposalPrice,
@@ -130,7 +198,7 @@ export default function QuotationPage(){
   const handleUpdateInternalPrice = (sku: string, price: number) => {
     setCart(cart.map(item => {
       if (item.sku === sku) {
-        const calculatedPrice = price * (1 + formData.bidPercentage / 100);
+        const calculatedPrice = price * (1 + formData.bid_percentage / 100);
         const newProposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
         return { ...item, internalPrice: price, proposalPrice: newProposalPrice };
       }
@@ -166,7 +234,7 @@ export default function QuotationPage(){
   };
 
   const handleBidPercentageChange = (percentage: number) => {
-    updateFormData("bidPercentage", percentage);
+    updateFormData("bid_percentage", percentage);
     // Update all proposal prices based on new bid percentage, capped by ABC price
     setCart(cart.map(item => {
       const calculatedPrice = item.internalPrice * (1 + percentage / 100);
@@ -194,7 +262,7 @@ export default function QuotationPage(){
     let vatExcludedCost: number;
     let inputVat: number;
 
-    if (formData.supplierPriceVatInclusive === "yes") {
+    if (formData.supplier_price_vat_inclusive === "yes") {
       // Supplier prices already include VAT
       totalCost = totalInternal;
       vatExcludedCost = totalCost / (1 + VAT_RATE);
@@ -208,18 +276,18 @@ export default function QuotationPage(){
 
     const vatPayable = outputVat - inputVat;
     const grossProfit = vatExcludedSales - vatExcludedCost;
-    const ewtAmount = vatExcludedSales * (formData.ewtPercentage / 100);
+    const ewtAmount = vatExcludedSales * (formData.ewt_percentage / 100);
     const incomeTax25 = grossProfit * INCOME_TAX_RATE;
     const finalIncomeTax = Math.max(0, incomeTax25 - ewtAmount);
 
     const netProfit = grossProfit - finalIncomeTax;
-    const contingencyAmount = totalCost * (formData.contingencyPercentage / 100);
+    const contingencyAmount = totalCost * (formData.contingency_percentage / 100);
     const finalNetProfit = netProfit - contingencyAmount;
     const netProfitMargin = totalInternal > 0 ? (netProfit / totalInternal) * 100 : 0;
 
     // Loan calculations (based on Total Cost)
-    const calculatedLoanAmount = formData.loanMonths > 0 ? totalCost : 0;
-    const loanInterest = calculatedLoanAmount * (formData.loanInterestPercentage / 100) * formData.loanMonths;
+    const calculatedLoanAmount = formData.loan_months > 0 ? totalCost : 0;
+    const loanInterest = calculatedLoanAmount * (formData.loan_interest_percentage / 100) * formData.loan_months;
     const netProfitWithLoan = finalNetProfit - loanInterest;
 
     return {
@@ -246,29 +314,89 @@ export default function QuotationPage(){
 
   const financials = calculateFinancials();
 
-  const handleSaveQuotation = () => {
-    // TODO: Implement save as draft and submit functionality later
-    console.log("Quotation Data:", {
-      ...formData,
-      cartItems: cart,
-      financials
-    });
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveQuotation = async () => {
+    // Validate required fields
+    if (!formData.for_company_id) {
+      toast.error("Please select a client");
+      return;
+    }
+    if (!formData.project_id) {
+      toast.error("Please select a project");
+      return;
+    }
+    if (cart.length === 0) {
+      toast.error("Please add at least one product");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const payload = {
+        quote_no: formData.quote_no || "", // Will be auto-generated if empty
+        company_id: formData.for_company_id,
+        project_id: formData.project_id,
+        requestor_id: formData.requestor_id || null,
+        delivery_date: formData.delivery_date || null,
+        approved_budget: formData.approved_budget,
+        bid_percentage: formData.bid_percentage,
+        payment_method: formData.payment_method || null,
+        cartItems: cart.map(item => ({
+          productId: item.id,
+          sku: item.sku,
+          quantity: item.quantity,
+          internalPrice: item.internalPrice,
+          proposalPrice: item.proposalPrice,
+          supplier: item.supplier,
+        })),
+        financials: {
+          totalCost: financials.totalCost,
+          totalBidPrice: financials.totalBidPrice,
+        },
+      };
+
+      const response = await fetch("/api/quotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to save quotation");
+      }
+
+      const result = await response.json();
+      toast.success(`Quotation saved successfully! Quote No: ${result.quotationDetail.quote_no}`);
+
+      // Clear form after successful save
+      handleClearForm();
+      setActiveTab("list");
+    } catch (error) {
+      console.error("Error saving quotation:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to save quotation");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleClearForm = () => {
     setFormData({
-      quoteNo: "",
-      forCompanyId: "",
-      requestorId: "",
-      deliveryDate: "",
-      approvedBudget: 0,
-      bidPercentage: 15,
-      supplierPriceVatInclusive: "no",
-      paymentMethod: "",
-      ewtPercentage: 1,
-      contingencyPercentage: 5,
-      loanInterestPercentage: 3,
-      loanMonths: 0,
+      quote_no: "",
+      for_company_id: "",
+      project_id: "",
+      requestor_id: "",
+      delivery_date: "",
+      approved_budget: 0,
+      bid_percentage: 15,
+      supplier_price_vat_inclusive: "no",
+      payment_method: "",
+      ewt_percentage: 1,
+      contingency_percentage: 5,
+      loan_interest_percentage: 3,
+      loan_months: 0,
     });
     setCart([]);
   };
@@ -345,27 +473,39 @@ export default function QuotationPage(){
               <Field
                 type="text"
                 label={<>Quote No. <span className="text-red-500">*</span></>}
-                placeholder="RFQ25-0001"
-                value={formData.quoteNo}
-                onChange={(value) => updateFormData("quoteNo", value)}
+                placeholder="Auto-generated if empty"
+                value={formData.quote_no}
+                onChange={(value) => updateFormData("quote_no", value)}
                 className="h-10"
               />
 
               <Field
-                type="text"
+                type="select"
                 label={<>Client <span className="text-red-500">*</span></>}
-                placeholder="Enter client name"
-                value={formData.forCompanyId}
-                onChange={(value) => updateFormData("forCompanyId", value)}
+                placeholder="Select client"
+                value={formData.for_company_id}
+                onChange={(value) => updateFormData("for_company_id", value)}
+                options={companies.map(c => ({ value: c.id, label: c.companyName }))}
                 className="h-10"
               />
 
               <Field
-                type="text"
+                type="select"
+                label={<>Project <span className="text-red-500">*</span></>}
+                placeholder="Select project"
+                value={formData.project_id}
+                onChange={(value) => updateFormData("project_id", value)}
+                options={filteredProjects.map(p => ({ value: p.id, label: `${p.code} - ${p.description}` }))}
+                className="h-10"
+              />
+
+              <Field
+                type="select"
                 label={<>Requested By <span className="text-red-500">*</span></>}
-                placeholder="Enter requester name"
-                value={formData.requestorId}
-                onChange={(value) => updateFormData("requestorId", value)}
+                placeholder="Select requestor"
+                value={formData.requestor_id}
+                onChange={(value) => updateFormData("requestor_id", value)}
+                options={users.map(u => ({ value: u.id, label: `${u.first_name} ${u.last_name}` }))}
                 className="h-10"
               />
 
@@ -373,8 +513,8 @@ export default function QuotationPage(){
                 type="text"
                 label={<>Payment Method</>}
                 placeholder="Enter payment method"
-                value={formData.paymentMethod}
-                onChange={(value) => updateFormData("paymentMethod", value)}
+                value={formData.payment_method}
+                onChange={(value) => updateFormData("payment_method", value)}
                 className="h-10"
               />
 
@@ -382,8 +522,8 @@ export default function QuotationPage(){
                 type="date"
                 label={<>Date Required <span className="text-red-500">*</span></>}
                 placeholder="Select date"
-                value={formData.deliveryDate ? new Date(formData.deliveryDate) : undefined}
-                onChange={(value) => updateFormData("deliveryDate", value ? value.toISOString().split('T')[0] : "")}
+                value={formData.delivery_date ? new Date(formData.delivery_date) : undefined}
+                onChange={(value) => updateFormData("delivery_date", value ? value.toISOString().split('T')[0] : "")}
                 className="h-10"
               />
 
@@ -391,8 +531,8 @@ export default function QuotationPage(){
                 type="number"
                 label="Approved Budget Cost (ABC)"
                 placeholder="0.00"
-                value={formData.approvedBudget}
-                onChange={(value) => updateFormData("approvedBudget", value)}
+                value={formData.approved_budget}
+                onChange={(value) => updateFormData("approved_budget", value)}
                 decimals={2}
                 className="h-10"
               />
@@ -401,7 +541,7 @@ export default function QuotationPage(){
                 type="number"
                 label="Bid Percentage (Markup %)"
                 placeholder="40"
-                value={formData.bidPercentage}
+                value={formData.bid_percentage}
                 onChange={handleBidPercentageChange}
                 decimals={2}
                 className="h-10"
@@ -410,8 +550,8 @@ export default function QuotationPage(){
               <Field
                 type="select"
                 label="Supplier Price VAT Inclusive?"
-                value={formData.supplierPriceVatInclusive}
-                onChange={(value) => updateFormData("supplierPriceVatInclusive", value as "yes" | "no")}
+                value={formData.supplier_price_vat_inclusive}
+                onChange={(value) => updateFormData("supplier_price_vat_inclusive", value as "yes" | "no")}
                 options={[
                   { value: "no", label: "No" },
                   { value: "yes", label: "Yes" }
@@ -592,7 +732,7 @@ export default function QuotationPage(){
 
                 {/* Cost Column */}
                 <div className="space-y-2 border-l pl-6">
-                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost {formData.supplierPriceVatInclusive === "yes" ? "(VAT-inclusive)" : "(VAT-exclusive)"}</h4>
+                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost {formData.supplier_price_vat_inclusive === "yes" ? "(VAT-inclusive)" : "(VAT-exclusive)"}</h4>
                   
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>VAT-excluded Cost:</span>
@@ -624,8 +764,8 @@ export default function QuotationPage(){
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={formData.ewtPercentage}
-                        onChange={(value) => updateFormData("ewtPercentage", value)}
+                        value={formData.ewt_percentage}
+                        onChange={(value) => updateFormData("ewt_percentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -644,7 +784,7 @@ export default function QuotationPage(){
                     <span className="font-medium">₱{financials.incomeTax25.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>EWT ({formData.ewtPercentage}%):</span>
+                    <span>EWT ({formData.ewt_percentage}%):</span>
                     <span>₱{financials.ewtAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -660,8 +800,8 @@ export default function QuotationPage(){
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={formData.contingencyPercentage}
-                        onChange={(value) => updateFormData("contingencyPercentage", value)}
+                        value={formData.contingency_percentage}
+                        onChange={(value) => updateFormData("contingency_percentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -685,8 +825,8 @@ export default function QuotationPage(){
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={formData.loanInterestPercentage}
-                        onChange={(value) => updateFormData("loanInterestPercentage", value)}
+                        value={formData.loan_interest_percentage}
+                        onChange={(value) => updateFormData("loan_interest_percentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -696,8 +836,8 @@ export default function QuotationPage(){
                     <span>Number of Months:</span>
                     <Field
                       type="number"
-                      value={formData.loanMonths}
-                      onChange={(value) => updateFormData("loanMonths", value)}
+                      value={formData.loan_months}
+                      onChange={(value) => updateFormData("loan_months", value)}
                       className="h-7 w-16 text-xs text-right"
                     />
                   </div>
@@ -719,8 +859,17 @@ export default function QuotationPage(){
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-4">
-              <Button variant="outline" onClick={handleClearForm}>Clear Form</Button>
-              <Button onClick={handleSaveQuotation}>Save Quotation</Button>
+              <Button variant="outline" onClick={handleClearForm} disabled={isSaving}>Clear Form</Button>
+              <Button onClick={handleSaveQuotation} disabled={isSaving}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Quotation"
+                )}
+              </Button>
             </div>
           </div>
         </TabsContent>

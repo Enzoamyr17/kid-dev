@@ -30,8 +30,16 @@ const purchasingItems = [
 
 const managementItems = [
   {
+    label: "Company Management",
+    href: "/companies",
+  },
+  {
     label: "Product Management",
     href: "/products",
+  },
+  {
+    label: "Project Management",
+    href: "/projects",
   }
 ];
 

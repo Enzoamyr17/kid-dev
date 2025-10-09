@@ -3,12 +3,27 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// Helper function to convert BigInt to string
-function serializeProduct(product: { id: bigint; [key: string]: unknown }) {
-  return {
-    ...product,
-    id: product.id.toString(),
-  };
+// Helper function to convert BigInt to string recursively
+function serializeProduct(product: unknown): unknown {
+  if (product === null || product === undefined) return product;
+  
+  if (typeof product === 'bigint') {
+    return product.toString();
+  }
+  
+  if (Array.isArray(product)) {
+    return product.map(serializeProduct);
+  }
+  
+  if (typeof product === 'object') {
+    const serialized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(product)) {
+      serialized[key] = serializeProduct(value);
+    }
+    return serialized;
+  }
+  
+  return product;
 }
 
 // GET - Fetch all products
@@ -43,10 +58,10 @@ export async function POST(request: NextRequest) {
         description: body.description,
         brand: body.brand,
         category: body.category,
-        subCategory: body.subCategory,
-        adCategory: body.adCategory,
+        subCategory: body.sub_category,
+        adCategory: body.ad_category,
         uom: body.uom,
-        isActive: body.isActive ?? true,
+        isActive: body.is_active ?? true,
       },
     });
 
@@ -74,9 +89,21 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Convert snake_case to camelCase
+    const mappedData: Record<string, unknown> = {};
+    if (updateData.sku !== undefined) mappedData.sku = updateData.sku;
+    if (updateData.name !== undefined) mappedData.name = updateData.name;
+    if (updateData.description !== undefined) mappedData.description = updateData.description;
+    if (updateData.brand !== undefined) mappedData.brand = updateData.brand;
+    if (updateData.category !== undefined) mappedData.category = updateData.category;
+    if (updateData.sub_category !== undefined) mappedData.subCategory = updateData.sub_category;
+    if (updateData.ad_category !== undefined) mappedData.adCategory = updateData.ad_category;
+    if (updateData.uom !== undefined) mappedData.uom = updateData.uom;
+    if (updateData.is_active !== undefined) mappedData.isActive = updateData.is_active;
+
     const product = await prisma.product.update({
       where: { id: BigInt(id) },
-      data: updateData,
+      data: mappedData,
     });
 
     const serializedProduct = serializeProduct(product);
@@ -90,3 +117,28 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Product ID is required' },
+        { status: 400 }
+      );
+    }
+
+    await prisma.product.delete({
+      where: { id: BigInt(id) },
+    });
+
+    return NextResponse.json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete product' },
+      { status: 500 }
+    );
+  }
+}
