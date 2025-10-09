@@ -497,23 +497,6 @@ export default function ProductsPage() {
                     )}
                   </TableCell>
                   <TableCell
-                    onClick={() => handleCellClick(product.id, 'subCategory', product.subCategory)}
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    {editingCell?.productId === product.id && editingCell?.field === 'subCategory' ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => saveEdit(product.id, 'subCategory', product.subCategory)}
-                        onKeyDown={(e) => handleKeyPress(e, product.id, 'subCategory', product.subCategory)}
-                        className="h-8"
-                        autoFocus
-                      />
-                    ) : (
-                      product.subCategory
-                    )}
-                  </TableCell>
-                  <TableCell
                     onClick={() => handleCellClick(product.id, 'adCategory', product.adCategory)}
                     className="cursor-pointer hover:bg-muted/50"
                   >
@@ -528,6 +511,23 @@ export default function ProductsPage() {
                       />
                     ) : (
                       product.adCategory
+                    )}
+                  </TableCell>
+                  <TableCell
+                    onClick={() => handleCellClick(product.id, 'subCategory', product.subCategory)}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
+                    {editingCell?.productId === product.id && editingCell?.field === 'subCategory' ? (
+                      <Input
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => saveEdit(product.id, 'subCategory', product.subCategory)}
+                        onKeyDown={(e) => handleKeyPress(e, product.id, 'subCategory', product.subCategory)}
+                        className="h-8"
+                        autoFocus
+                      />
+                    ) : (
+                      product.subCategory
                     )}
                   </TableCell>
                   <TableCell
