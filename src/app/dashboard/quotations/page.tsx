@@ -287,7 +287,7 @@ export default function QuotationPage(){
 
         {/* Products Tab */}
         <TabsContent value="products" className="w-full p-2">
-          <div className="bg-sidebar border border-blue-900/10 rounded-lg w-full h-full">
+          <div className="bg-sidebar border border-blue-900/10 rounded-lg w-full h-auto max-h-full">
             <Table>
               <TableHeader>
                 <TableRow>
