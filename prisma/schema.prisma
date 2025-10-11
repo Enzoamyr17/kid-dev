@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -16,7 +16,7 @@ model CompanyAddress {
   city      String  @db.VarChar(255)
   province  String  @db.VarChar(255)
   zipcode   Int
-  company   Company @relation(fields: [companyId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
@@ -26,7 +26,7 @@ model CompanyProponent {
   companyId     BigInt
   contactPerson String  @db.VarChar(255)
   contactNumber String  @db.VarChar(255)
-  company       Company @relation(fields: [companyId], references: [id])
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
@@ -47,27 +47,27 @@ model Company {
 model FormItem {
   id            BigInt   @id @default(autoincrement())
   formId        BigInt
-  productId     BigInt?  @db.UnsignedBigInt
+  productId     BigInt?
   quantity      BigInt?
   supplierName  String?  @db.VarChar(255)
   supplierPrice BigInt?
   clientPrice   BigInt?
   total         BigInt?
-  remarks       String?  @db.LongText
-  form          Form     @relation(fields: [formId], references: [id])
-  product       Product? @relation(fields: [productId], references: [id])
+  remarks       String?  @db.Text
+  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  product       Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   @@index([formId])
   @@index([productId])
 }
 
 model FormRemark {
-  id      BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  id      BigInt @id @default(autoincrement())
   formId  BigInt
-  userId  BigInt @db.UnsignedBigInt
-  remarks String @db.LongText
-  form    Form   @relation(fields: [formId], references: [id])
-  user    User   @relation(fields: [userId], references: [id])
+  userId  BigInt
+  remarks String @db.Text
+  form    Form   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([formId])
   @@index([userId])
@@ -75,18 +75,18 @@ model FormRemark {
 
 model Form {
   id             BigInt         @id @default(autoincrement())
-  lifecycleId    BigInt         @db.UnsignedBigInt
+  lifecycleId    BigInt
   projectId      BigInt
   parentId       BigInt?
   detailId       BigInt
-  stageId        BigInt         @db.UnsignedBigInt
+  stageId        BigInt
   type           FormType
   formItems      FormItem[]
   formRemarks    FormRemark[]
-  lifecycle      Lifecycle      @relation(fields: [lifecycleId], references: [id])
-  parentForm     Form?          @relation("FormToForm", fields: [parentId], references: [id])
+  lifecycle      Lifecycle      @relation(fields: [lifecycleId], references: [id], onDelete: Cascade)
+  parentForm     Form?          @relation("FormToForm", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   childForms     Form[]         @relation("FormToForm")
-  lifecycleStage LifecycleStage @relation(fields: [stageId], references: [id])
+  lifecycleStage LifecycleStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
 
   @@index([lifecycleId])
   @@index([parentId])
@@ -94,21 +94,21 @@ model Form {
 }
 
 model LifecycleStage {
-  id                BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
-  templateId        BigInt            @db.UnsignedBigInt
+  id                BigInt            @id @default(autoincrement())
+  templateId        BigInt
   name              String            @db.VarChar(255)
   code              String            @db.VarChar(255)
   order             Int
   requiresApproval  Boolean
   forms             Form[]
-  lifecycleTemplate LifecycleTemplate @relation(fields: [templateId], references: [id])
+  lifecycleTemplate LifecycleTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   lifecycles        Lifecycle[]
 
   @@index([templateId])
 }
 
 model LifecycleTemplate {
-  id              BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  id              BigInt           @id @default(autoincrement())
   name            String           @db.VarChar(255)
   description     String           @db.VarChar(255)
   lifecycleStages LifecycleStage[]
@@ -116,15 +116,15 @@ model LifecycleTemplate {
 }
 
 model Lifecycle {
-  id                BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
-  templateId        BigInt            @db.UnsignedBigInt
+  id                BigInt            @id @default(autoincrement())
+  templateId        BigInt
   projectId         BigInt
-  stageId           BigInt            @db.UnsignedBigInt
+  stageId           BigInt
   status            LifecycleStatus
   forms             Form[]
-  project           Project           @relation(fields: [projectId], references: [id])
-  lifecycleStage    LifecycleStage    @relation(fields: [stageId], references: [id])
-  lifecycleTemplate LifecycleTemplate @relation(fields: [templateId], references: [id])
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lifecycleStage    LifecycleStage    @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  lifecycleTemplate LifecycleTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
 
   @@index([projectId])
   @@index([stageId])
@@ -140,7 +140,7 @@ model PoDetail {
   deliveryDate   BigInt?
   totalCost      BigInt?
   bidPrice       BigInt?
-  company        Company? @relation(fields: [forCompanyId], references: [id])
+  company        Company? @relation(fields: [forCompanyId], references: [id], onDelete: SetNull)
 
   @@index([forCompanyId])
 }
@@ -155,13 +155,13 @@ model PrDetail {
   approvedBy     String?   @db.VarChar(255)
   totalCost      BigInt?
   bidPrice       BigInt?
-  company        Company?  @relation(fields: [forCompanyId], references: [id])
+  company        Company?  @relation(fields: [forCompanyId], references: [id], onDelete: SetNull)
 
   @@index([forCompanyId])
 }
 
 model Product {
-  id          BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  id          BigInt     @id @default(autoincrement())
   sku         String     @db.VarChar(255)
   name        String     @db.VarChar(255)
   description String     @db.Text
@@ -183,7 +183,7 @@ model Project {
   description        String      @db.Text
   approvedBudgetCost BigInt?
   lifecycles         Lifecycle[]
-  company            Company     @relation(fields: [companyId], references: [id])
+  company            Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
@@ -199,13 +199,13 @@ model QuotationDetail {
   paymentMethod  String?   @db.VarChar(255)
   totalCost      BigInt?
   bidPrice       BigInt?
-  company        Company?  @relation(fields: [forCompanyId], references: [id])
+  company        Company?  @relation(fields: [forCompanyId], references: [id], onDelete: SetNull)
 
   @@index([forCompanyId])
 }
 
 model User {
-  id          BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  id          BigInt       @id @default(autoincrement())
   firstName   String       @db.VarChar(255)
   secondName  String       @db.VarChar(255)
   middleName  String       @db.VarChar(255)
