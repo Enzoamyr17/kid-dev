@@ -30,16 +30,26 @@ function serializeCompany(company: unknown): unknown {
 export async function GET() {
   try {
     console.log('Attempting to fetch companies...');
-    
-    // First try with includes to get addresses and proponents
+
     const companies = await prisma.company.findMany({
+      include: {
+        companyAddresses: true,
+        companyProponents: true,
+        _count: {
+          select: {
+            projects: true,
+            companyAddresses: true,
+            companyProponents: true,
+          },
+        },
+      },
       orderBy: {
         companyName: 'asc',
       },
     });
 
     console.log('Companies fetched:', companies.length);
-    
+
     const serializedCompanies = companies.map(serializeCompany);
     return NextResponse.json(serializedCompanies);
   } catch (error) {

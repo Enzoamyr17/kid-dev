@@ -27,6 +27,13 @@ interface TextFieldProps extends BaseFieldProps {
   onChange?: (value: string) => void
 }
 
+interface PasswordFieldProps extends BaseFieldProps {
+  type: "password"
+  value?: string
+  onChange?: (value: string) => void
+  onBlur?: () => void
+}
+
 interface NumberFieldProps extends BaseFieldProps {
   type: "number"
   value?: number | string
@@ -41,6 +48,9 @@ interface DateFieldProps extends BaseFieldProps {
   type: "date"
   value?: Date
   onChange?: (value: Date | undefined) => void
+  captionLayout?: "label" | "dropdown" | "dropdown-months" | "dropdown-years"
+  fromYear?: number
+  toYear?: number
 }
 
 interface SelectOption {
@@ -55,7 +65,7 @@ interface SelectFieldProps extends BaseFieldProps {
   options: SelectOption[]
 }
 
-type FieldProps = TextFieldProps | NumberFieldProps | DateFieldProps | SelectFieldProps
+type FieldProps = TextFieldProps | PasswordFieldProps | NumberFieldProps | DateFieldProps | SelectFieldProps
 
 export function Field(props: FieldProps) {
   const { className, disabled, placeholder, label, error } = props
@@ -83,6 +93,26 @@ export function Field(props: FieldProps) {
           type="text"
           value={props.value || ""}
           onChange={(e) => props.onChange?.(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          className={cn(
+            "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+            error && "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border-destructive",
+            className
+          )}
+          aria-invalid={!!error}
+        />
+      )
+    }
+
+    if (props.type === "password") {
+      return (
+        <input
+          type="password"
+          value={props.value || ""}
+          onChange={(e) => props.onChange?.(e.target.value)}
+          onBlur={props.onBlur}
           placeholder={placeholder}
           disabled={disabled}
           className={cn(
@@ -211,6 +241,9 @@ export function Field(props: FieldProps) {
               mode="single"
               selected={props.value}
               onSelect={props.onChange}
+              captionLayout={props.captionLayout || "label"}
+              fromYear={props.fromYear}
+              toYear={props.toYear}
               initialFocus
             />
           </PopoverContent>

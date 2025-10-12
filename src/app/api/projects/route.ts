@@ -73,15 +73,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the purchasing template by name
+    const purchasingTemplate = await prisma.lifecycleTemplate.findFirst({
+      where: { name: 'Purchasing' },
+      include: {
+        lifecycleStages: {
+          orderBy: { order: 'asc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!purchasingTemplate || purchasingTemplate.lifecycleStages.length === 0) {
+      console.error('Purchasing template not found or has no stages');
+      return NextResponse.json(
+        { error: 'Purchasing template not found. Please create a lifecycle template named "Purchasing" with stages configured in /dashboard/lifecycle-templates.' },
+        { status: 500 }
+      );
+    }
+
+    const firstStage = purchasingTemplate.lifecycleStages[0];
+    console.log('Creating project with lifecycle, template:', purchasingTemplate.id.toString(), 'first stage:', firstStage.id.toString());
+
+    // Create project with initial lifecycle
     const project = await prisma.project.create({
       data: {
         companyId: BigInt(body.company_id),
         code: body.code,
         description: body.description,
         approvedBudgetCost: body.approved_budget_cost ? BigInt(body.approved_budget_cost) : null,
+        lifecycles: {
+          create: {
+            templateId: purchasingTemplate.id,
+            stageId: firstStage.id,
+            status: 'TO_BID',
+          },
+        },
       },
       include: {
         company: true,
+        lifecycles: {
+          include: {
+            lifecycleStage: true,
+            lifecycleTemplate: true,
+          },
+        },
       },
     });
 

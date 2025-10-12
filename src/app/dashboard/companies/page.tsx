@@ -27,12 +27,13 @@ interface Company {
 interface CompanyAddress {
   id: string;
   companyId: string;
-  street1: string;
-  street2: string;
-  subd: string;
-  city: string;
+  houseNo: string;
+  street: string;
+  subdivision?: string;
+  region: string;
   province: string;
-  zipcode: number;
+  cityMunicipality: string;
+  barangay: string;
 }
 
 interface CompanyProponent {
@@ -110,82 +111,211 @@ const CompanyForm = ({ company, onSave, onCancel }: {
 const AddressForm = ({ address, companyId, onSave, onCancel }: {
   address?: CompanyAddress;
   companyId: string;
-  onSave: (data: { street1: string; street2?: string; subd?: string; city: string; province: string; zipcode?: number; company_id: string }) => void;
+  onSave: (data: { house_no: string; street: string; subdivision?: string; region: string; province: string; city_municipality: string; barangay: string; company_id: string }) => void;
   onCancel: () => void;
 }) => {
   const [formData, setFormData] = useState({
-    street1: address?.street1 || '',
-    street2: address?.street2 || '',
-    subd: address?.subd || '',
-    city: address?.city || '',
+    houseNo: address?.houseNo || '',
+    street: address?.street || '',
+    subdivision: address?.subdivision || '',
+    region: address?.region || '',
     province: address?.province || '',
-    zipcode: address?.zipcode || 0,
+    cityMunicipality: address?.cityMunicipality || '',
+    barangay: address?.barangay || '',
   });
+
+  const [regions, setRegions] = useState<Array<{ code: string; name: string }>>([]);
+  const [provinces, setProvinces] = useState<Array<{ code: string; name: string }>>([]);
+  const [cities, setCities] = useState<Array<{ code: string; name: string }>>([]);
+  const [barangays, setBarangays] = useState<Array<{ code: string; name: string }>>([]);
+  const [loading, setLoading] = useState({ regions: false, provinces: false, cities: false, barangays: false });
+
+  useEffect(() => {
+    // Fetch regions on mount
+    const loadRegions = async () => {
+      setLoading(prev => ({ ...prev, regions: true }));
+      try {
+        const response = await fetch('https://psgc.gitlab.io/api/regions');
+        const data = await response.json();
+        setRegions(data);
+      } catch (error) {
+        console.error('Error loading regions:', error);
+        toast.error('Failed to load regions');
+      } finally {
+        setLoading(prev => ({ ...prev, regions: false }));
+      }
+    };
+    loadRegions();
+  }, []);
+
+  const handleRegionChange = async (regionName: string) => {
+    setFormData({ ...formData, region: regionName, province: '', cityMunicipality: '', barangay: '' });
+    setProvinces([]);
+    setCities([]);
+    setBarangays([]);
+
+    const selectedRegion = regions.find(r => r.name === regionName);
+    if (!selectedRegion) return;
+
+    setLoading(prev => ({ ...prev, provinces: true }));
+    try {
+      const response = await fetch(`https://psgc.gitlab.io/api/regions/${selectedRegion.code}/provinces`);
+      const data = await response.json();
+      setProvinces(data);
+    } catch (error) {
+      console.error('Error loading provinces:', error);
+      toast.error('Failed to load provinces');
+    } finally {
+      setLoading(prev => ({ ...prev, provinces: false }));
+    }
+  };
+
+  const handleProvinceChange = async (provinceName: string) => {
+    setFormData({ ...formData, province: provinceName, cityMunicipality: '', barangay: '' });
+    setCities([]);
+    setBarangays([]);
+
+    const selectedProvince = provinces.find(p => p.name === provinceName);
+    if (!selectedProvince) return;
+
+    setLoading(prev => ({ ...prev, cities: true }));
+    try {
+      const response = await fetch(`https://psgc.gitlab.io/api/provinces/${selectedProvince.code}/cities-municipalities`);
+      const data = await response.json();
+      setCities(data);
+    } catch (error) {
+      console.error('Error loading cities:', error);
+      toast.error('Failed to load cities');
+    } finally {
+      setLoading(prev => ({ ...prev, cities: false }));
+    }
+  };
+
+  const handleCityChange = async (cityName: string) => {
+    setFormData({ ...formData, cityMunicipality: cityName, barangay: '' });
+    setBarangays([]);
+
+    const selectedCity = cities.find(c => c.name === cityName);
+    if (!selectedCity) return;
+
+    setLoading(prev => ({ ...prev, barangays: true }));
+    try {
+      const response = await fetch(`https://psgc.gitlab.io/api/cities-municipalities/${selectedCity.code}/barangays`);
+      const data = await response.json();
+      setBarangays(data);
+    } catch (error) {
+      console.error('Error loading barangays:', error);
+      toast.error('Failed to load barangays');
+    } finally {
+      setLoading(prev => ({ ...prev, barangays: false }));
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.street1 || !formData.city || !formData.province) {
+    if (!formData.houseNo || !formData.street || !formData.region || !formData.province || !formData.cityMunicipality || !formData.barangay) {
       toast.error('Please fill in all required fields');
       return;
     }
-    onSave({ ...formData, company_id: companyId });
+    onSave({
+      house_no: formData.houseNo,
+      street: formData.street,
+      subdivision: formData.subdivision,
+      region: formData.region,
+      province: formData.province,
+      city_municipality: formData.cityMunicipality,
+      barangay: formData.barangay,
+      company_id: companyId
+    });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="text-sm font-medium">Street 1 *</label>
+        <label className="text-sm font-medium">House No *</label>
         <Input
-          value={formData.street1}
-          onChange={(e) => setFormData({ ...formData, street1: e.target.value })}
-          placeholder="Enter street address"
+          value={formData.houseNo}
+          onChange={(e) => setFormData({ ...formData, houseNo: e.target.value })}
+          placeholder="Enter house number"
           required
         />
       </div>
       <div>
-        <label className="text-sm font-medium">Street 2</label>
+        <label className="text-sm font-medium">Street *</label>
         <Input
-          value={formData.street2}
-          onChange={(e) => setFormData({ ...formData, street2: e.target.value })}
-          placeholder="Enter additional address info"
+          value={formData.street}
+          onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+          placeholder="Enter street"
+          required
         />
       </div>
       <div>
         <label className="text-sm font-medium">Subdivision</label>
         <Input
-          value={formData.subd}
-          onChange={(e) => setFormData({ ...formData, subd: e.target.value })}
+          value={formData.subdivision}
+          onChange={(e) => setFormData({ ...formData, subdivision: e.target.value })}
           placeholder="Enter subdivision"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium">City *</label>
-          <Input
-            value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-            placeholder="Enter city"
-            required
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Province *</label>
-          <Input
-            value={formData.province}
-            onChange={(e) => setFormData({ ...formData, province: e.target.value })}
-            placeholder="Enter province"
-            required
-          />
-        </div>
+      <div>
+        <label className="text-sm font-medium">Region *</label>
+        <select
+          value={formData.region}
+          onChange={(e) => handleRegionChange(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md"
+          required
+          disabled={loading.regions}
+        >
+          <option value="">Select Region</option>
+          {regions.map((region) => (
+            <option key={region.code} value={region.name}>{region.name}</option>
+          ))}
+        </select>
       </div>
       <div>
-        <label className="text-sm font-medium">Zip Code</label>
-        <Input
-          type="number"
-          value={formData.zipcode}
-          onChange={(e) => setFormData({ ...formData, zipcode: parseInt(e.target.value) || 0 })}
-          placeholder="Enter zip code"
-        />
+        <label className="text-sm font-medium">Province *</label>
+        <select
+          value={formData.province}
+          onChange={(e) => handleProvinceChange(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md"
+          required
+          disabled={loading.provinces || !formData.region}
+        >
+          <option value="">Select Province</option>
+          {provinces.map((province) => (
+            <option key={province.code} value={province.name}>{province.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="text-sm font-medium">City/Municipality *</label>
+        <select
+          value={formData.cityMunicipality}
+          onChange={(e) => handleCityChange(e.target.value)}
+          className="w-full p-2 border border-gray-300 rounded-md"
+          required
+          disabled={loading.cities || !formData.province}
+        >
+          <option value="">Select City/Municipality</option>
+          {cities.map((city) => (
+            <option key={city.code} value={city.name}>{city.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="text-sm font-medium">Barangay *</label>
+        <select
+          value={formData.barangay}
+          onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-md"
+          required
+          disabled={loading.barangays || !formData.cityMunicipality}
+        >
+          <option value="">Select Barangay</option>
+          {barangays.map((barangay) => (
+            <option key={barangay.code} value={barangay.name}>{barangay.name}</option>
+          ))}
+        </select>
       </div>
       <div className="flex gap-2 pt-4">
         <Button type="submit" className="flex-1">
@@ -617,11 +747,10 @@ export default function CompaniesPage() {
                       <div key={address.id} className="p-3 border rounded-lg">
                         <div className="flex items-start justify-between">
                           <div>
-                            <p className="font-medium">{address.street1}</p>
-                            {address.street2 && <p className="text-sm text-gray-600">{address.street2}</p>}
-                            {address.subd && <p className="text-sm text-gray-600">{address.subd}</p>}
-                            <p className="text-sm text-gray-600">{address.city}, {address.province}</p>
-                            {address.zipcode && <p className="text-sm text-gray-600">{address.zipcode}</p>}
+                            <p className="font-medium">{address.houseNo} {address.street}</p>
+                            {address.subdivision && <p className="text-sm text-gray-600">{address.subdivision}</p>}
+                            <p className="text-sm text-gray-600">{address.barangay}, {address.cityMunicipality}</p>
+                            <p className="text-sm text-gray-600">{address.province}, {address.region}</p>
                           </div>
                           <Button
                             variant="ghost"

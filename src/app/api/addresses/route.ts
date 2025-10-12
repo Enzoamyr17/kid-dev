@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Validate required fields
-    if (!body.company_id || !body.street1 || !body.city || !body.province) {
+    if (!body.company_id || !body.house_no || !body.street || !body.region || !body.province || !body.city_municipality || !body.barangay) {
       return NextResponse.json(
-        { error: 'Missing required fields: company_id, street1, city, province' },
+        { error: 'Missing required fields: company_id, house_no, street, region, province, city_municipality, barangay' },
         { status: 400 }
       );
     }
@@ -76,12 +76,13 @@ export async function POST(request: NextRequest) {
     const address = await prisma.companyAddress.create({
       data: {
         companyId: BigInt(body.company_id),
-        street1: body.street1,
-        street2: body.street2 || '',
-        subd: body.subd || '',
-        city: body.city,
+        houseNo: body.house_no,
+        street: body.street,
+        subdivision: body.subdivision || null,
+        region: body.region,
         province: body.province,
-        zipcode: body.zipcode || 0,
+        cityMunicipality: body.city_municipality,
+        barangay: body.barangay,
       },
       include: {
         company: true,
@@ -122,12 +123,13 @@ export async function PATCH(request: NextRequest) {
     // Convert snake_case fields and BigInt fields
     const mappedData: Record<string, unknown> = {};
     if (updateData.company_id !== undefined) mappedData.companyId = BigInt(updateData.company_id);
-    if (updateData.street1 !== undefined) mappedData.street1 = updateData.street1;
-    if (updateData.street2 !== undefined) mappedData.street2 = updateData.street2;
-    if (updateData.subd !== undefined) mappedData.subd = updateData.subd;
-    if (updateData.city !== undefined) mappedData.city = updateData.city;
+    if (updateData.house_no !== undefined) mappedData.houseNo = updateData.house_no;
+    if (updateData.street !== undefined) mappedData.street = updateData.street;
+    if (updateData.subdivision !== undefined) mappedData.subdivision = updateData.subdivision;
+    if (updateData.region !== undefined) mappedData.region = updateData.region;
     if (updateData.province !== undefined) mappedData.province = updateData.province;
-    if (updateData.zipcode !== undefined) mappedData.zipcode = updateData.zipcode;
+    if (updateData.city_municipality !== undefined) mappedData.cityMunicipality = updateData.city_municipality;
+    if (updateData.barangay !== undefined) mappedData.barangay = updateData.barangay;
 
     const address = await prisma.companyAddress.update({
       where: { id: BigInt(id) },

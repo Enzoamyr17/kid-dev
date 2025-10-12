@@ -8,6 +8,7 @@ import { Plus, Loader2, Check, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Field } from "@/components/ui/field";
+import { useRouter } from "next/navigation";
 
 interface Company {
   id: string;
@@ -25,13 +26,12 @@ interface Project {
 }
 
 export default function ProjectManagementPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ projectId: string; field: string } | null>(null);
-  const [editValue, setEditValue] = useState("");
   const [newProject, setNewProject] = useState({
     code: "",
     companyId: "",
@@ -82,61 +82,6 @@ export default function ProjectManagementPage() {
     return `${prefix}${(maxNumber + 1).toString().padStart(5, "0")}`;
   };
 
-  // Handle cell click to start editing
-  const handleCellClick = (projectId: string, field: string, currentValue: string) => {
-    setEditingCell({ projectId, field });
-    setEditValue(currentValue);
-  };
-
-  // Save edit with optimistic update
-  const saveEdit = async (projectId: string, field: string, oldValue: string) => {
-    if (editValue === oldValue) {
-      setEditingCell(null);
-      return;
-    }
-
-    // Optimistic update
-    setProjects((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, [field]: editValue } : p))
-    );
-    setEditingCell(null);
-
-    try {
-      // Map camelCase field names to snake_case for API
-      const fieldMap: Record<string, string> = {
-        approvedBudgetCost: 'approved_budget_cost',
-        companyId: 'company_id',
-      };
-      const apiField = fieldMap[field] || field;
-
-      const response = await fetch("/api/projects", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: projectId, [apiField]: editValue }),
-      });
-      if (!response.ok) throw new Error("Failed to update");
-      toast.success("Updated successfully");
-    } catch {
-      setProjects((prev) =>
-        prev.map((p) => (p.id === projectId ? { ...p, [field]: oldValue } : p))
-      );
-      toast.error("Failed to update");
-    }
-  };
-
-  // Handle key press
-  const handleKeyPress = (
-    e: React.KeyboardEvent,
-    projectId: string,
-    field: string,
-    oldValue: string
-  ) => {
-    if (e.key === "Enter") saveEdit(projectId, field, oldValue);
-    else if (e.key === "Escape") {
-      setEditingCell(null);
-      setEditValue("");
-    }
-  };
 
   const handleSubmit = async () => {
     if (!newProject.code || !newProject.companyId || !newProject.description) {
@@ -158,7 +103,10 @@ export default function ProjectManagementPage() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to create project");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create project");
+      }
 
       const createdProject = await response.json();
       setProjects([createdProject, ...projects]);
@@ -166,7 +114,8 @@ export default function ProjectManagementPage() {
       setNewProject({ code: "", companyId: "", description: "", approvedBudgetCost: "" });
       toast.success("Project created successfully");
     } catch (error) {
-      toast.error("Failed to create project");
+      const message = error instanceof Error ? error.message : "Failed to create project";
+      toast.error(message);
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -318,53 +267,16 @@ export default function ProjectManagementPage() {
               </TableRow>
             ) : (
               projects.map((project) => (
-                <TableRow key={project.id}>
+                <TableRow key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
                   <TableCell className="font-medium font-mono">{project.code}</TableCell>
                   <TableCell>{project.company.companyName}</TableCell>
-                  <TableCell
-                    onClick={() =>
-                      handleCellClick(project.id, "description", project.description)
-                    }
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    {editingCell?.projectId === project.id &&
-                    editingCell?.field === "description" ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => saveEdit(project.id, "description", project.description)}
-                        onKeyDown={(e) =>
-                          handleKeyPress(e, project.id, "description", project.description)
-                        }
-                        className="h-8"
-                        autoFocus
-                      />
-                    ) : (
-                      project.description
-                    )}
+                  <TableCell>
+                    {project.description}
                   </TableCell>
                   <TableCell
-                    onClick={() =>
-                      handleCellClick(project.id, "approvedBudgetCost", project.approvedBudgetCost || "")
-                    }
                     className="cursor-pointer hover:bg-muted/50"
                   >
-                    {editingCell?.projectId === project.id &&
-                    editingCell?.field === "approvedBudgetCost" ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => saveEdit(project.id, "approvedBudgetCost", project.approvedBudgetCost || "")}
-                        onKeyDown={(e) =>
-                          handleKeyPress(e, project.id, "approvedBudgetCost", project.approvedBudgetCost || "")
-                        }
-                        className="h-8"
-                        type="number"
-                        autoFocus
-                      />
-                    ) : (
-                      project.approvedBudgetCost ? `₱${parseInt(project.approvedBudgetCost).toLocaleString()}` : "-"
-                    )}
+                    {project.approvedBudgetCost ? `₱${parseInt(project.approvedBudgetCost).toLocaleString()}` : "-"}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button

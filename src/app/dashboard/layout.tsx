@@ -1,30 +1,17 @@
 "use client";
 
 import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter, SidebarMenuSub } from "@/components/ui/sidebar";
-import { ChartBar, FileText, LogOut, MoonIcon, SunIcon, Package } from "lucide-react";
+import { ChartBar, LogOut, MoonIcon, SunIcon, Package } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 
 const sidebarItems = [
   {
     label: "Dashboard",
     href: "/dashboard",
     icon: ChartBar,
-  }
-];
-
-const purchasingItems = [
-  {
-    label: "Quotations",
-    href: "/quotations",
-  },
-  {
-    label: "Purchase Requests",
-    href: "/purchase-requests",
-  },
-  {
-    label: "Purchase Orders",
-    href: "/purchase-orders",
   }
 ];
 
@@ -40,6 +27,10 @@ const managementItems = [
   {
     label: "Project Management",
     href: "/projects",
+  },
+  {
+    label: "Lifecycle Templates",
+    href: "/lifecycle-templates",
   }
 ];
 
@@ -50,7 +41,21 @@ export default function DashboardLayout({
 }>) {
 
   const router = useRouter();
-  const title = usePathname().split('/').pop();
+  const pathname = usePathname();
+  const [title, setTitle] = useState<string>("");
+  
+  useEffect(() => {
+    const getTitle = async () => {
+    if (pathname.includes('/projects/')) {
+      const response = await fetch(`/api/projects/${pathname.split('/').pop()}`);
+      const data = await response.json();
+      setTitle(await data.code);
+    }else{
+      setTitle(pathname.split('/').pop() || "");
+    }
+  }
+  getTitle();
+  }, [pathname]);
 
   return (
     <SidebarProvider className="">
@@ -69,18 +74,6 @@ export default function DashboardLayout({
               </SidebarMenuItem>
             ))}
             <SidebarMenuButton className="hover:bg-transparent">
-              <FileText className="mr-2 h-4 w-4" /> Purchasing
-            </SidebarMenuButton>
-            <SidebarMenuSub>
-              {purchasingItems.map((item) => (
-                <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
-                  <SidebarMenuButton>
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenuSub>
-            <SidebarMenuButton className="hover:bg-transparent">
               <Package className="mr-2 h-4 w-4" /> Management
             </SidebarMenuButton>
             <SidebarMenuSub>
@@ -94,7 +87,7 @@ export default function DashboardLayout({
             </SidebarMenuSub>
           </SidebarGroup>
           <SidebarFooter>
-              <SidebarMenuButton>
+              <SidebarMenuButton onClick={() => signOut({ callbackUrl: "/login" })}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </SidebarMenuButton>
@@ -105,7 +98,7 @@ export default function DashboardLayout({
         <header className="sticky top-0 bg-background flex h-16 shrink-0 items-center justify-between border-b px-4 z-40">
           <div className="flex justify-evenly items-center gap-2">
             <SidebarTrigger />
-            <div className="flex items-center font-semibold text-2xl tracking-wide capitalize">{title || "Kingland"}</div>
+            <div className="flex items-center font-semibold text-2xl tracking-wide capitalize">{title || "No Data Available"}</div>
           </div>
           <div className="flex justify-evenly items-center gap-2">
             <Button onClick={() => {
