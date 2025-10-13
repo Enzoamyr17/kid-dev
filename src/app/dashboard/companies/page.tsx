@@ -157,6 +157,24 @@ const AddressForm = ({ address, companyId, onSave, onCancel }: {
     const selectedRegion = regions.find(r => r.name === regionName);
     if (!selectedRegion) return;
 
+    // NCR doesn't have provinces, only cities/municipalities
+    if (regionName === 'National Capital Region (NCR)' || selectedRegion.code === '130000000') {
+      setLoading(prev => ({ ...prev, cities: true }));
+      try {
+        const response = await fetch(`https://psgc.gitlab.io/api/regions/${selectedRegion.code}/cities-municipalities`);
+        const data = await response.json();
+        setCities(data);
+        // Set province to "Metro Manila" for NCR
+        setFormData(prev => ({ ...prev, region: regionName, province: 'Metro Manila', cityMunicipality: '', barangay: '' }));
+      } catch (error) {
+        console.error('Error loading cities:', error);
+        toast.error('Failed to load cities');
+      } finally {
+        setLoading(prev => ({ ...prev, cities: false }));
+      }
+      return;
+    }
+
     setLoading(prev => ({ ...prev, provinces: true }));
     try {
       const response = await fetch(`https://psgc.gitlab.io/api/regions/${selectedRegion.code}/provinces`);
@@ -272,6 +290,7 @@ const AddressForm = ({ address, companyId, onSave, onCancel }: {
           ))}
         </select>
       </div>
+      {formData.region !== 'NCR' && (
       <div>
         <label className="text-sm font-medium">Province *</label>
         <select
@@ -284,9 +303,10 @@ const AddressForm = ({ address, companyId, onSave, onCancel }: {
           <option value="">Select Province</option>
           {provinces.map((province) => (
             <option key={province.code} value={province.name}>{province.name}</option>
-          ))}
-        </select>
-      </div>
+            ))}
+          </select>
+        </div>
+      )}
       <div>
         <label className="text-sm font-medium">City/Municipality *</label>
         <select
