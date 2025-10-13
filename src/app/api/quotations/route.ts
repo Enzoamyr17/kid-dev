@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           quoteNo: quote_no,
           forCompanyId: BigInt(body.company_id),
           requestorId: body.requestor_id ? BigInt(body.requestor_id) : null,
-          deliveryDate: body.delivery_date ? new Date(body.delivery_date) : null,
+          deliveryDate: body.delivery_date || null,
           approvedBudget: approved_budget,
           bidPercentage: body.bid_percentage,
           paymentMethod: body.payment_method || null,

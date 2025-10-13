@@ -223,7 +223,7 @@ model QuotationDetail {
   quoteNo        String    @db.VarChar(255)
   forCompanyId   BigInt?
   requestorId    BigInt?
-  deliveryDate   DateTime? @db.Date
+  deliveryDate   String?   @db.VarChar(255)
   approvedBudget BigInt?
   bidPercentage  Int?
   paymentMethod  String?   @db.VarChar(255)

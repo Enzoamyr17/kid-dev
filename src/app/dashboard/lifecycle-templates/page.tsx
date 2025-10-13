@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2, X, Trash2, ChevronDown, ChevronRight } from "lucide-react";
@@ -207,8 +207,8 @@ export default function LifecycleTemplatesPage() {
               </TableRow>
             ) : (
               templates.map((template) => (
-                <>
-                  <TableRow key={template.id}>
+                <React.Fragment key={template.id}>
+                  <TableRow>
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -271,7 +271,7 @@ export default function LifecycleTemplatesPage() {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </React.Fragment>
               ))
             )}
           </TableBody>

@@ -5,8 +5,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, FileDown } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+interface QuotationCardProps {
+  projectId: string;
+  bidPercentage: number;
+  clientDetails: Array<{
+    id: string;
+    companyName: string;
+    tinNumber: string;
+    address: string;
+    contactPerson: string;
+    contactNumber: string;
+    email: string | null;
+  }>; 
+  approvedBudget: number;
+  initialData?: unknown; // For creating new versions from existing quotations
+}
 
 interface Product {
   id: string;
@@ -27,20 +45,6 @@ interface CartItem extends Product {
   supplier: string;
   abcPrice: number;
   proposalPrice: number;
-}
-
-interface Company {
-  id: string;
-  companyName: string;
-  type: string;
-}
-
-interface Project {
-  id: string;
-  code: string;
-  company_id: string;
-  description: string;
-  company: Company;
 }
 
 interface User {
@@ -73,23 +77,20 @@ interface QuotationFormData {
 
 
 
-const QuotationCard = () => {
+function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget, initialData }: QuotationCardProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("products");
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
   const [formData, setFormData] = useState<QuotationFormData>({
     quote_no: "",
-    for_company_id: "",
-    project_id: "",
+    for_company_id: clientDetails[0].id,
+    project_id: projectId,
     requestor_id: "",
     delivery_date: "",
-    approved_budget: 0,
-    bid_percentage: 15,
-    supplier_price_vat_inclusive: "no",
+    approved_budget: approvedBudget,
+    bid_percentage: bidPercentage,
+    supplier_price_vat_inclusive: "yes",
     payment_method: "",
     ewt_percentage: 1,
     contingency_percentage: 5,
@@ -124,21 +125,6 @@ const QuotationCard = () => {
   ) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
-
-  // Filter projects when company changes
-  useEffect(() => {
-    if (formData.for_company_id) {
-      const filtered = projects.filter(p => p.company_id === formData.for_company_id);
-      setFilteredProjects(filtered);
-      // Reset project if not in filtered list
-      if (formData.project_id && !filtered.find(p => p.id === formData.project_id)) {
-        updateFormData("project_id", "");
-      }
-    } else {
-      setFilteredProjects([]);
-      updateFormData("project_id", "");
-    }
-  }, [formData.for_company_id, formData.project_id, projects, updateFormData]);
 
   const handleAddToCart = (product: Product) => {
     const existingItem = cart.find(item => item.sku === product.sku);
@@ -201,6 +187,7 @@ const QuotationCard = () => {
   };
 
   const handleUpdateABCPrice = (sku: string, price: number) => {
+
     setCart(cart.map(item => {
       if (item.sku === sku) {
         // Cap proposal price if it exceeds new ABC price
@@ -209,6 +196,8 @@ const QuotationCard = () => {
       }
       return item;
     }));
+
+
   };
 
   const handleUpdateSupplier = (sku: string, supplier: string) => {
@@ -217,7 +206,7 @@ const QuotationCard = () => {
     ));
   };
 
-  const handleBidPercentageChange = (percentage: number) => {
+  const handleBidPercentageChange = async (percentage: number) => {
     updateFormData("bid_percentage", percentage);
     // Update all proposal prices based on new bid percentage, capped by ABC price
     setCart(cart.map(item => {
@@ -226,6 +215,28 @@ const QuotationCard = () => {
       proposalPrice = Math.ceil(proposalPrice * 100) / 100;
       return { ...item, proposalPrice };
     }));
+
+    const oldValue = bidPercentage;
+    if (oldValue != percentage) {
+      // Optimistic update
+      setFormData(prev => ({ ...prev, bid_percentage: percentage }));
+
+      try {
+          const response = await fetch(`/api/projects/${projectId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ bidPercentage: percentage }),
+          });
+
+          if (!response.ok) throw new Error("Failed to update");
+          toast.success("Bid percentage updated");
+          bidPercentage = percentage;
+      } catch {
+          // Revert on error
+          setFormData(prev => ({ ...prev, bid_percentage: oldValue }));
+          toast.error("Failed to update bid percentage");
+      }
+    }
   };
 
   // Financial Calculations based on Philippine tax regulations
@@ -327,17 +338,17 @@ const QuotationCard = () => {
         approved_budget: formData.approved_budget,
         bid_percentage: formData.bid_percentage,
         payment_method: formData.payment_method || null,
-        cartItems: cart.map(item => ({
-          productId: item.id,
+        cart_items: cart.map(item => ({
+          product_id: item.id,
           sku: item.sku,
           quantity: item.quantity,
-          internalPrice: item.internalPrice,
-          proposalPrice: item.proposalPrice,
+          internal_price: item.internalPrice,
+          proposal_price: item.proposalPrice,
           supplier: item.supplier,
         })),
         financials: {
-          totalCost: financials.totalCost,
-          totalBidPrice: financials.totalBidPrice,
+          total_cost: financials.totalCost,
+          total_bid_price: financials.totalBidPrice,
         },
       };
 
@@ -357,7 +368,7 @@ const QuotationCard = () => {
 
       // Clear form after successful save
       handleClearForm();
-      setActiveTab("list");
+      setActiveTab("products");
     } catch (error) {
       console.error("Error saving quotation:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save quotation");
@@ -384,6 +395,178 @@ const QuotationCard = () => {
     });
     setCart([]);
   };
+
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("QUOTATION", pageWidth / 2, 20, { align: "center" });
+
+    // Client Details
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Client Information:", 14, 35);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Company: ${clientDetails[0].companyName}`, 14, 42);
+    doc.text(`Address: ${clientDetails[0].address}`, 14, 47);
+    doc.text(`TIN: ${clientDetails[0].tinNumber}`, 14, 52);
+    doc.text(`Contact Person: ${clientDetails[0].contactPerson}`, 14, 57);
+    doc.text(`Contact Number: ${clientDetails[0].contactNumber}`, 14, 62);
+
+    // Quotation Details
+    doc.setFont("helvetica", "bold");
+    doc.text("Quotation Details:", 120, 35);
+    doc.setFont("helvetica", "normal");
+    const requestor = users.find(u => u.id === formData.requestor_id);
+    doc.text(`Requested By: ${requestor ? `${requestor.first_name} ${requestor.last_name}` : "N/A"}`, 120, 42);
+    doc.text(`Payment Term: ${formData.payment_method || "N/A"}`, 120, 47);
+    doc.text(`Delivery Term: ${formData.delivery_date || "N/A"}`, 120, 52);
+    doc.text(`ABC: ₱${formData.approved_budget.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 120, 57);
+    doc.text(`Bid Percentage: ${formData.bid_percentage}%`, 120, 62);
+
+    // Items Table
+    const tableData = cart.map(item => [
+      item.sku,
+      item.name,
+      item.brand,
+      item.quantity.toString(),
+      `₱${item.internalPrice.toFixed(2)}`,
+      item.supplier,
+      `₱${(item.internalPrice * item.quantity).toFixed(2)}`,
+      `₱${item.abcPrice.toFixed(2)}`,
+      `₱${item.proposalPrice.toFixed(2)}`,
+      `₱${(item.proposalPrice * item.quantity).toFixed(2)}`,
+    ]);
+
+    autoTable(doc, {
+      startY: 70,
+      head: [['SKU', 'Name', 'Brand', 'Qty', 'Internal Price', 'Supplier', 'Amount to Pay', 'ABC Price', 'Proposal Price', 'Total']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], fontSize: 8 },
+      bodyStyles: { fontSize: 7 },
+      columnStyles: {
+        0: { cellWidth: 20 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 10 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 18 },
+        6: { cellWidth: 22 },
+        7: { cellWidth: 20 },
+        8: { cellWidth: 20 },
+        9: { cellWidth: 22 },
+      },
+    });
+
+    // Financial Summary
+    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    doc.setFont("helvetica", "bold");
+    doc.text("Financial Summary:", 14, finalY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    let currentY = finalY + 7;
+    doc.text(`Total Bid Price (VAT-inclusive): ₱${financials.totalBidPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
+    currentY += 5;
+    doc.text(`Total Cost: ₱${financials.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
+    currentY += 5;
+    doc.text(`VAT Payable: ₱${financials.vatPayable.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
+    currentY += 5;
+    doc.text(`Gross Profit: ₱${financials.grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
+    currentY += 5;
+    doc.text(`Net Profit: ₱${financials.netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
+    currentY += 5;
+    doc.text(`Final Net Profit: ₱${financials.finalNetProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
+    currentY += 5;
+    doc.text(`Profit Margin: ${financials.netProfitMargin.toFixed(2)}%`, 14, currentY);
+
+    // Save PDF
+    const fileName = `Quotation_${formData.quote_no || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    toast.success("PDF exported successfully");
+  };
+
+  // Load initial data if provided (for creating new versions)
+  useEffect(() => {
+    if (initialData) {
+      const data = initialData as {
+        details?: {
+          forCompanyId?: string;
+          requestorId?: string;
+          deliveryDate?: string;
+          approvedBudget?: string;
+          bidPercentage?: number;
+          paymentMethod?: string;
+        };
+        formItems?: Array<{
+          product?: {
+            id?: string;
+            sku?: string;
+            name?: string;
+            description?: string;
+            brand?: string;
+            category?: string;
+            subCategory?: string;
+            adCategory?: string;
+            uom?: string;
+            isActive?: boolean;
+          };
+          quantity?: string;
+          supplierPrice?: string;
+          supplierName?: string;
+          clientPrice?: string;
+        }>;
+      };
+
+      // Load form data from initial quotation
+      setFormData({
+        quote_no: "", // New quote number will be generated
+        for_company_id: data.details?.forCompanyId || clientDetails[0].id,
+        project_id: projectId,
+        requestor_id: data.details?.requestorId || "",
+        delivery_date: data.details?.deliveryDate || "",
+        approved_budget: data.details?.approvedBudget ? parseInt(data.details.approvedBudget) / 100 : approvedBudget,
+        bid_percentage: data.details?.bidPercentage || bidPercentage,
+        supplier_price_vat_inclusive: "yes",
+        payment_method: data.details?.paymentMethod || "",
+        ewt_percentage: 1,
+        contingency_percentage: 5,
+        loan_interest_percentage: 3,
+        loan_months: 0,
+      });
+
+      // Load cart items from initial quotation
+      if (data.formItems && data.formItems.length > 0) {
+        const cartItems: CartItem[] = data.formItems.map((item) => ({
+          id: item.product?.id || "",
+          sku: item.product?.sku || "",
+          name: item.product?.name || "",
+          description: item.product?.description || "",
+          brand: item.product?.brand || "",
+          category: item.product?.category || "",
+          subCategory: item.product?.subCategory || "",
+          adCategory: item.product?.adCategory || "",
+          uom: item.product?.uom || "",
+          isActive: item.product?.isActive || true,
+          quantity: parseInt(item.quantity || "1"),
+          internalPrice: parseInt(item.supplierPrice || "0") / 100,
+          supplier: item.supplierName || "OFPS",
+          abcPrice: 0, // Reset ABC price for new version
+          proposalPrice: parseInt(item.clientPrice || "0") / 100,
+        }));
+        setCart(cartItems);
+      }
+
+      // Switch to form tab
+      setActiveTab("form");
+      toast.success("Quotation data loaded. Update and save as new version.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialData]);
 
   return (
     <div className="flex flex-col justify-start items-center gap-1 h-full w-full border rounded-lg">
@@ -447,12 +630,44 @@ const QuotationCard = () => {
         </TabsContent>
 
         {/* Form Tab */}
-        <TabsContent value="form" className="w-full p-2">
-          <div className="bg-sidebar border border-blue-900/10 rounded-lg w-full p-6">
+        <TabsContent value="form" className="w-full">
+          <div className="bg-sidebar border border-blue-900/10 w-full p-6">
             <h2 className="text-xl font-semibold mb-6">New Quotation</h2>
+            <div className="flex justify-between items-center gap-6 py-2 border-b border-zinc-200 pb-6">
+              {/* Left */}
+              <div className="flex flex-col justify-between divide-y divide-zinc-200 w-1/2 min-h-32">
+                <div className="flex justify-between items-start w-full">
+                  <h1 className="text-sm font-medium text-muted-foreground">Client:</h1>
+                  <h1 className="text-md font-medium text-right">{clientDetails[0].companyName}</h1>
+                </div>
+                <div className="flex justify-between items-start w-full">
+                  <h1 className="text-sm font-medium text-muted-foreground">Contact Person:</h1>
+                  <h1 className="text-md font-medium text-right">{clientDetails[0].contactPerson}</h1>
+                </div>
+                <div className="flex justify-between items-start w-full">
+                  <h1 className="text-sm font-medium text-muted-foreground">Contact Number:</h1>
+                  <h1 className="text-md font-medium text-right">{clientDetails[0].contactNumber}</h1>
+                </div>
+              </div>
 
+              <div className="flex flex-col justify-between divide-y divide-zinc-200 w-1/2 min-h-32">
+                <div className="flex justify-between items-start w-full">
+                  <h1 className="text-sm font-medium text-muted-foreground">Address:</h1>
+                  <h1 className="text-md font-medium text-right">{clientDetails[0].address}</h1>
+                </div>
+                <div className="flex justify-between items-start w-full">
+                  <h1 className="text-sm font-medium text-muted-foreground">TIN:</h1>
+                  <h1 className="text-md font-medium text-right">{clientDetails[0].tinNumber}</h1>
+                </div>
+                <div className="flex justify-between items-start w-full">
+                  <h1 className="text-sm font-medium text-muted-foreground">Email:</h1>
+                  <h1 className="text-md font-medium text-right">{clientDetails[0].email ?? "Unavailable"}</h1>
+                </div>
+
+              </div>
+            </div>
             {/* Basic Information Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 mt-2">
               <Field
                 type="select"
                 label={<>Requested By <span className="text-red-500">*</span></>}
@@ -468,6 +683,7 @@ const QuotationCard = () => {
                 label={<>Payment Term</>}
                 placeholder="Enter payment Term"
                 value={formData.payment_method}
+                onChange={(value) => updateFormData("payment_method", value)}
                 className="h-10"
               />
 
@@ -476,6 +692,7 @@ const QuotationCard = () => {
                 label={<>Delivery Term <span className="text-red-500">*</span></>}
                 placeholder="Enter delivery term"
                 value={formData.delivery_date}
+                onChange={(value) => updateFormData("delivery_date", value)}
                 className="h-10"
               />
 
@@ -812,6 +1029,10 @@ const QuotationCard = () => {
             {/* Action Buttons */}
             <div className="flex justify-end gap-4">
               <Button variant="outline" onClick={handleClearForm} disabled={isSaving}>Clear Form</Button>
+              <Button variant="outline" onClick={handleExportPDF} disabled={cart.length === 0}>
+                <FileDown className="h-4 w-4 mr-2" />
+                Export PDF
+              </Button>
               <Button onClick={handleSaveQuotation} disabled={isSaving}>
                 {isSaving ? (
                   <>
