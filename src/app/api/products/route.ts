@@ -27,9 +27,13 @@ function serializeProduct(product: unknown): unknown {
 }
 
 // GET - Fetch all products
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const active = searchParams.get('active');
+  
   try {
     const products = await prisma.product.findMany({
+      where: active ? { isActive: true } : undefined,
       orderBy: {
         id: 'desc',
       },

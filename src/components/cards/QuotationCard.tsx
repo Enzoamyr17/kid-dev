@@ -101,7 +101,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
   const [products, setProducts] = useState<Product[]>([]);
 
   const fetchProducts = async () => {
-    const response = await fetch("/api/products");
+    const response = await fetch("/api/products?active=true");
     const data = await response.json();
     if (!response.ok) throw new Error("Failed to fetch products");
     setProducts(data);

@@ -7,8 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, Plus, Search, Edit, Trash2, MapPin, Users, Phone } from "lucide-react";
+import { Building2, Plus, Search, Edit, Trash2, MapPin, Users } from "lucide-react";
 import { toast } from "sonner";
+import { AddressSheet } from "@/components/modals/AddressSheet";
+import { ProponentSheet } from "@/components/modals/ProponentSheet";
 
 interface Company {
   id: string;
@@ -406,11 +408,7 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCompanyFormOpen, setIsCompanyFormOpen] = useState(false);
-  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
-  const [isProponentFormOpen, setIsProponentFormOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | undefined>();
-  const [editingAddress, setEditingAddress] = useState<CompanyAddress | undefined>();
-  const [editingProponent, setEditingProponent] = useState<CompanyProponent | undefined>();
 
   const fetchCompanies = async () => {
     try {
@@ -523,8 +521,6 @@ export default function CompaniesPage() {
       }
 
       toast.success('Address created successfully');
-      setIsAddressFormOpen(false);
-      setEditingAddress(undefined);
       fetchCompanies();
     } catch (error) {
       console.error('Error creating address:', error);
@@ -532,14 +528,12 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleUpdateAddress = async (data: Partial<CompanyAddress>) => {
-    if (!editingAddress) return;
-
+  const handleUpdateAddress = async (data: Partial<CompanyAddress> & { id?: string }) => {
     try {
       const response = await fetch('/api/addresses', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingAddress.id, ...data }),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -547,12 +541,24 @@ export default function CompaniesPage() {
       }
 
       toast.success('Address updated successfully');
-      setIsAddressFormOpen(false);
-      setEditingAddress(undefined);
       fetchCompanies();
     } catch (error) {
       console.error('Error updating address:', error);
       toast.error('Failed to update address');
+    }
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    try {
+      const response = await fetch(`/api/addresses?id=${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Error deleting address:', error);
+      toast.error('Failed to delete address');
+    } finally {
+      toast.success('Address deleted successfully');
+      fetchCompanies();
     }
   };
 
@@ -569,8 +575,6 @@ export default function CompaniesPage() {
       }
 
       toast.success('Proponent created successfully');
-      setIsProponentFormOpen(false);
-      setEditingProponent(undefined);
       fetchCompanies();
     } catch (error) {
       console.error('Error creating proponent:', error);
@@ -578,14 +582,12 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleUpdateProponent = async (data: Partial<CompanyProponent>) => {
-    if (!editingProponent) return;
-
+  const handleUpdateProponent = async (data: Partial<CompanyProponent> & { id?: string }) => {
     try {
       const response = await fetch('/api/proponents', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingProponent.id, ...data }),
+        body: JSON.stringify(data),
       });
 
       if (!response.ok) {
@@ -593,12 +595,24 @@ export default function CompaniesPage() {
       }
 
       toast.success('Proponent updated successfully');
-      setIsProponentFormOpen(false);
-      setEditingProponent(undefined);
       fetchCompanies();
     } catch (error) {
       console.error('Error updating proponent:', error);
       toast.error('Failed to update proponent');
+    }
+  };
+
+  const handleDeleteProponent = async (id: string) => {
+    try {
+      const response = await fetch(`/api/proponents?id=${id}`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Error deleting proponent:', error);
+      toast.error('Failed to delete proponent');
+    } finally {
+      toast.success('Proponent deleted successfully');
+      fetchCompanies();
     }
   };
 
@@ -668,13 +682,13 @@ export default function CompaniesPage() {
           ))}
         </div>
       ) : (
-        <div className="grid gap-6">
+        <div className="grid gap-2">
           {filteredCompanies.map((company) => (
             <div key={company.id} className="border rounded-lg p-6 space-y-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-semibold">{company.companyName}</h3>
+                    <h3 className="text-xl font-semibold">{company.companyName} {company.id}</h3>
                     <Badge className={getTypeColor(company.type)}>
                       {company.type}
                     </Badge>
@@ -728,132 +742,29 @@ export default function CompaniesPage() {
                 </TabsList>
                 
                 <TabsContent value="addresses" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Addresses ({company.companyAddresses?.length || 0})</h4>
-                    <Sheet open={isAddressFormOpen} onOpenChange={setIsAddressFormOpen}>
-                      <SheetTrigger asChild>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setEditingAddress(undefined);
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Address
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent>
-                        <SheetHeader>
-                          <SheetTitle>
-                            {editingAddress ? 'Edit Address' : 'Add New Address'}
-                          </SheetTitle>
-                        </SheetHeader>
-                        <div className="mt-6">
-                          <AddressForm
-                            address={editingAddress}
-                            companyId={company.id}
-                            onSave={editingAddress ? handleUpdateAddress : handleCreateAddress}
-                            onCancel={() => {
-                              setIsAddressFormOpen(false);
-                              setEditingAddress(undefined);
-                            }}
-                          />
-                        </div>
-                      </SheetContent>
-                    </Sheet>
-                  </div>
-                  <div className="space-y-2">
-                    {company.companyAddresses?.map((address) => (
-                      <div key={address.id} className="p-3 border rounded-lg">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium">{address.houseNo} {address.street}</p>
-                            {address.subdivision && <p className="text-sm text-gray-600">{address.subdivision}</p>}
-                            <p className="text-sm text-gray-600">{address.barangay}, {address.cityMunicipality}</p>
-                            <p className="text-sm text-gray-600">{address.province}, {address.region}</p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingAddress(address);
-                              setIsAddressFormOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <AddressSheet
+                    companyId={company.id}
+                    addresses={company.companyAddresses || []}
+                    onAddressCreated={fetchCompanies}
+                    onAddressUpdated={fetchCompanies}
+                    AddressForm={AddressForm}
+                    handleCreateAddress={handleCreateAddress}
+                    handleUpdateAddress={handleUpdateAddress}
+                    handleDeleteAddress={handleDeleteAddress}
+                  />
                 </TabsContent>
 
                 <TabsContent value="proponents" className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Proponents ({company.companyProponents?.length || 0})</h4>
-                    <Sheet open={isProponentFormOpen} onOpenChange={setIsProponentFormOpen}>
-                      <SheetTrigger asChild>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setEditingProponent(undefined);
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Proponent
-                        </Button>
-                      </SheetTrigger>
-                      <SheetContent>
-                        <SheetHeader>
-                          <SheetTitle>
-                            {editingProponent ? 'Edit Proponent' : 'Add New Proponent'}
-                          </SheetTitle>
-                        </SheetHeader>
-                        <div className="mt-6">
-                          <ProponentForm
-                            proponent={editingProponent}
-                            companyId={company.id}
-                            onSave={(data) => {
-                              if (editingProponent) {
-                                handleUpdateProponent(data as Partial<CompanyProponent>);
-                              } else {
-                                handleCreateProponent(data as Partial<CompanyProponent>);
-                              }
-                            }}
-                            onCancel={() => {
-                              setIsProponentFormOpen(false);
-                              setEditingProponent(undefined);
-                            }}
-                          />
-                        </div>
-                      </SheetContent>
-                    </Sheet>
-                  </div>
-                  <div className="space-y-2">
-                    {company.companyProponents?.map((proponent) => (
-                      <div key={proponent.id} className="p-3 border rounded-lg">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium">{proponent.contactPerson}</p>
-                            <p className="text-sm text-gray-600 flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              {proponent.contactNumber}
-                            </p>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingProponent(proponent);
-                              setIsProponentFormOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <ProponentSheet
+                    companyId={company.id}
+                    proponents={company.companyProponents || []}
+                    onProponentCreated={fetchCompanies}
+                    onProponentUpdated={fetchCompanies}
+                    ProponentForm={ProponentForm}
+                    handleCreateProponent={handleCreateProponent}
+                    handleUpdateProponent={handleUpdateProponent}
+                    handleDeleteProponent={handleDeleteProponent}
+                  />
                 </TabsContent>
 
                 <TabsContent value="details" className="space-y-4">

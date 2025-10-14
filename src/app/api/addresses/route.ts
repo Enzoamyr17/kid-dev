@@ -62,17 +62,15 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new address
 export async function POST(request: NextRequest) {
+
   try {
     const body = await request.json();
-
-    // Validate required fields
     if (!body.company_id || !body.house_no || !body.street || !body.region || !body.province || !body.city_municipality || !body.barangay) {
       return NextResponse.json(
         { error: 'Missing required fields: company_id, house_no, street, region, province, city_municipality, barangay' },
         { status: 400 }
       );
     }
-
     const address = await prisma.companyAddress.create({
       data: {
         companyId: BigInt(body.company_id),
