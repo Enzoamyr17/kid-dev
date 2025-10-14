@@ -106,7 +106,7 @@ export async function PATCH(request: NextRequest) {
     if (updateData.is_active !== undefined) mappedData.isActive = updateData.is_active;
 
     const product = await prisma.product.update({
-      where: { id: BigInt(id) },
+      where: { id: id },
       data: mappedData,
     });
 
@@ -134,7 +134,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     await prisma.product.delete({
-      where: { id: BigInt(id) },
+      where: { id: id },
     });
 
     return NextResponse.json({ message: 'Product deleted successfully' });

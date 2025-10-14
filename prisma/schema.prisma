@@ -7,26 +7,64 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id            Int       @id @default(autoincrement())
+  firstName     String    @db.VarChar(255)
+  lastName      String    @db.VarChar(255)
+  email         String    @unique @db.VarChar(255)
+  password      String    @db.VarChar(255)
+  department    String?   @db.VarChar(255)
+  position      String?   @db.VarChar(255)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  quotationForms QuotationForm[] @relation("QuotationRequestor")
+
+  @@map("user")
+}
+
+model Company {
+  id                Int                @id @default(autoincrement())
+  companyName       String             @db.VarChar(255)
+  tinNumber         String             @db.VarChar(255)
+  type              CompanyType
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  companyAddresses  CompanyAddress[]
+  companyProponents CompanyProponent[]
+  projects          Project[]
+  quotationForms    QuotationForm[]    @relation("QuotationCompany")
+  prForms           PrForm[]           @relation("PrCompany")
+  poForms           PoForm[]           @relation("PoCompany")
+  supplierPrForms   PrForm[]           @relation("PrSupplier")
+  supplierPoForms   PoForm[]           @relation("PoSupplier")
+
+  @@map("company")
+  quotationsItems QuotationItem[]
+  prItems PrItem[]
+  poItems PoItem[]
+}
+
 model CompanyAddress {
-  id               BigInt   @id @default(autoincrement())
-  companyId        BigInt
-  province         String   @db.VarChar(255)
-  barangay         String   @db.VarChar(255)
-  cityMunicipality String   @db.VarChar(255)
-  houseNo          String   @db.VarChar(255)
-  region           String   @db.VarChar(255)
-  street           String   @db.VarChar(255)
-  subdivision      String?  @db.VarChar(255)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id         Int      @id @default(autoincrement())
+  companyId  Int
+  street1    String   @db.VarChar(255)
+  street2    String   @db.VarChar(255)
+  subd       String   @db.VarChar(255)
+  city       String   @db.VarChar(255)
+  province   String   @db.VarChar(255)
+  zipcode    Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+  @@map("companyAddresses")
 }
 
 model CompanyProponent {
-  id            BigInt   @id @default(autoincrement())
-  companyId     BigInt
+  id            Int      @id @default(autoincrement())
+  companyId     Int
   contactPerson String   @db.VarChar(255)
   contactNumber String   @db.VarChar(255)
   createdAt     DateTime @default(now())
@@ -34,291 +72,206 @@ model CompanyProponent {
   company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+  @@map("companyProponents")
 }
 
-model Company {
-  id                BigInt             @id @default(autoincrement())
-  companyName       String             @db.VarChar(255)
-  tinNumber         String?            @db.VarChar(255)
-  type              CompanyType
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  companyAddresses  CompanyAddress[]
-  companyProponents CompanyProponent[]
-  poDetails         PoDetail[]
-  prDetails         PrDetail[]
-  projects          Project[]
-  quotationDetails  QuotationDetail[]
+model Product {
+  id            Int         @id @default(autoincrement())
+  sku           String      @db.VarChar(255)
+  name          String      @db.VarChar(255)
+  description   String
+  brand         String      @db.VarChar(255)
+  category      String      @db.VarChar(255)
+  subCategory   String      @db.VarChar(255)
+  adCategory    String      @db.VarChar(255)
+  uom           String      @db.VarChar(255)
+  currentStock  Int         @default(0)
+  orderedStock  Int         @default(0)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([sku])
+  quotationItems QuotationItem[]
+  prItems        PrItem[]
+  poItems        PoItem[]
 }
 
-model FormItem {
-  id            BigInt   @id @default(autoincrement())
-  formId        BigInt
-  productId     BigInt?
-  quantity      BigInt?
-  supplierName  String?  @db.VarChar(255)
-  supplierPrice BigInt?
-  clientPrice   BigInt?
-  total         BigInt?
+model Project {
+  id             Int              @id @default(autoincrement())
+  workflowId     Int
+  companyId      Int
+  code           String           @db.VarChar(255)
+  description    String           @db.Text
+  workflowStage  Int
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workflow       WorkflowTemplate @relation(fields: [workflowId], references: [id])
+  quotationForms QuotationForm[]
+  prForms        PrForm[]
+  poForms        PoForm[]
+
+  @@index([companyId])
+  @@index([workflowId])
+  @@map("project")
+}
+
+model QuotationForm {
+  id              Int       @id @default(autoincrement())
+  projectId       Int
+  forCompanyId    Int
+  requestorId     Int?
+  deliveryTerm    String?   @db.Text
+  approvedBudget  Int?
+  bidPercentage   Int?
+  paymentTerm     String?   @db.Text
+  totalCost       Decimal?
+  bidPrice        Decimal?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  forCompany      Company  @relation("QuotationCompany", fields: [forCompanyId], references: [id])
+  requestor       User?     @relation("QuotationRequestor", fields: [requestorId], references: [id])
+
+  quotationItems QuotationItem[]
+  @@index([projectId])
+  @@index([forCompanyId])
+  @@index([requestorId])
+  @@map("quotationForm")
+}
+
+model QuotationItem {
+  id            Int             @id @default(autoincrement())
+  formId        Int
+  productId     Int
+  supplierId    Int     
+  quantity      Int?
+  internalPrice Decimal     
+  clientPrice   Decimal
+  total         Decimal
   remarks       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  form          Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  product       Product? @relation(fields: [productId], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  form          QuotationForm   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  product       Product         @relation(fields: [productId], references: [id])
+  supplier      Company         @relation(fields: [supplierId], references: [id])
 
   @@index([formId])
   @@index([productId])
 }
 
-model FormRemark {
-  id        BigInt   @id @default(autoincrement())
-  formId    BigInt
-  userId    BigInt
-  remarks   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([formId])
-  @@index([userId])
-}
-
-model Form {
-  id             BigInt         @id @default(autoincrement())
-  lifecycleId    BigInt
-  projectId      BigInt
-  parentId       BigInt?
-  detailId       BigInt
-  stageId        BigInt
-  type           FormType
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  lifecycle      Lifecycle      @relation(fields: [lifecycleId], references: [id], onDelete: Cascade)
-  parentForm     Form?          @relation("FormToForm", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  childForms     Form[]         @relation("FormToForm")
-  lifecycleStage LifecycleStage @relation(fields: [stageId], references: [id])
-  formItems      FormItem[]
-  formRemarks    FormRemark[]
-
-  @@index([lifecycleId])
-  @@index([parentId])
-  @@index([stageId])
-}
-
-model LifecycleStage {
-  id                BigInt            @id @default(autoincrement())
-  templateId        BigInt
-  name              String            @db.VarChar(255)
-  code              String            @db.VarChar(255)
-  order             Int
-  requiresApproval  Boolean
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  approvalType      ApprovalType?
-  stageOwner        Json?
-  forms             Form[]
-  lifecycles        Lifecycle[]
-  lifecycleTemplate LifecycleTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId])
-}
-
-model LifecycleTemplate {
-  id              BigInt           @id @default(autoincrement())
-  name            String           @db.VarChar(255)
-  description     String           @db.VarChar(255)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  lifecycles      Lifecycle[]
-  lifecycleStages LifecycleStage[]
-}
-
-model Lifecycle {
-  id                BigInt            @id @default(autoincrement())
-  templateId        BigInt
-  projectId         BigInt
-  stageId           BigInt
-  status            LifecycleStatus
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  forms             Form[]
-  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  lifecycleStage    LifecycleStage    @relation(fields: [stageId], references: [id])
-  lifecycleTemplate LifecycleTemplate @relation(fields: [templateId], references: [id])
-
-  @@index([projectId])
-  @@index([stageId])
-  @@index([templateId])
-}
-
-model PoDetail {
-  id             BigInt   @id @default(autoincrement())
-  poNo           BigInt
-  fromSupplierId BigInt?
-  forCompanyId   BigInt?
-  paymentMethod  String?  @db.VarChar(255)
-  deliveryDate   BigInt?
-  totalCost      BigInt?
-  bidPrice       BigInt?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  company        Company? @relation(fields: [forCompanyId], references: [id])
-
-  @@index([forCompanyId])
-}
-
-model PrDetail {
-  id             BigInt    @id @default(autoincrement())
-  prNo           String    @db.VarChar(255)
+model PrForm {
+  id             Int       @id @default(autoincrement())
+  projectId      Int
   dateRequired   DateTime? @db.Date
-  forCompanyId   BigInt?
-  fromSupplierId BigInt?
+  forCompanyId   Int
+  fromSupplierId Int?
   preparedBy     String?   @db.VarChar(255)
   approvedBy     String?   @db.VarChar(255)
-  totalCost      BigInt?
-  bidPrice       BigInt?
+  totalCost      Decimal?
+  bidPrice       Decimal?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
-  company        Company?  @relation(fields: [forCompanyId], references: [id])
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  forCompany     Company  @relation("PrCompany", fields: [forCompanyId], references: [id])
+  fromSupplier   Company?  @relation("PrSupplier", fields: [fromSupplierId], references: [id])
 
+  prItems PrItem[]
+  @@index([projectId])
   @@index([forCompanyId])
+  @@index([fromSupplierId])
+  @@map("prForm")
 }
 
-model Product {
-  id          BigInt     @id @default(autoincrement())
-  sku         String     @db.VarChar(255)
-  name        String     @db.VarChar(255)
-  description String
-  brand       String     @db.VarChar(255)
-  category    String     @db.VarChar(255)
-  subCategory String     @db.VarChar(255)
-  adCategory  String     @db.VarChar(255)
-  uom         String     @db.VarChar(255)
-  isActive    Boolean    @default(true)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  formItems   FormItem[]
+model PrItem {
+  id            Int       @id @default(autoincrement())
+  formId        Int
+  productId     Int
+  supplierId    Int     
+  quantity      Int?
+  internalPrice Decimal     
+  clientPrice   Decimal
+  total         Decimal
+  remarks       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  form          PrForm    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  product       Product   @relation(fields: [productId], references: [id])
+  supplier      Company   @relation(fields: [supplierId], references: [id])
 
-  @@index([sku])
+  @@index([formId])
+  @@index([productId])
 }
 
-model Project {
-  id                 BigInt      @id @default(autoincrement())
-  companyId          BigInt
-  code               String      @db.VarChar(255)
-  description        String
-  approvedBudgetCost BigInt?
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  bidPercentage      BigInt      @default(15)
-  lifecycles         Lifecycle[]
-  company            Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+model PoForm {
+  id             Int           @id @default(autoincrement())
+  projectId      Int
+  fromSupplierId Int?
+  forCompanyId   Int
+  paymentMethod  PaymentMethod?
+  deliveryDate   DateTime?
+  totalCost      Decimal?
+  bidPrice       Decimal?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  forCompany     Company      @relation("PoCompany", fields: [forCompanyId], references: [id])
+  fromSupplier   Company?      @relation("PoSupplier", fields: [fromSupplierId], references: [id])
 
-  @@index([companyId])
-}
 
-model QuotationDetail {
-  id             BigInt    @id @default(autoincrement())
-  quoteNo        String    @db.VarChar(255)
-  forCompanyId   BigInt?
-  requestorId    BigInt?
-  deliveryDate   String?   @db.VarChar(255)
-  approvedBudget BigInt?
-  bidPercentage  Int?
-  paymentMethod  String?   @db.VarChar(255)
-  totalCost      BigInt?
-  bidPrice       BigInt?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  company        Company?  @relation(fields: [forCompanyId], references: [id])
-
+  poItems PoItem[]
+  @@index([projectId])
   @@index([forCompanyId])
+  @@index([fromSupplierId])
+  @@map("poForm")
 }
 
-model User {
-  id            BigInt       @id @default(autoincrement())
-  firstName     String       @db.VarChar(255)
-  secondName    String       @db.VarChar(255)
-  middleName    String       @db.VarChar(255)
-  lastName      String       @db.VarChar(255)
-  birthdate     DateTime     @db.Date
-  contact       String       @db.VarChar(255)
-  email         String       @unique @db.VarChar(255)
-  password      String       @db.VarChar(255)
-  department    String?      @db.VarChar(255)
-  position      String?      @db.VarChar(255)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  emailVerified DateTime?
-  accounts      Account[]
-  auditLogs     AuditLog[]
-  formRemarks   FormRemark[]
-  sessions      Session[]
+model PoItem {
+  id            Int         @id @default(autoincrement())
+  formId        Int
+  productId     Int
+  supplierId    Int     
+  quantity      Int?
+  internalPrice Decimal     
+  clientPrice   Decimal
+  total         Decimal
+  remarks       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  form          PoForm      @relation(fields: [formId], references: [id], onDelete: Cascade)
+  product       Product     @relation(fields: [productId], references: [id])
+  supplier      Company     @relation(fields: [supplierId], references: [id])
+
+  @@index([formId])
+  @@index([productId])
 }
 
-model Account {
-  id                BigInt  @id @default(autoincrement())
-  userId            BigInt
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+model WorkflowTemplate {
+  id              Int             @id @default(autoincrement())
+  name            String          @db.VarChar(255)
+  description     String          @db.VarChar(255)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  workflowStages  WorkflowStage[]
+  projects        Project[]
 
-  @@unique([provider, providerAccountId])
-  @@index([userId])
+  @@map("workflowTemplate")
 }
 
-model Session {
-  id           BigInt   @id @default(autoincrement())
-  sessionToken String   @unique
-  userId       BigInt
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model WorkflowStage {
+  id               Int              @id @default(autoincrement())
+  templateId       Int
+  name             String           @db.VarChar(255)
+  code             String           @db.VarChar(255)
+  order            Int
+  requiresApproval Boolean
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  template         WorkflowTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-model AuditLog {
-  id            BigInt      @id @default(autoincrement())
-  timestamp     DateTime    @default(now())
-  userId        BigInt?
-  tableName     String      @db.VarChar(255)
-  recordId      String      @db.VarChar(255)
-  action        AuditAction
-  oldValues     Json?
-  newValues     Json?
-  changedFields String[]
-  ipAddress     String?     @db.VarChar(45)
-  userAgent     String?
-  user          User?       @relation(fields: [userId], references: [id])
-
-  @@index([userId])
-  @@index([tableName])
-  @@index([recordId])
-  @@index([action])
-  @@index([timestamp])
-}
-
-enum AuditAction {
-  CREATE
-  UPDATE
-  DELETE
+  @@index([templateId])
+  @@map("workflowStage")
 }
 
 enum CompanyType {
@@ -328,21 +281,10 @@ enum CompanyType {
   vendor
 }
 
-enum LifecycleStatus {
-  TO_BID
-  BID
-  AWARDED
-  PROCESSING
-  COMPLETED
-}
-
-enum FormType {
-  q
-  pr
-  po
-}
-
-enum ApprovalType {
-  ANY
-  ALL
+enum PaymentMethod {
+  cash
+  credit_card
+  bank_transfer
+  check
+  online_payment
 }
