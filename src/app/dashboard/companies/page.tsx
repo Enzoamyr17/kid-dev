@@ -553,6 +553,9 @@ export default function CompaniesPage() {
       const response = await fetch(`/api/addresses?id=${id}`, {
         method: 'DELETE',
       });
+      if (!response.ok) {
+        throw new Error('Failed to delete address');
+      }
     } catch (error) {
       console.error('Error deleting address:', error);
       toast.error('Failed to delete address');
@@ -607,6 +610,9 @@ export default function CompaniesPage() {
       const response = await fetch(`/api/proponents?id=${id}`, {
         method: 'DELETE',
       });
+      if (!response.ok) {
+        throw new Error('Failed to delete proponent');
+      }
     } catch (error) {
       console.error('Error deleting proponent:', error);
       toast.error('Failed to delete proponent');
