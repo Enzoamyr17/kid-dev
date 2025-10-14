@@ -89,9 +89,9 @@ export default function ProjectPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
-    //Accepts string because the API returns a string
+    //Accepts string because the API returns a string in cents (e.g., 50000 = ₱500.00)
     const formatCurrency = (amount: string) => {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PHP' }).format(parseInt(amount));
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PHP' }).format(parseInt(amount) / 100);
     }
 
     const fetchProject = async () => {
@@ -322,7 +322,7 @@ export default function ProjectPage() {
                                     {forms.quotations.length === 0 ? (
                                         <p className="text-center text-muted-foreground py-8">No quotations found</p>
                                     ) : (
-                                        <div className="flex flex-col gap-2">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                             {forms.quotations.map((form: unknown) => {
                                                 const formData = form as { id: string; details?: { quoteNo?: string; totalCost?: string; bidPrice?: string; deliveryDate?: string }; createdAt: string; formItems?: unknown[] };
                                                 return (
@@ -374,7 +374,7 @@ export default function ProjectPage() {
                                     {forms.purchaseRequests.length === 0 ? (
                                         <p className="text-center text-muted-foreground py-8">No purchase requests found</p>
                                     ) : (
-                                        <div className="flex flex-col gap-2">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                             {forms.purchaseRequests.map((form: unknown) => {
                                                 const formData = form as { id: string; details?: { prNo?: string; totalCost?: string; bidPrice?: string; dateRequired?: string }; createdAt: string; formItems?: unknown[] };
                                                 return (
@@ -424,7 +424,7 @@ export default function ProjectPage() {
                                     {forms.purchaseOrders.length === 0 ? (
                                         <p className="text-center text-muted-foreground py-8">No purchase orders found</p>
                                     ) : (
-                                        <div className="flex flex-col gap-2">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                             {forms.purchaseOrders.map((form: unknown) => {
                                                 const formData = form as { id: string; details?: { poNo?: number; totalCost?: string; bidPrice?: string; deliveryDate?: number }; createdAt: string; formItems?: unknown[] };
                                                 return (

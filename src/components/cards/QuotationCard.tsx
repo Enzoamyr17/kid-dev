@@ -84,7 +84,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
   const [formData, setFormData] = useState<QuotationFormData>({
     quote_no: "",
-    for_company_id: clientDetails[0].id,
+    for_company_id: clientDetails[0]?.id || "",
     project_id: projectId,
     requestor_id: "",
     delivery_date: "",
@@ -311,19 +311,19 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveQuotation = async () => {
+  const handleSaveQuotation = async (skipClearForm = false) => {
     // Validate required fields
     if (!formData.for_company_id) {
       toast.error("Please select a client");
-      return;
+      return null;
     }
     if (!formData.project_id) {
       toast.error("Please select a project");
-      return;
+      return null;
     }
     if (cart.length === 0) {
       toast.error("Please add at least one product");
-      return;
+      return null;
     }
 
     setIsSaving(true);
@@ -364,14 +364,25 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
       }
 
       const result = await response.json();
-      toast.success(`Quotation saved successfully! Quote No: ${result.quotationDetail.quote_no}`);
 
-      // Clear form after successful save
-      handleClearForm();
-      setActiveTab("products");
+      // Update formData with the generated quote number (API returns quoteNo in camelCase)
+      const quoteNumber = result.quotationDetail.quoteNo || result.quotationDetail.quote_no;
+      setFormData(prev => ({ ...prev, quote_no: quoteNumber }));
+
+      toast.success(`Quotation saved successfully! Quote No: ${quoteNumber}`);
+
+      // Clear form after successful save (unless skipClearForm is true for PDF export)
+      if (!skipClearForm) {
+        handleClearForm();
+        setActiveTab("products");
+      }
+
+      // Return the quote number for PDF export
+      return quoteNumber;
     } catch (error) {
       console.error("Error saving quotation:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save quotation");
+      return null;
     } finally {
       setIsSaving(false);
     }
@@ -396,98 +407,338 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     setCart([]);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    // Validate client details
+    if (!clientDetails || clientDetails.length === 0) {
+      toast.error("Client details are missing. Cannot export PDF.");
+      return;
+    }
+
+    // Save quotation first and wait for the quote number (skip clearing form for PDF export)
+    const quoteNo = await handleSaveQuotation(true);
+
+    if (!quoteNo) {
+      toast.error("Failed to save quotation. PDF export cancelled.");
+      return;
+    }
+
+    // Capture current cart and formData before they might be cleared
+    const currentCart = [...cart];
+    const currentFormData = { ...formData };
+    const currentFinancials = { ...financials };
+    const currentClientDetails = clientDetails[0];
+
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    // Header
+    // Helper function to format currency without ± symbol
+    const formatPeso = (amount: number) => {
+      return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    };
+
+    // Blue Header Background
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 0, pageWidth, 25, 'F');
+
+    // Header Text - Price Quotation #
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("QUOTATION", pageWidth / 2, 20, { align: "center" });
+    doc.text("Price Quotation  #", pageWidth / 2 - 30, 15);
 
-    // Client Details
-    doc.setFontSize(10);
+    // Quotation Number - use the saved quote number
+    doc.setFontSize(22);
+    doc.text(quoteNo, pageWidth - 15, 15, { align: "right" });
+    
+    // Reset text color to black
+    doc.setTextColor(0, 0, 0);
+    
+    // Two-column layout for Quotation to/by
+    let yPos = 32;
+    
+    // LEFT COLUMN - Quotation to:
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("Client Information:", 14, 35);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Company: ${clientDetails[0].companyName}`, 14, 42);
-    doc.text(`Address: ${clientDetails[0].address}`, 14, 47);
-    doc.text(`TIN: ${clientDetails[0].tinNumber}`, 14, 52);
-    doc.text(`Contact Person: ${clientDetails[0].contactPerson}`, 14, 57);
-    doc.text(`Contact Number: ${clientDetails[0].contactNumber}`, 14, 62);
+    doc.text("Quotation to:", 14, yPos);
 
-    // Quotation Details
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Name:", 14, yPos + 7);
     doc.setFont("helvetica", "bold");
-    doc.text("Quotation Details:", 120, 35);
-    doc.setFont("helvetica", "normal");
-    const requestor = users.find(u => u.id === formData.requestor_id);
-    doc.text(`Requested By: ${requestor ? `${requestor.first_name} ${requestor.last_name}` : "N/A"}`, 120, 42);
-    doc.text(`Payment Term: ${formData.payment_method || "N/A"}`, 120, 47);
-    doc.text(`Delivery Term: ${formData.delivery_date || "N/A"}`, 120, 52);
-    doc.text(`ABC: ₱${formData.approved_budget.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 120, 57);
-    doc.text(`Bid Percentage: ${formData.bid_percentage}%`, 120, 62);
+    const clientName = doc.splitTextToSize(currentClientDetails.companyName, 65);
+    doc.text(clientName, 35, yPos + 7);
 
+    doc.setFont("helvetica", "normal");
+    doc.text("Address:", 14, yPos + 12);
+    const addressLines = doc.splitTextToSize(currentClientDetails.address, 65);
+    doc.text(addressLines, 35, yPos + 12);
+    const addressHeight = addressLines.length * 4;
+
+    doc.text("Tin:", 14, yPos + 14 + addressHeight);
+    doc.text(currentClientDetails.tinNumber || "N/A", 35, yPos + 14 + addressHeight);
+
+    doc.text("Attn:", 14, yPos + 19 + addressHeight);
+    doc.setFont("helvetica", "bold");
+    doc.text(currentClientDetails.contactPerson, 35, yPos + 19 + addressHeight);
+
+    doc.setFont("helvetica", "normal");
+    doc.text("Contact No.", 14, yPos + 24 + addressHeight);
+    doc.text(currentClientDetails.contactNumber, 35, yPos + 24 + addressHeight);
+    
+    // RIGHT COLUMN - Quotation by:
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Quotation by:", 110, yPos);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Company Name:", 110, yPos + 7);
+    doc.setFont("helvetica", "bold");
+    const kmciName = doc.splitTextToSize("Kingland Marketing Company Inc.", 50);
+    doc.text(kmciName, 145, yPos + 7);
+    
+    doc.setFont("helvetica", "normal");
+    doc.text("Address:", 110, yPos + 15);
+    const kmciAddress = doc.splitTextToSize("Phase 4B Blk 7 Lot 28 Golden City, Dila, City of Santa Rosa, Laguna, Philippines 4026", 50);
+    doc.text(kmciAddress, 145, yPos + 15);
+    
+    doc.text("Tin:", 110, yPos + 29);
+    doc.text("645-630-230-000", 145, yPos + 29);
+    
+    // Shipped / Delivered to section (as a table)
+    yPos = yPos + 38 + addressHeight;
+    
+    // Create table for Shipped/Delivered section
+    const shippedTableData = [
+      [
+        `Name:\n${currentClientDetails.companyName}\n\nAddress:\n${currentClientDetails.address}`,
+        `${currentClientDetails.contactPerson}\n${currentClientDetails.contactNumber}`,
+        currentFormData.payment_method || "7 CD",
+        currentFormData.delivery_date || "3-5CD upon receipt of PO"
+      ]
+    ];
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Shipped / Delivered to', 'Contact', 'PAYMENT', 'DELIVERY DATE']],
+      body: shippedTableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: [255, 255, 255],
+        fontSize: 9,
+        fontStyle: 'bold',
+        halign: 'left',
+        cellPadding: 3
+      },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: 4,
+        minCellHeight: 20
+      },
+      columnStyles: {
+        0: { cellWidth: 80, valign: 'top' },
+        1: { cellWidth: 35, valign: 'top' },
+        2: { cellWidth: 30, valign: 'top' },
+        3: { cellWidth: 45, valign: 'top' }
+      },
+      margin: { left: 14, right: 14 }
+    });
+    
     // Items Table
-    const tableData = cart.map(item => [
+    yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
+
+    const tableData = currentCart.map((item) => [
       item.sku,
       item.name,
       item.brand,
       item.quantity.toString(),
-      `₱${item.internalPrice.toFixed(2)}`,
-      item.supplier,
-      `₱${(item.internalPrice * item.quantity).toFixed(2)}`,
-      `₱${item.abcPrice.toFixed(2)}`,
-      `₱${item.proposalPrice.toFixed(2)}`,
-      `₱${(item.proposalPrice * item.quantity).toFixed(2)}`,
+      item.uom,
+      `P${formatPeso(item.proposalPrice)}`,
+      `P${formatPeso(item.proposalPrice * item.quantity)}`,
     ]);
-
+    
     autoTable(doc, {
-      startY: 70,
-      head: [['SKU', 'Name', 'Brand', 'Qty', 'Internal Price', 'Supplier', 'Amount to Pay', 'ABC Price', 'Proposal Price', 'Total']],
+      startY: yPos,
+      head: [['ITEM NO.', 'DESCRIPTION', 'Brand', 'QTY', 'Unit', 'UNIT PRICE', 'TOTAL']],
       body: tableData,
       theme: 'grid',
-      headStyles: { fillColor: [59, 130, 246], fontSize: 8 },
-      bodyStyles: { fontSize: 7 },
-      columnStyles: {
-        0: { cellWidth: 20 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 10 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 18 },
-        6: { cellWidth: 22 },
-        7: { cellWidth: 20 },
-        8: { cellWidth: 20 },
-        9: { cellWidth: 22 },
+      headStyles: { 
+        fillColor: [59, 130, 246],
+        textColor: [255, 255, 255],
+        fontSize: 8,
+        fontStyle: 'bold',
+        halign: 'center',
+        cellPadding: 3
       },
+      bodyStyles: { 
+        fontSize: 8,
+        cellPadding: 3,
+        minCellHeight: 8
+      },
+      columnStyles: {
+        0: { cellWidth: 25, halign: 'left' },
+        1: { cellWidth: 60, halign: 'left' },
+        2: { cellWidth: 25, halign: 'left' },
+        3: { cellWidth: 15, halign: 'center' },
+        4: { cellWidth: 15, halign: 'center' },
+        5: { cellWidth: 25, halign: 'right' },
+        6: { cellWidth: 25, halign: 'right' },
+      },
+      margin: { left: 14, right: 14 }
     });
-
-    // Financial Summary
-    const finalY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10;
+    
+    // Financial Summary on the right
+    const tableEndY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+    
+    // Remarks box (left side)
+    doc.setDrawColor(59, 130, 246);
+    doc.setLineWidth(0.5);
+    doc.rect(14, tableEndY, 95, 40);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Remarks / Instructions:", 16, tableEndY + 5);
+    
+    // Financial summary (right side)
+    const summaryX = 117;
+    let summaryY = tableEndY + 2;
+    
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    
+    // Calculate subtotal (VAT-excluded)
+    const subtotal = currentFinancials.vatExcludedSales;
+    const vatAmount = currentFinancials.outputVat;
+    const netOfVat = currentFinancials.vatExcludedSales;
+    
+    // Labels on left, values on right
+    doc.text("SUBTOTAL", summaryX, summaryY);
+    doc.setFillColor(59, 130, 246);
+    doc.rect(167, summaryY - 3.5, 30, 5.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text(`P${formatPeso(subtotal)}`, 195, summaryY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    summaryY += 5.5;
+    
+    doc.text("TAX RATE", summaryX, summaryY);
+    doc.setFillColor(59, 130, 246);
+    doc.rect(167, summaryY - 3.5, 30, 5.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text("12%", 195, summaryY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    summaryY += 5.5;
+    
+    doc.text("VAT INPUT TAX", summaryX, summaryY);
+    doc.setFillColor(59, 130, 246);
+    doc.rect(167, summaryY - 3.5, 30, 5.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text(`P${formatPeso(vatAmount)}`, 195, summaryY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    summaryY += 5.5;
+    
+    doc.text("AMOUNT (NET OF VAT)", summaryX, summaryY);
+    doc.setFillColor(59, 130, 246);
+    doc.rect(167, summaryY - 3.5, 30, 5.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text(`P${formatPeso(netOfVat)}`, 195, summaryY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    summaryY += 5.5;
+    
+    doc.text("SHIPPING/HANDLING", summaryX, summaryY);
+    doc.setFillColor(59, 130, 246);
+    doc.rect(167, summaryY - 3.5, 30, 5.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text("P0.00", 195, summaryY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    summaryY += 5.5;
+    
+    doc.text("OTHER", summaryX, summaryY);
+    doc.setFillColor(59, 130, 246);
+    doc.rect(167, summaryY - 3.5, 30, 5.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.text("P0.00", 195, summaryY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    summaryY += 10;
+    
+    // THANK YOU text
+    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.text("Financial Summary:", 14, finalY);
+    doc.setTextColor(59, 130, 246);
+    doc.text("THANK YOU", 14, summaryY + 6);
+    doc.setTextColor(0, 0, 0);
+    
+    // TOTAL AMOUNT (prominent)
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("TOTAL AMOUNT", summaryX, summaryY);
+    doc.setFillColor(59, 130, 246);
+    doc.rect(167, summaryY - 4.5, 30, 7, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.text(`P${formatPeso(currentFinancials.totalBidPrice)}`, 195, summaryY, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    
+    // Approval Section
+    summaryY += 18;
+    
+    // Approved by (left)
+    doc.setFillColor(59, 130, 246);
+    doc.rect(14, summaryY, 90, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Approved by:", 16, summaryY + 4);
+    doc.setTextColor(0, 0, 0);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Richard A. Abanilla", 40, summaryY + 22);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-
-    let currentY = finalY + 7;
-    doc.text(`Total Bid Price (VAT-inclusive): ₱${financials.totalBidPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
-    currentY += 5;
-    doc.text(`Total Cost: ₱${financials.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
-    currentY += 5;
-    doc.text(`VAT Payable: ₱${financials.vatPayable.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
-    currentY += 5;
-    doc.text(`Gross Profit: ₱${financials.grossProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
-    currentY += 5;
-    doc.text(`Net Profit: ₱${financials.netProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
-    currentY += 5;
-    doc.text(`Final Net Profit: ₱${financials.finalNetProfit.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, 14, currentY);
-    currentY += 5;
-    doc.text(`Profit Margin: ${financials.netProfitMargin.toFixed(2)}%`, 14, currentY);
-
+    doc.text("President", 48, summaryY + 27);
+    
+    // Checked by (right)
+    doc.setFillColor(59, 130, 246);
+    doc.rect(107, summaryY, 90, 6, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("Checked by:", 109, summaryY + 4);
+    doc.setTextColor(0, 0, 0);
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Katrina M. Abanilla", 133, summaryY + 22);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Vice President", 140, summaryY + 27);
+    
+    // Footer - Blue background with proper margin
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, pageHeight - 22, pageWidth, 22, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text("Phase 4B Block 7 Lot 28 Golden City, Dila", 14, pageHeight - 14);
+    doc.text("City of Santa Rosa, Laguna", 14, pageHeight - 10);
+    doc.text("Philippines 4026", 14, pageHeight - 6);
+    
+    doc.text("For questions concerning this Price Quotation, please contact", 110, pageHeight - 14);
+    doc.text("Richard A. Abanilla, 0917-135-8805, raabanilla@kingland.ph", 110, pageHeight - 10);
+    doc.setTextColor(200, 220, 255);
+    doc.text("https://www.kingland.ph", 110, pageHeight - 6);
+    doc.text("https://shop.kingland.ph", 155, pageHeight - 6);
+    
     // Save PDF
-    const fileName = `Quotation_${formData.quote_no || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Quotation_${quoteNo}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
     toast.success("PDF exported successfully");
+
+    // Clear form after successful PDF export
+    handleClearForm();
+    setActiveTab("products");
   };
 
   // Load initial data if provided (for creating new versions)
@@ -633,39 +884,44 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
         <TabsContent value="form" className="w-full">
           <div className="bg-sidebar border border-blue-900/10 w-full p-6">
             <h2 className="text-xl font-semibold mb-6">New Quotation</h2>
-            <div className="flex justify-between items-center gap-6 py-2 border-b border-zinc-200 pb-6">
-              {/* Left */}
-              <div className="flex flex-col justify-between divide-y divide-zinc-200 w-1/2 min-h-32">
-                <div className="flex justify-between items-start w-full">
-                  <h1 className="text-sm font-medium text-muted-foreground">Client:</h1>
-                  <h1 className="text-md font-medium text-right">{clientDetails[0].companyName}</h1>
-                </div>
-                <div className="flex justify-between items-start w-full">
-                  <h1 className="text-sm font-medium text-muted-foreground">Contact Person:</h1>
-                  <h1 className="text-md font-medium text-right">{clientDetails[0].contactPerson}</h1>
-                </div>
-                <div className="flex justify-between items-start w-full">
-                  <h1 className="text-sm font-medium text-muted-foreground">Contact Number:</h1>
-                  <h1 className="text-md font-medium text-right">{clientDetails[0].contactNumber}</h1>
-                </div>
-              </div>
-
-              <div className="flex flex-col justify-between divide-y divide-zinc-200 w-1/2 min-h-32">
-                <div className="flex justify-between items-start w-full">
-                  <h1 className="text-sm font-medium text-muted-foreground">Address:</h1>
-                  <h1 className="text-md font-medium text-right">{clientDetails[0].address}</h1>
-                </div>
-                <div className="flex justify-between items-start w-full">
-                  <h1 className="text-sm font-medium text-muted-foreground">TIN:</h1>
-                  <h1 className="text-md font-medium text-right">{clientDetails[0].tinNumber}</h1>
-                </div>
-                <div className="flex justify-between items-start w-full">
-                  <h1 className="text-sm font-medium text-muted-foreground">Email:</h1>
-                  <h1 className="text-md font-medium text-right">{clientDetails[0].email ?? "Unavailable"}</h1>
+            {clientDetails && clientDetails.length > 0 ? (
+              <div className="flex justify-between items-center gap-6 py-2 border-b border-zinc-200 pb-6">
+                {/* Left */}
+                <div className="flex flex-col justify-between divide-y divide-zinc-200 w-1/2 min-h-32">
+                  <div className="flex justify-between items-start w-full">
+                    <h1 className="text-sm font-medium text-muted-foreground">Client:</h1>
+                    <h1 className="text-md font-medium text-right">{clientDetails[0].companyName}</h1>
+                  </div>
+                  <div className="flex justify-between items-start w-full">
+                    <h1 className="text-sm font-medium text-muted-foreground">Contact Person:</h1>
+                    <h1 className="text-md font-medium text-right">{clientDetails[0].contactPerson}</h1>
+                  </div>
+                  <div className="flex justify-between items-start w-full">
+                    <h1 className="text-sm font-medium text-muted-foreground">Contact Number:</h1>
+                    <h1 className="text-md font-medium text-right">{clientDetails[0].contactNumber}</h1>
+                  </div>
                 </div>
 
+                <div className="flex flex-col justify-between divide-y divide-zinc-200 w-1/2 min-h-32">
+                  <div className="flex justify-between items-start w-full">
+                    <h1 className="text-sm font-medium text-muted-foreground">Address:</h1>
+                    <h1 className="text-md font-medium text-right">{clientDetails[0].address}</h1>
+                  </div>
+                  <div className="flex justify-between items-start w-full">
+                    <h1 className="text-sm font-medium text-muted-foreground">TIN:</h1>
+                    <h1 className="text-md font-medium text-right">{clientDetails[0].tinNumber}</h1>
+                  </div>
+                  <div className="flex justify-between items-start w-full">
+                    <h1 className="text-sm font-medium text-muted-foreground">Email:</h1>
+                    <h1 className="text-md font-medium text-right">{clientDetails[0].email ?? "Unavailable"}</h1>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">Client details are missing. Please check the project configuration.</p>
+              </div>
+            )}
             {/* Basic Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 mt-2">
               <Field
@@ -1031,7 +1287,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
               <Button variant="outline" onClick={handleClearForm} disabled={isSaving}>Clear Form</Button>
               <Button variant="outline" onClick={handleExportPDF} disabled={cart.length === 0}>
                 <FileDown className="h-4 w-4 mr-2" />
-                Export PDF
+                Save and Export PDF
               </Button>
               <Button onClick={handleSaveQuotation} disabled={isSaving}>
                 {isSaving ? (

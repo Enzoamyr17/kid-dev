@@ -70,7 +70,12 @@ export async function GET(
         const quotationDetail = await prisma.quotationDetail.findUnique({
           where: { id: form.detailId },
           include: {
-            company: true,
+            company: {
+              include: {
+                companyProponents: true,
+                companyAddresses: true,
+              },
+            },
           },
         });
         formWithDetails.details = quotationDetail;
