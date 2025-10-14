@@ -1289,7 +1289,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                 <FileDown className="h-4 w-4 mr-2" />
                 Save and Export PDF
               </Button>
-              <Button onClick={handleSaveQuotation} disabled={isSaving}>
+              <Button onClick={() => handleSaveQuotation(false)} disabled={isSaving}>
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

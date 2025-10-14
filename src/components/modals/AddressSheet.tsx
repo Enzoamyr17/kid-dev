@@ -17,6 +17,9 @@ interface CompanyAddress {
   barangay: string;
 }
 
+// Type for address data from forms - uses Record to allow both camelCase and snake_case
+type AddressFormData = Record<string, string | undefined> & { id?: string };
+
 interface AddressSheetProps {
   companyId: string;
   addresses: CompanyAddress[];
@@ -25,11 +28,11 @@ interface AddressSheetProps {
   AddressForm: React.ComponentType<{
     address?: CompanyAddress;
     companyId: string;
-    onSave: (data: any) => void;
+    onSave: (data: AddressFormData) => void;
     onCancel: () => void;
   }>;
-  handleCreateAddress: (data: any) => Promise<void>;
-  handleUpdateAddress: (data: any) => Promise<void>;
+  handleCreateAddress: (data: AddressFormData) => Promise<void>;
+  handleUpdateAddress: (data: AddressFormData) => Promise<void>;
   handleDeleteAddress: (id: string) => Promise<void>;
 }
 
@@ -46,7 +49,7 @@ export function AddressSheet({
   const [isOpen, setIsOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<CompanyAddress | undefined>();
 
-  const handleSaveAddress = async (data: any) => {
+  const handleSaveAddress = async (data: AddressFormData) => {
     if (editingAddress) {
       await handleUpdateAddress({ ...data, id: editingAddress.id });
       onAddressUpdated();

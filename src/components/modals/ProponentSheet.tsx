@@ -12,6 +12,9 @@ interface CompanyProponent {
   contactNumber: string;
 }
 
+// Type for proponent data from forms - uses Record to allow both camelCase and snake_case
+type ProponentFormData = Record<string, string | undefined> & { id?: string };
+
 interface ProponentSheetProps {
   companyId: string;
   proponents: CompanyProponent[];
@@ -20,11 +23,11 @@ interface ProponentSheetProps {
   ProponentForm: React.ComponentType<{
     proponent?: CompanyProponent;
     companyId: string;
-    onSave: (data: any) => void;
+    onSave: (data: ProponentFormData) => void;
     onCancel: () => void;
   }>;
-  handleCreateProponent: (data: any) => Promise<void>;
-  handleUpdateProponent: (data: any) => Promise<void>;
+  handleCreateProponent: (data: ProponentFormData) => Promise<void>;
+  handleUpdateProponent: (data: ProponentFormData) => Promise<void>;
   handleDeleteProponent: (id: string) => Promise<void>;
 }
 
@@ -41,7 +44,7 @@ export function ProponentSheet({
   const [isOpen, setIsOpen] = useState(false);
   const [editingProponent, setEditingProponent] = useState<CompanyProponent | undefined>();
 
-  const handleSaveProponent = async (data: any) => {
+  const handleSaveProponent = async (data: ProponentFormData) => {
     if (editingProponent) {
       await handleUpdateProponent({ ...data, id: editingProponent.id });
       onProponentUpdated();
