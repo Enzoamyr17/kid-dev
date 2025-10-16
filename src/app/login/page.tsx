@@ -76,7 +76,6 @@ export default function LoginPage() {
               onChange={(value) => setLoginData({ ...loginData, email: value })}
               disabled={isLoading}
               placeholder="Enter your email"
-              required
             />
 
             <Field
@@ -95,7 +94,6 @@ export default function LoginPage() {
               disabled={isLoading}
               placeholder="Enter your password"
               error={passwordError}
-              required
             />
 
             <Button

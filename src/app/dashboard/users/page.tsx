@@ -238,7 +238,7 @@ export default function UsersManagementPage() {
             {users.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No users found. Click "Add User" to create one.
+                  No users found. Click &quot;Add User&quot; to create one.
                 </TableCell>
               </TableRow>
             ) : (
@@ -298,7 +298,6 @@ export default function UsersManagementPage() {
                 onChange={(value) => setFormData({ ...formData, firstName: value })}
                 disabled={isSubmitting}
                 placeholder="First name"
-                required
               />
 
               <Field
@@ -308,7 +307,6 @@ export default function UsersManagementPage() {
                 onChange={(value) => setFormData({ ...formData, lastName: value })}
                 disabled={isSubmitting}
                 placeholder="Last name"
-                required
               />
             </div>
 
@@ -339,7 +337,6 @@ export default function UsersManagementPage() {
               onChange={(value) => setFormData({ ...formData, email: value })}
               disabled={isSubmitting || !!editingUser}
               placeholder="Email address"
-              required
             />
 
             {!editingUser && (
@@ -350,7 +347,6 @@ export default function UsersManagementPage() {
                 onChange={(value) => setFormData({ ...formData, password: value })}
                 disabled={isSubmitting}
                 placeholder="At least 6 characters"
-                required
               />
             )}
 

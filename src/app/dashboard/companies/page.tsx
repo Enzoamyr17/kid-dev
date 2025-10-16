@@ -542,7 +542,6 @@ export default function CompaniesPage() {
               onChange={(value) => setNewAddress({ ...newAddress, barangay: value })}
               disabled={isSubmitting}
               placeholder="Barangay"
-              required
             />
 
             <div className="grid grid-cols-2 gap-4">
@@ -553,7 +552,6 @@ export default function CompaniesPage() {
                 onChange={(value) => setNewAddress({ ...newAddress, cityMunicipality: value })}
                 disabled={isSubmitting}
                 placeholder="City/Municipality"
-                required
               />
               <Field
                 label="Province"
@@ -572,7 +570,6 @@ export default function CompaniesPage() {
               onChange={(value) => setNewAddress({ ...newAddress, region: value })}
               disabled={isSubmitting}
               placeholder="Region"
-              required
             />
 
             <div className="flex gap-2 pt-4">
@@ -621,7 +618,6 @@ export default function CompaniesPage() {
               onChange={(value) => setNewProponent({ ...newProponent, contactPerson: value })}
               disabled={isSubmitting}
               placeholder="Contact person name"
-              required
             />
 
             <Field
