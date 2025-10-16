@@ -30,6 +30,7 @@ model Company {
   type              CompanyType
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
+  
   companyAddresses  CompanyAddress[]
   companyProponents CompanyProponent[]
   projects          Project[]
@@ -46,20 +47,20 @@ model Company {
 }
 
 model CompanyAddress {
-  id         Int      @id @default(autoincrement())
-  companyId  Int
-  street1    String   @db.VarChar(255)
-  street2    String   @db.VarChar(255)
-  subd       String   @db.VarChar(255)
-  city       String   @db.VarChar(255)
-  province   String   @db.VarChar(255)
-  zipcode    Int
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id               Int   @id @default(autoincrement())
+  companyId        Int
+  province         String   @db.VarChar(255)
+  barangay         String   @db.VarChar(255)
+  cityMunicipality String   @db.VarChar(255)
+  houseNo          String   @db.VarChar(255)
+  region           String   @db.VarChar(255)
+  street           String   @db.VarChar(255)
+  subdivision      String?  @db.VarChar(255)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
-  @@map("companyAddresses")
 }
 
 model CompanyProponent {
