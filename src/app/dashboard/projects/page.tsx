@@ -21,7 +21,8 @@ interface Project {
   code: string;
   companyId: string;
   description: string;
-  approvedBudgetCost?: string | null;
+  approvedBudget?: number | null;
+  workflowstage?: { id: number; name: string; code: string } | null;
   company: Company;
 }
 
@@ -29,6 +30,7 @@ export default function ProjectManagementPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [workflows, setWorkflows] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,12 +38,14 @@ export default function ProjectManagementPage() {
     code: "",
     companyId: "",
     description: "",
-    approvedBudgetCost: "",
+    approvedBudget: "",
+    workflowTemplateId: "",
   });
 
   useEffect(() => {
     fetchProjects();
     fetchCompanies();
+    fetchWorkflows();
   }, []);
 
   const fetchProjects = async () => {
@@ -70,6 +74,18 @@ export default function ProjectManagementPage() {
     }
   };
 
+  const fetchWorkflows = async () => {
+    try {
+      const res = await fetch("/api/lifecycle-templates");
+      const data = await res.json();
+      if (!res.ok) throw new Error("Failed to fetch workflows");
+      setWorkflows(data.map((t: { id: string; name: string }) => ({ id: t.id, name: t.name })));
+    } catch (e) {
+      toast.error("Failed to fetch workflows");
+      console.error(e);
+    }
+  };
+
   // Auto-generate project code
   const generateNextCode = () => {
     const currentYear = new Date().getFullYear().toString().slice(-2);
@@ -84,7 +100,7 @@ export default function ProjectManagementPage() {
 
 
   const handleSubmit = async () => {
-    if (!newProject.code || !newProject.companyId || !newProject.description) {
+    if (!newProject.code || !newProject.companyId || !newProject.description || !newProject.workflowTemplateId) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -97,9 +113,10 @@ export default function ProjectManagementPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: newProject.code,
-          company_id: newProject.companyId,
+          companyId: Number(newProject.companyId),
           description: newProject.description,
-          approved_budget_cost: newProject.approvedBudgetCost,
+          approvedBudget: newProject.approvedBudget ? Number(newProject.approvedBudget) : undefined,
+          workflowTemplateId: Number(newProject.workflowTemplateId),
         }),
       });
 
@@ -111,7 +128,7 @@ export default function ProjectManagementPage() {
       const createdProject = await response.json();
       setProjects([createdProject, ...projects]);
       setIsAddingRow(false);
-      setNewProject({ code: "", companyId: "", description: "", approvedBudgetCost: "" });
+      setNewProject({ code: "", companyId: "", description: "", approvedBudget: "", workflowTemplateId: "" });
       toast.success("Project created successfully");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to create project";
@@ -124,7 +141,7 @@ export default function ProjectManagementPage() {
 
   const handleCancel = () => {
     setIsAddingRow(false);
-    setNewProject({ code: "", companyId: "", description: "", approvedBudgetCost: "" });
+    setNewProject({ code: "", companyId: "", description: "", approvedBudget: "", workflowTemplateId: "" });
   };
 
   const handleDelete = async (projectId: string) => {
@@ -154,7 +171,7 @@ export default function ProjectManagementPage() {
         {!isAddingRow && (
           <Button
             onClick={() => {
-              setNewProject({ code: generateNextCode(), companyId: "", description: "", approvedBudgetCost: "" });
+              setNewProject({ code: generateNextCode(), companyId: "", description: "", approvedBudget: "", workflowTemplateId: "" });
               setIsAddingRow(true);
             }}
           >
@@ -202,14 +219,24 @@ export default function ProjectManagementPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  <Input
-                    value={newProject.approvedBudgetCost}
-                    onChange={(e) => setNewProject({ ...newProject, approvedBudgetCost: e.target.value })}
-                    disabled={isSubmitting}
-                    className="h-8"
-                    placeholder="Enter budget cost"
-                    type="number"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={newProject.approvedBudget}
+                      onChange={(e) => setNewProject({ ...newProject, approvedBudget: e.target.value })}
+                      disabled={isSubmitting}
+                      className="h-8"
+                      placeholder="Approved budget"
+                      type="number"
+                    />
+                    <Field
+                      type="select"
+                      value={newProject.workflowTemplateId}
+                      onChange={(value) => setNewProject({ ...newProject, workflowTemplateId: value })}
+                      options={workflows.map((w) => ({ value: w.id, label: w.name }))}
+                      disabled={isSubmitting}
+                      className="h-8 min-w-56"
+                    />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
@@ -276,7 +303,7 @@ export default function ProjectManagementPage() {
                   <TableCell
                     className="cursor-pointer hover:bg-muted/50"
                   >
-                    {project.approvedBudgetCost ? `₱${parseInt(project.approvedBudgetCost).toLocaleString()}` : "-"}
+                    {project.approvedBudget ? `₱${Number(project.approvedBudget).toLocaleString()}` : "-"}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button

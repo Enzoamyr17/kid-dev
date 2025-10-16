@@ -35,28 +35,36 @@ function serializeLifecycleStage(stage: any) {
 // GET - Fetch all lifecycle templates with their stages
 export async function GET() {
   try {
-    const templates = await prisma.lifecycleTemplate.findMany({
+    // Backwards-compat shim: serve workflow templates using new models
+    const templates = await prisma.workflowTemplate.findMany({
       include: {
-        lifecycleStages: {
-          orderBy: {
-            order: 'asc',
-          },
+        workflowStages: {
+          orderBy: { order: 'asc' },
         },
         _count: {
-          select: {
-            lifecycles: true
-          }
-        }
+          select: { projects: true },
+        },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
     const serializedTemplates = templates.map((template) => ({
-      ...serializeLifecycleTemplate(template),
-      stages: template.lifecycleStages.map(serializeLifecycleStage),
-      _count: template._count
+      id: template.id.toString(),
+      name: template.name,
+      description: template.description,
+      createdAt: template.createdAt.toISOString(),
+      updatedAt: template.updatedAt.toISOString(),
+      stages: template.workflowStages.map((stage) => ({
+        id: stage.id.toString(),
+        templateId: stage.templateId.toString(),
+        name: stage.name,
+        code: stage.code,
+        order: stage.order,
+        requiresApproval: stage.requiresApproval,
+        createdAt: stage.createdAt.toISOString(),
+        updatedAt: stage.updatedAt.toISOString(),
+      })),
+      _count: { lifecycles: template._count.projects },
     }));
 
     return NextResponse.json(serializedTemplates);
@@ -73,31 +81,40 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, description, stages } = body;
+    const { name, description, stages } = body as { name: string; description?: string; stages: Array<{ name: string; code: string; requiresApproval: boolean }>; };
 
-    const template = await prisma.lifecycleTemplate.create({
+    const template = await prisma.workflowTemplate.create({
       data: {
         name,
-        description,
-        lifecycleStages: {
-          create: stages.map((stage: { name: string; code: string; requiresApproval: boolean; stageOwner?: string[]; approvalType?: string }, index: number) => ({
+        description: description || '',
+        workflowStages: {
+          create: stages.map((stage, index) => ({
             name: stage.name,
             code: stage.code,
             order: index,
             requiresApproval: stage.requiresApproval,
-            stageOwner: stage.stageOwner || null,
-            approvalType: stage.approvalType || null
-          }))
-        }
+          })),
+        },
       },
-      include: {
-        lifecycleStages: true
-      }
+      include: { workflowStages: true },
     });
 
     const serialized = {
-      ...serializeLifecycleTemplate(template),
-      stages: template.lifecycleStages.map(serializeLifecycleStage),
+      id: template.id.toString(),
+      name: template.name,
+      description: template.description,
+      createdAt: template.createdAt.toISOString(),
+      updatedAt: template.updatedAt.toISOString(),
+      stages: template.workflowStages.map((stage) => ({
+        id: stage.id.toString(),
+        templateId: stage.templateId.toString(),
+        name: stage.name,
+        code: stage.code,
+        order: stage.order,
+        requiresApproval: stage.requiresApproval,
+        createdAt: stage.createdAt.toISOString(),
+        updatedAt: stage.updatedAt.toISOString(),
+      })),
     };
 
     return NextResponse.json(serialized, { status: 201 });
@@ -114,17 +131,20 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, name, description } = body;
+    const { id, name, description } = body as { id: number; name?: string; description?: string };
 
-    const template = await prisma.lifecycleTemplate.update({
-      where: { id: BigInt(id) },
-      data: {
-        name,
-        description
-      }
+    const template = await prisma.workflowTemplate.update({
+      where: { id },
+      data: { name, description },
     });
 
-    return NextResponse.json(serializeLifecycleTemplate(template));
+    return NextResponse.json({
+      id: template.id.toString(),
+      name: template.name,
+      description: template.description,
+      createdAt: template.createdAt.toISOString(),
+      updatedAt: template.updatedAt.toISOString(),
+    });
   } catch (error) {
     console.error('Error updating lifecycle template:', error);
     return NextResponse.json(
@@ -144,9 +164,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Template ID is required' }, { status: 400 });
     }
 
-    await prisma.lifecycleTemplate.delete({
-      where: { id: BigInt(id) }
-    });
+    await prisma.workflowTemplate.delete({ where: { id: Number(id) } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -16,7 +16,6 @@ async function checkUser() {
 
     console.log("User found:");
     console.log("Email:", user.email);
-    console.log("Email Verified:", user.emailVerified);
     console.log("Has Password:", user.password ? "Yes" : "No");
 
     // Test password

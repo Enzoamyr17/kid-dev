@@ -11,26 +11,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import QuotationViewModal from "@/components/modals/QuotationViewModal";
 
 interface Project {
-    id: string;
+    id: number;
     code: string;
-    companyId: string;
+    companyId: number;
     description: string;
-    approvedBudgetCost?: string | null;
-    bidPercentage: string;
+    approvedBudget: number | null;
+    workflowId: number;
+    workflowStageId: number;
     company: {
-        id: string;
+        id: number;
         companyName: string;
         tinNumber?: string;
-        type: string;
+        isClient: boolean;
+        isSupplier: boolean;
+        isVendor: boolean;
+        isInternal: boolean;
         companyProponents: Array<{
-            id: string;
-            companyId: string;
+            id: number;
+            companyId: number;
             contactPerson: string;
             contactNumber: string;
         }>;
         companyAddresses: Array<{
-            id: string;
-            companyId: string;
+            id: number;
+            companyId: number;
             houseNo: string;
             street: string;
             subdivision?: string;
@@ -40,37 +44,25 @@ interface Project {
             barangay: string;
         }>;
     };
-    lifecycles: Array<{
-        id: string;
-        templateId: string;
-        projectId: string;
-        stageId: string;
-        status: string;
-        createdAt: string;
-        updatedAt: string;
-        lifecycleStage: {
-            id: string;
-            templateId: string;
-            name: string;
-            code: string;
-            order: number;
-            requiresApproval: boolean;
-            approvalType: string | null;
-            stageOwner: unknown;
-        };
-        lifecycleTemplate: {
-            id: string;
-            name: string;
-            description: string;
-        };
-    }>;
+    workflow: {
+        id: number;
+        name: string;
+        description: string;
+    };
+    workflowstage: {
+        id: number;
+        name: string;
+        code: string;
+        order: number;
+        requiresApproval: boolean;
+    };
   }
 
 export default function ProjectPage() {
     const { id } = useParams();
     const [project, setProject] = useState<Project | null>(null);
     const [loading, setLoading] = useState(true);
-    const [bidPercentage, setBidPercentage] = useState<string>("15");
+    const [bidPercentage] = useState<number>(15);
     const [isProjectDetailsOpen, setIsProjectDetailsOpen] = useState(true);
     const [activeTab, setActiveTab] = useState("dashboard");
     const [forms, setForms] = useState<{
@@ -89,10 +81,9 @@ export default function ProjectPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
-    //Accepts string because the API returns a string in cents (e.g., 50000 = ₱500.00)
-    const formatCurrency = (amount: string) => {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PHP' }).format(parseInt(amount) / 100);
-    }
+    const formatCurrency = (amount: number | string) => {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PHP' }).format(Number(amount));
+    };
 
     const fetchProject = async () => {
         setLoading(true);
@@ -106,9 +97,7 @@ export default function ProjectPage() {
             }
 
             const data = await response.json();
-            console.log(data as Project);
             setProject(data);
-            setBidPercentage(data.bidPercentage);
         } catch (error) {
             console.error("Error fetching project:", error);
             toast.error("Failed to load project");
@@ -185,29 +174,6 @@ export default function ProjectPage() {
         return `${address.houseNo} ${address.street} ${address.subdivision} ${address.cityMunicipality} ${address.province} ${address.region} ${address.barangay}`;
     }
 
-    const handleBidPercentageChange = async (value: string) => {
-        const oldValue = bidPercentage;
-
-        // Optimistic update
-        setBidPercentage(value);
-        setProject(prev => prev ? { ...prev, bidPercentage: value } : null);
-
-        try {
-            const response = await fetch(`/api/projects/${id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ bidPercentage: value }),
-            });
-
-            if (!response.ok) throw new Error("Failed to update");
-            toast.success("Bid percentage updated");
-        } catch {
-            // Revert on error
-            setBidPercentage(oldValue);
-            setProject(prev => prev ? { ...prev, bidPercentage: oldValue } : null);
-            toast.error("Failed to update bid percentage");
-        }
-    };
 
     // Render the actual project data
     return (
@@ -256,39 +222,30 @@ export default function ProjectPage() {
                                 </div>
                                 <div className="flex justify-between items-start gap-2">
                                     <h1 className="text-sm font-medium text-muted-foreground">Approved Budget</h1>
-                                    <h1 className="text-md font-medium">{formatCurrency(project.approvedBudgetCost || "0")}</h1>
+                                    <h1 className="text-md font-medium">{formatCurrency(project.approvedBudget || 0)}</h1>
                                 </div>
                                 <div className="flex justify-between items-center gap-2 py-2">
                                     <h1 className="text-sm font-medium text-muted-foreground">Status:</h1>
-                                    <h1>{project.lifecycles[0].lifecycleStage.name}</h1>
+                                    <h1>{project.workflowstage.name}</h1>
                                 </div>
-                                {project.lifecycles[0].lifecycleStage.code != "QUOTE" && (
                                 <div className="flex justify-between items-center gap-2 py-2">
-                                    <h1 className="text-sm font-medium text-muted-foreground">Bid Percentage</h1>
-                                    <Field
-                                        type="number"
-                                        value={bidPercentage}
-                                        onChange={(value) => handleBidPercentageChange(value.toString())}
-                                        className="text-md font-medium text-center w-20"
-                                        min={0}
-                                        max={100}
-                                        />
-                                    </div>
-                                )}
+                                    <h1 className="text-sm font-medium text-muted-foreground">Workflow:</h1>
+                                    <h1>{project.workflow.name}</h1>
+                                </div>
                                 
                             </div>
                         </div>
                     </div>
 
-                    {project.lifecycles[0].lifecycleStage.code === "PR" && (
+                    {project.workflowstage.code === "PR" && (
                         <BudgetAllocationCard />
                     )}
 
                     <QuotationCard
-                        projectId={project.id}
-                        bidPercentage={parseInt(bidPercentage)}
+                        projectId={String(project.id)}
+                        bidPercentage={bidPercentage}
                         clientDetails={project.company.companyProponents.map(proponent => ({
-                            id: project.company.id,
+                            id: String(project.company.id),
                             companyName: project.company.companyName,
                             tinNumber: project.company.tinNumber || "",
                             address: constructAddress(project.company.companyAddresses[0]),
@@ -296,7 +253,7 @@ export default function ProjectPage() {
                             contactNumber: proponent.contactNumber,
                             email: null,
                         }))}
-                        approvedBudget={parseInt(project.approvedBudgetCost || "0")}
+                        approvedBudget={Number(project.approvedBudget) || 0}
                         initialData={quotationInitialData}
                     />
                 </TabsContent>

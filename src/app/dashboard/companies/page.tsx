@@ -1,34 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import useSWR, { mutate } from "swr";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, Plus, Search, Edit, Trash2, MapPin, Users } from "lucide-react";
+import { Plus, Loader2, Check, X } from "lucide-react";
 import { toast } from "sonner";
-import { AddressSheet } from "@/components/modals/AddressSheet";
-import { ProponentSheet } from "@/components/modals/ProponentSheet";
-
-interface Company {
-  id: string;
-  companyName: string;
-  tinNumber?: string;
-  type: 'client' | 'supplier' | 'internal' | 'vendor';
-  companyAddresses?: CompanyAddress[];
-  companyProponents?: CompanyProponent[];
-  _count?: {
-    projects: number;
-    companyAddresses: number;
-    companyProponents: number;
-  };
-}
+import { Skeleton } from "@/components/ui/skeleton";
+import { Field } from "@/components/ui/field";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { apiFetch } from "@/lib/api";
 
 interface CompanyAddress {
-  id: string;
-  companyId: string;
+  id: number;
+  companyId: number;
   houseNo: string;
   street: string;
   subdivision?: string;
@@ -39,779 +25,335 @@ interface CompanyAddress {
 }
 
 interface CompanyProponent {
-  id: string;
-  companyId: string;
+  id: number;
+  companyId: number;
   contactPerson: string;
   contactNumber: string;
 }
 
-const CompanyForm = ({ company, onSave, onCancel }: {
-  company?: Company;
-  onSave: (data: { companyName: string; tinNumber?: string; type: 'client' | 'supplier' | 'internal' | 'vendor' }) => void;
-  onCancel: () => void;
-}) => {
-  const [formData, setFormData] = useState({
-    companyName: company?.companyName || '',
-    tinNumber: company?.tinNumber || '',
-    type: company?.type || 'client' as const,
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.companyName || !formData.type) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    onSave(formData);
+interface Company {
+  id: number;
+  companyName: string;
+  tinNumber: string;
+  isClient: boolean;
+  isSupplier: boolean;
+  isVendor: boolean;
+  isInternal: boolean;
+  companyAddresses: CompanyAddress[];
+  companyProponents: CompanyProponent[];
+  _count: {
+    projects: number;
+    companyAddresses: number;
+    companyProponents: number;
   };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="text-sm font-medium">Company Name *</label>
-        <Input
-          value={formData.companyName}
-          onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-          placeholder="Enter company name"
-          required
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium">TIN Number</label>
-        <Input
-          value={formData.tinNumber}
-          onChange={(e) => setFormData({ ...formData, tinNumber: e.target.value })}
-          placeholder="Enter TIN number"
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium">Company Type *</label>
-        <select
-          value={formData.type}
-          onChange={(e) => setFormData({ ...formData, type: e.target.value as 'client' | 'supplier' | 'internal' | 'vendor' })}
-          className="w-full p-2 border border-gray-300 rounded-md"
-          required
-        >
-          <option value="client">Client</option>
-          <option value="supplier">Supplier</option>
-          <option value="internal">Internal</option>
-          <option value="vendor">Vendor</option>
-        </select>
-      </div>
-      <div className="flex gap-2 pt-4">
-        <Button type="submit" className="flex-1">
-          {company ? 'Update' : 'Create'} Company
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-const AddressForm = ({ address, companyId, onSave, onCancel }: {
-  address?: CompanyAddress;
-  companyId: string;
-  onSave: (data: { house_no: string; street: string; subdivision?: string; region: string; province: string; city_municipality: string; barangay: string; company_id: string }) => void;
-  onCancel: () => void;
-}) => {
-  const [formData, setFormData] = useState({
-    houseNo: address?.houseNo || '',
-    street: address?.street || '',
-    subdivision: address?.subdivision || '',
-    region: address?.region || '',
-    province: address?.province || '',
-    cityMunicipality: address?.cityMunicipality || '',
-    barangay: address?.barangay || '',
-  });
-
-  const [regions, setRegions] = useState<Array<{ code: string; name: string }>>([]);
-  const [provinces, setProvinces] = useState<Array<{ code: string; name: string }>>([]);
-  const [cities, setCities] = useState<Array<{ code: string; name: string }>>([]);
-  const [barangays, setBarangays] = useState<Array<{ code: string; name: string }>>([]);
-  const [loading, setLoading] = useState({ regions: false, provinces: false, cities: false, barangays: false });
-
-  useEffect(() => {
-    // Fetch regions on mount
-    const loadRegions = async () => {
-      setLoading(prev => ({ ...prev, regions: true }));
-      try {
-        const response = await fetch('https://psgc.gitlab.io/api/regions');
-        const data = await response.json();
-        setRegions(data);
-      } catch (error) {
-        console.error('Error loading regions:', error);
-        toast.error('Failed to load regions');
-      } finally {
-        setLoading(prev => ({ ...prev, regions: false }));
-      }
-    };
-    loadRegions();
-  }, []);
-
-  const handleRegionChange = async (regionName: string) => {
-    setFormData({ ...formData, region: regionName, province: '', cityMunicipality: '', barangay: '' });
-    setProvinces([]);
-    setCities([]);
-    setBarangays([]);
-
-    const selectedRegion = regions.find(r => r.name === regionName);
-    if (!selectedRegion) return;
-
-    // NCR doesn't have provinces, only cities/municipalities
-    if (regionName === 'National Capital Region (NCR)' || selectedRegion.code === '130000000') {
-      setLoading(prev => ({ ...prev, cities: true }));
-      try {
-        const response = await fetch(`https://psgc.gitlab.io/api/regions/${selectedRegion.code}/cities-municipalities`);
-        const data = await response.json();
-        setCities(data);
-        // Set province to "Metro Manila" for NCR
-        setFormData(prev => ({ ...prev, region: regionName, province: 'Metro Manila', cityMunicipality: '', barangay: '' }));
-      } catch (error) {
-        console.error('Error loading cities:', error);
-        toast.error('Failed to load cities');
-      } finally {
-        setLoading(prev => ({ ...prev, cities: false }));
-      }
-      return;
-    }
-
-    setLoading(prev => ({ ...prev, provinces: true }));
-    try {
-      const response = await fetch(`https://psgc.gitlab.io/api/regions/${selectedRegion.code}/provinces`);
-      const data = await response.json();
-      setProvinces(data);
-    } catch (error) {
-      console.error('Error loading provinces:', error);
-      toast.error('Failed to load provinces');
-    } finally {
-      setLoading(prev => ({ ...prev, provinces: false }));
-    }
-  };
-
-  const handleProvinceChange = async (provinceName: string) => {
-    setFormData({ ...formData, province: provinceName, cityMunicipality: '', barangay: '' });
-    setCities([]);
-    setBarangays([]);
-
-    const selectedProvince = provinces.find(p => p.name === provinceName);
-    if (!selectedProvince) return;
-
-    setLoading(prev => ({ ...prev, cities: true }));
-    try {
-      const response = await fetch(`https://psgc.gitlab.io/api/provinces/${selectedProvince.code}/cities-municipalities`);
-      const data = await response.json();
-      setCities(data);
-    } catch (error) {
-      console.error('Error loading cities:', error);
-      toast.error('Failed to load cities');
-    } finally {
-      setLoading(prev => ({ ...prev, cities: false }));
-    }
-  };
-
-  const handleCityChange = async (cityName: string) => {
-    setFormData({ ...formData, cityMunicipality: cityName, barangay: '' });
-    setBarangays([]);
-
-    const selectedCity = cities.find(c => c.name === cityName);
-    if (!selectedCity) return;
-
-    setLoading(prev => ({ ...prev, barangays: true }));
-    try {
-      const response = await fetch(`https://psgc.gitlab.io/api/cities-municipalities/${selectedCity.code}/barangays`);
-      const data = await response.json();
-      setBarangays(data);
-    } catch (error) {
-      console.error('Error loading barangays:', error);
-      toast.error('Failed to load barangays');
-    } finally {
-      setLoading(prev => ({ ...prev, barangays: false }));
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.houseNo || !formData.street || !formData.region || !formData.province || !formData.cityMunicipality || !formData.barangay) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    onSave({
-      house_no: formData.houseNo,
-      street: formData.street,
-      subdivision: formData.subdivision,
-      region: formData.region,
-      province: formData.province,
-      city_municipality: formData.cityMunicipality,
-      barangay: formData.barangay,
-      company_id: companyId
-    });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="text-sm font-medium">House No *</label>
-        <Input
-          value={formData.houseNo}
-          onChange={(e) => setFormData({ ...formData, houseNo: e.target.value })}
-          placeholder="Enter house number"
-          required
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium">Street *</label>
-        <Input
-          value={formData.street}
-          onChange={(e) => setFormData({ ...formData, street: e.target.value })}
-          placeholder="Enter street"
-          required
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium">Subdivision</label>
-        <Input
-          value={formData.subdivision}
-          onChange={(e) => setFormData({ ...formData, subdivision: e.target.value })}
-          placeholder="Enter subdivision"
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium">Region *</label>
-        <select
-          value={formData.region}
-          onChange={(e) => handleRegionChange(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-md"
-          required
-          disabled={loading.regions}
-        >
-          <option value="">Select Region</option>
-          {regions.map((region) => (
-            <option key={region.code} value={region.name}>{region.name}</option>
-          ))}
-        </select>
-      </div>
-      {formData.region !== 'NCR' && (
-      <div>
-        <label className="text-sm font-medium">Province *</label>
-        <select
-          value={formData.province}
-          onChange={(e) => handleProvinceChange(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-md"
-          required
-          disabled={loading.provinces || !formData.region}
-        >
-          <option value="">Select Province</option>
-          {provinces.map((province) => (
-            <option key={province.code} value={province.name}>{province.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-      <div>
-        <label className="text-sm font-medium">City/Municipality *</label>
-        <select
-          value={formData.cityMunicipality}
-          onChange={(e) => handleCityChange(e.target.value)}
-          className="w-full p-2 border border-gray-300 rounded-md"
-          required
-          disabled={loading.cities || !formData.province}
-        >
-          <option value="">Select City/Municipality</option>
-          {cities.map((city) => (
-            <option key={city.code} value={city.name}>{city.name}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="text-sm font-medium">Barangay *</label>
-        <select
-          value={formData.barangay}
-          onChange={(e) => setFormData({ ...formData, barangay: e.target.value })}
-          className="w-full p-2 border border-gray-300 rounded-md"
-          required
-          disabled={loading.barangays || !formData.cityMunicipality}
-        >
-          <option value="">Select Barangay</option>
-          {barangays.map((barangay) => (
-            <option key={barangay.code} value={barangay.name}>{barangay.name}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex gap-2 pt-4">
-        <Button type="submit" className="flex-1">
-          {address ? 'Update' : 'Add'} Address
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </form>
-  );
-};
-
-const ProponentForm = ({ proponent, companyId, onSave, onCancel }: {
-  proponent?: CompanyProponent;
-  companyId: string;
-  onSave: (data: { company_id: string; contact_person: string; contact_number: string }) => void;
-  onCancel: () => void;
-}) => {
-  const [formData, setFormData] = useState({
-    contactPerson: proponent?.contactPerson || '',
-    contactNumber: proponent?.contactNumber || '',
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.contactPerson || !formData.contactNumber) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    onSave({ company_id: companyId, contact_person: formData.contactPerson, contact_number: formData.contactNumber });
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="text-sm font-medium">Contact Person *</label>
-        <Input
-          value={formData.contactPerson}
-          onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-          placeholder="Enter contact person name"
-          required
-        />
-      </div>
-      <div>
-        <label className="text-sm font-medium">Contact Number *</label>
-        <Input
-          value={formData.contactNumber}
-          onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-          placeholder="Enter contact number"
-          required
-        />
-      </div>
-      <div className="flex gap-2 pt-4">
-        <Button type="submit" className="flex-1">
-          {proponent ? 'Update' : 'Add'} Proponent
-        </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </form>
-  );
-};
+}
 
 export default function CompaniesPage() {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isCompanyFormOpen, setIsCompanyFormOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<Company | undefined>();
+  const { data: companies, error, isLoading } = useSWR<Company[]>("/api/companies");
+  const [isAddingCompany, setIsAddingCompany] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [newCompany, setNewCompany] = useState({
+    companyName: "",
+    tinNumber: "",
+    isClient: true,
+    isSupplier: false,
+    isVendor: false,
+    isInternal: false,
+  });
 
-  const fetchCompanies = async () => {
+  const handleSubmitCompany = async () => {
+    if (!newCompany.companyName) {
+      toast.error("Please fill in company name");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      setLoading(true);
-      const response = await fetch('/api/companies');
-      if (!response.ok) {
-        throw new Error('Failed to fetch companies');
-      }
-      const data = await response.json();
-      setCompanies(data);
+      const created = await apiFetch<Company>("/api/companies", {
+        method: "POST",
+        body: JSON.stringify(newCompany),
+      });
+
+      await mutate("/api/companies", [...(companies || []), created], false);
+      setIsAddingCompany(false);
+      setNewCompany({ companyName: "", tinNumber: "", isClient: true, isSupplier: false, isVendor: false, isInternal: false });
+      toast.success("Company created successfully");
     } catch (error) {
-      console.error('Error fetching companies:', error);
-      toast.error('Failed to fetch companies');
+      toast.error(error instanceof Error ? error.message : "Failed to create company");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
-
-  const handleCreateCompany = async (data: { companyName: string; tinNumber?: string; type: string }) => {
-    try {
-      const response = await fetch('/api/companies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: data.companyName,
-          tin_number: data.tinNumber,
-          type: data.type,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create company');
-      }
-
-      toast.success('Company created successfully');
-      setIsCompanyFormOpen(false);
-      setEditingCompany(undefined);
-      fetchCompanies();
-    } catch (error) {
-      console.error('Error creating company:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create company');
-    }
-  };
-
-  const handleUpdateCompany = async (data: { companyName: string; tinNumber?: string; type: string }) => {
-    if (!editingCompany) return;
-
-    try {
-      const response = await fetch('/api/companies', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingCompany.id,
-          company_name: data.companyName,
-          tin_number: data.tinNumber,
-          type: data.type,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update company');
-      }
-
-      toast.success('Company updated successfully');
-      setIsCompanyFormOpen(false);
-      setEditingCompany(undefined);
-      fetchCompanies();
-    } catch (error) {
-      console.error('Error updating company:', error);
-      toast.error('Failed to update company');
-    }
-  };
-
-  const handleDeleteCompany = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this company? This will also delete all associated addresses and proponents.')) return;
-
-    try {
-      const response = await fetch(`/api/companies?id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete company');
-      }
-
-      toast.success('Company deleted successfully');
-      fetchCompanies();
-    } catch (error) {
-      console.error('Error deleting company:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to delete company');
-    }
-  };
-
-  const handleCreateAddress = async (data: Partial<CompanyAddress>) => {
-    try {
-      const response = await fetch('/api/addresses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create address');
-      }
-
-      toast.success('Address created successfully');
-      fetchCompanies();
-    } catch (error) {
-      console.error('Error creating address:', error);
-      toast.error('Failed to create address');
-    }
-  };
-
-  const handleUpdateAddress = async (data: Partial<CompanyAddress> & { id?: string }) => {
-    try {
-      const response = await fetch('/api/addresses', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update address');
-      }
-
-      toast.success('Address updated successfully');
-      fetchCompanies();
-    } catch (error) {
-      console.error('Error updating address:', error);
-      toast.error('Failed to update address');
-    }
-  };
-
-  const handleDeleteAddress = async (id: string) => {
-    try {
-      const response = await fetch(`/api/addresses?id=${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete address');
-      }
-    } catch (error) {
-      console.error('Error deleting address:', error);
-      toast.error('Failed to delete address');
-    } finally {
-      toast.success('Address deleted successfully');
-      fetchCompanies();
-    }
-  };
-
-  const handleCreateProponent = async (data: Partial<CompanyProponent>) => {
-    try {
-      const response = await fetch('/api/proponents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create proponent');
-      }
-
-      toast.success('Proponent created successfully');
-      fetchCompanies();
-    } catch (error) {
-      console.error('Error creating proponent:', error);
-      toast.error('Failed to create proponent');
-    }
-  };
-
-  const handleUpdateProponent = async (data: Partial<CompanyProponent> & { id?: string }) => {
-    try {
-      const response = await fetch('/api/proponents', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update proponent');
-      }
-
-      toast.success('Proponent updated successfully');
-      fetchCompanies();
-    } catch (error) {
-      console.error('Error updating proponent:', error);
-      toast.error('Failed to update proponent');
-    }
-  };
-
-  const handleDeleteProponent = async (id: string) => {
-    try {
-      const response = await fetch(`/api/proponents?id=${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete proponent');
-      }
-    } catch (error) {
-      console.error('Error deleting proponent:', error);
-      toast.error('Failed to delete proponent');
-    } finally {
-      toast.success('Proponent deleted successfully');
-      fetchCompanies();
-    }
-  };
-
-  const filteredCompanies = companies.filter(company =>
-    company.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (company.tinNumber && company.tinNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'client': return 'bg-blue-100 text-blue-800';
-      case 'supplier': return 'bg-green-100 text-green-800';
-      case 'internal': return 'bg-purple-100 text-purple-800';
-      case 'vendor': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center text-red-600">Failed to load companies</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Building2 className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold">Company Management</h1>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Company Management</h1>
+          <p className="text-muted-foreground">Manage companies, addresses, and proponents</p>
         </div>
-        <Sheet open={isCompanyFormOpen} onOpenChange={setIsCompanyFormOpen}>
-          <SheetTrigger asChild>
-            <Button onClick={() => setEditingCompany(undefined)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Company
-            </Button>
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>{editingCompany ? 'Edit Company' : 'Add New Company'}</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
-              <CompanyForm
-                company={editingCompany}
-                onSave={editingCompany ? handleUpdateCompany : handleCreateCompany}
-                onCancel={() => {
-                  setIsCompanyFormOpen(false);
-                  setEditingCompany(undefined);
-                }}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
+        {!isAddingCompany && (
+          <Button onClick={() => setIsAddingCompany(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Company
+          </Button>
+        )}
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search companies..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid gap-2">
-          {filteredCompanies.map((company) => (
-            <div key={company.id} className="border rounded-lg p-6 space-y-4">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-semibold">{company.companyName} {company.id}</h3>
-                    <Badge className={getTypeColor(company.type)}>
-                      {company.type}
-                    </Badge>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Company Name</TableHead>
+              <TableHead>TIN</TableHead>
+              <TableHead>Roles</TableHead>
+              <TableHead>Projects</TableHead>
+              <TableHead>Addresses</TableHead>
+              <TableHead>Proponents</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {/* Add Company Row */}
+            {isAddingCompany && (
+              <TableRow className="bg-muted/50">
+                <TableCell>
+                  <Input
+                    value={newCompany.companyName}
+                    onChange={(e) => setNewCompany({ ...newCompany, companyName: e.target.value })}
+                    disabled={isSubmitting}
+                    className="h-8"
+                    placeholder="Company name"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={newCompany.tinNumber}
+                    onChange={(e) => setNewCompany({ ...newCompany, tinNumber: e.target.value })}
+                    disabled={isSubmitting}
+                    className="h-8"
+                    placeholder="TIN"
+                  />
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2 flex-wrap text-xs">
+                    <label className="flex items-center gap-1 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={newCompany.isClient}
+                        onChange={(e) => setNewCompany({ ...newCompany, isClient: e.target.checked })}
+                        disabled={isSubmitting}
+                        className="h-3 w-3"
+                      />
+                      Client
+                    </label>
+                    <label className="flex items-center gap-1 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={newCompany.isSupplier}
+                        onChange={(e) => setNewCompany({ ...newCompany, isSupplier: e.target.checked })}
+                        disabled={isSubmitting}
+                        className="h-3 w-3"
+                      />
+                      Supplier
+                    </label>
+                    <label className="flex items-center gap-1 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={newCompany.isVendor}
+                        onChange={(e) => setNewCompany({ ...newCompany, isVendor: e.target.checked })}
+                        disabled={isSubmitting}
+                        className="h-3 w-3"
+                      />
+                      Vendor
+                    </label>
+                    <label className="flex items-center gap-1 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={newCompany.isInternal}
+                        onChange={(e) => setNewCompany({ ...newCompany, isInternal: e.target.checked })}
+                        disabled={isSubmitting}
+                        className="h-3 w-3"
+                      />
+                      Internal
+                    </label>
                   </div>
-                  {company.tinNumber && (
-                    <p className="text-sm text-gray-600">TIN: {company.tinNumber}</p>
-                  )}
-                  {company._count && (
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Building2 className="h-4 w-4" />
-                        {company._count.projects} projects
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-4 w-4" />
-                        {company._count.companyAddresses} addresses
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        {company._count.companyProponents} proponents
-                      </span>
+                </TableCell>
+                <TableCell>0</TableCell>
+                <TableCell>0</TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleSubmitCompany}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4 text-green-600" />
+                      )}
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        setIsAddingCompany(false);
+                        setNewCompany({ companyName: "", tinNumber: "", isClient: true, isSupplier: false, isVendor: false, isInternal: false });
+                      }}
+                      disabled={isSubmitting}
+                    >
+                      <X className="h-4 w-4 text-red-600" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            )}
+
+            {/* Loading State */}
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                </TableRow>
+              ))
+            ) : !companies || companies.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  No companies found. Click &quot;Add Company&quot; to create one.
+                </TableCell>
+              </TableRow>
+            ) : (
+              companies.map((company) => (
+                <TableRow
+                  key={company.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => setSelectedCompany(company)}
+                >
+                  <TableCell className="font-medium">{company.companyName}</TableCell>
+                  <TableCell>{company.tinNumber}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-1 flex-wrap">
+                      {company.isClient && <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">Client</span>}
+                      {company.isSupplier && <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">Supplier</span>}
+                      {company.isVendor && <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">Vendor</span>}
+                      {company.isInternal && <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">Internal</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell>{company._count.projects}</TableCell>
+                  <TableCell>{company._count.companyAddresses}</TableCell>
+                  <TableCell>{company._count.companyProponents}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Company Detail Sheet */}
+      <Sheet open={!!selectedCompany} onOpenChange={(open) => !open && setSelectedCompany(null)}>
+        <SheetContent className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+          {selectedCompany && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{selectedCompany.companyName}</SheetTitle>
+              </SheetHeader>
+              <div className="mt-6 space-y-6">
+                {/* Company Details */}
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm">Company Details</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Company Name</label>
+                      <div className="text-sm font-medium">{selectedCompany.companyName}</div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">TIN</label>
+                      <div className="text-sm font-medium">{selectedCompany.tinNumber || "N/A"}</div>
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Roles</label>
+                      <div className="flex gap-1 flex-wrap mt-1">
+                        {selectedCompany.isClient && <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">Client</span>}
+                        {selectedCompany.isSupplier && <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">Supplier</span>}
+                        {selectedCompany.isVendor && <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">Vendor</span>}
+                        {selectedCompany.isInternal && <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">Internal</span>}
+                        {!selectedCompany.isClient && !selectedCompany.isSupplier && !selectedCompany.isVendor && !selectedCompany.isInternal && (
+                          <span className="text-xs text-muted-foreground">No roles assigned</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Addresses */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-sm">Addresses</h3>
+                    <Button size="sm" variant="outline">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  {selectedCompany.companyAddresses.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No addresses added</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedCompany.companyAddresses.map((address) => (
+                        <div key={address.id} className="p-3 border rounded-lg text-sm">
+                          <div>
+                            {address.houseNo} {address.street} {address.subdivision && `, ${address.subdivision}`}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {address.barangay}, {address.cityMunicipality}, {address.province}, {address.region}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditingCompany(company);
-                      setIsCompanyFormOpen(true);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteCompany(company.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+
+                {/* Proponents */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-sm">Proponents</h3>
+                    <Button size="sm" variant="outline">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                  {selectedCompany.companyProponents.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No proponents added</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {selectedCompany.companyProponents.map((proponent) => (
+                        <div key={proponent.id} className="p-3 border rounded-lg">
+                          <div className="text-sm font-medium">{proponent.contactPerson}</div>
+                          <div className="text-sm text-muted-foreground">{proponent.contactNumber}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              <Tabs defaultValue="addresses" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="addresses">Addresses</TabsTrigger>
-                  <TabsTrigger value="proponents">Proponents</TabsTrigger>
-                  <TabsTrigger value="details">Details</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="addresses" className="space-y-4">
-                  <AddressSheet
-                    companyId={company.id}
-                    addresses={company.companyAddresses || []}
-                    onAddressCreated={fetchCompanies}
-                    onAddressUpdated={fetchCompanies}
-                    AddressForm={AddressForm}
-                    handleCreateAddress={handleCreateAddress}
-                    handleUpdateAddress={handleUpdateAddress}
-                    handleDeleteAddress={handleDeleteAddress}
-                  />
-                </TabsContent>
-
-                <TabsContent value="proponents" className="space-y-4">
-                  <ProponentSheet
-                    companyId={company.id}
-                    proponents={company.companyProponents || []}
-                    onProponentCreated={fetchCompanies}
-                    onProponentUpdated={fetchCompanies}
-                    ProponentForm={ProponentForm}
-                    handleCreateProponent={handleCreateProponent}
-                    handleUpdateProponent={handleUpdateProponent}
-                    handleDeleteProponent={handleDeleteProponent}
-                  />
-                </TabsContent>
-
-                <TabsContent value="details" className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Company ID</label>
-                      <p className="text-sm">{company.id}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Type</label>
-                      <p className="text-sm capitalize">{company.type}</p>
-                    </div>
-                    {company.tinNumber && (
-                      <div>
-                        <label className="text-sm font-medium text-gray-600">TIN Number</label>
-                        <p className="text-sm">{company.tinNumber}</p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!loading && filteredCompanies.length === 0 && (
-        <div className="text-center py-12">
-          <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No companies found</h3>
-          <p className="text-gray-500 mb-4">
-            {searchTerm ? 'Try adjusting your search terms' : 'Get started by adding your first company'}
-          </p>
-          {!searchTerm && (
-            <Button onClick={() => setIsCompanyFormOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Company
-            </Button>
+            </>
           )}
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

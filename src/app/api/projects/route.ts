@@ -33,21 +33,16 @@ export async function GET(request: NextRequest) {
     const company_id = searchParams.get('company_id');
 
     const projects = await prisma.project.findMany({
-      where: company_id ? { companyId: BigInt(company_id) } : undefined,
-      include: {
-        company: true,
-      },
-      orderBy: {
-        id: 'desc',
-      },
+      where: company_id ? { companyId: Number(company_id) } : undefined,
+      include: { company: true, workflow: true, workflowstage: true },
+      orderBy: { id: 'desc' },
     });
 
     const serializedProjects = projects.map((project) => ({
-      ...(serializeProject(project) as Record<string, unknown>),
-      company: {
-        ...project.company,
-        id: project.company.id.toString(),
-      },
+      ...project,
+      company: project.company,
+      workflow: project.workflow,
+      workflowstage: project.workflowstage,
     }));
 
     return NextResponse.json(serializedProjects);
@@ -64,72 +59,36 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    // Validate required fields
-    if (!body.company_id || !body.code || !body.description) {
-      return NextResponse.json(
-        { error: 'Missing required fields: company_id, code, description' },
-        { status: 400 }
-      );
-    }
-
-    // Get the purchasing template by name
-    const purchasingTemplate = await prisma.lifecycleTemplate.findFirst({
-      where: { name: 'Purchasing' },
-      include: {
-        lifecycleStages: {
-          orderBy: { order: 'asc' },
-          take: 1,
-        },
-      },
-    });
-
-    if (!purchasingTemplate || purchasingTemplate.lifecycleStages.length === 0) {
-      console.error('Purchasing template not found or has no stages');
-      return NextResponse.json(
-        { error: 'Purchasing template not found. Please create a lifecycle template named "Purchasing" with stages configured in /dashboard/lifecycle-templates.' },
-        { status: 500 }
-      );
-    }
-
-    const firstStage = purchasingTemplate.lifecycleStages[0];
-    console.log('Creating project with lifecycle, template:', purchasingTemplate.id.toString(), 'first stage:', firstStage.id.toString());
-
-    // Create project with initial lifecycle
-    const project = await prisma.project.create({
-      data: {
-        companyId: BigInt(body.company_id),
-        code: body.code,
-        description: body.description,
-        approvedBudgetCost: body.approved_budget_cost ? BigInt(body.approved_budget_cost) : null,
-        lifecycles: {
-          create: {
-            templateId: purchasingTemplate.id,
-            stageId: firstStage.id,
-            status: 'TO_BID',
-          },
-        },
-      },
-      include: {
-        company: true,
-        lifecycles: {
-          include: {
-            lifecycleStage: true,
-            lifecycleTemplate: true,
-          },
-        },
-      },
-    });
-
-    const serializedProject = {
-      ...(serializeProject(project) as Record<string, unknown>),
-      company: {
-        ...project.company,
-        id: project.company.id.toString(),
-      },
+    const { companyId, code, description, approvedBudget, workflowTemplateId } = body as {
+      companyId: number; code: string; description: string; approvedBudget?: number; workflowTemplateId: number;
     };
 
-    return NextResponse.json(serializedProject, { status: 201 });
+    if (!companyId || !code || !description || !workflowTemplateId) {
+      return NextResponse.json({ error: 'Missing required fields: companyId, code, description, workflowTemplateId' }, { status: 400 });
+    }
+
+    const firstStage = await prisma.workflowStage.findFirst({
+      where: { templateId: workflowTemplateId },
+      orderBy: { order: 'asc' },
+    });
+
+    if (!firstStage) {
+      return NextResponse.json({ error: 'Workflow template has no stages' }, { status: 400 });
+    }
+
+    const project = await prisma.project.create({
+      data: {
+        companyId,
+        code,
+        description,
+        approvedBudget: approvedBudget ?? 0,
+        workflowId: workflowTemplateId,
+        workflowStageId: firstStage.id,
+      },
+      include: { company: true, workflow: true, workflowstage: true },
+    });
+
+    return NextResponse.json(project, { status: 201 });
   } catch (error) {
     console.error('Error creating project:', error);
     return NextResponse.json(
@@ -152,30 +111,20 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Convert snake_case to camelCase and BigInt fields
     const mappedData: Record<string, unknown> = {};
-    if (updateData.company_id !== undefined) mappedData.companyId = BigInt(updateData.company_id);
+    if (updateData.companyId !== undefined) mappedData.companyId = Number(updateData.companyId);
     if (updateData.code !== undefined) mappedData.code = updateData.code;
     if (updateData.description !== undefined) mappedData.description = updateData.description;
-    if (updateData.approved_budget_cost !== undefined) mappedData.approvedBudgetCost = BigInt(updateData.approved_budget_cost);
+    if (updateData.approvedBudget !== undefined) mappedData.approvedBudget = Number(updateData.approvedBudget);
+    if (updateData.workflowStageId !== undefined) mappedData.workflowStageId = Number(updateData.workflowStageId);
 
     const project = await prisma.project.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: mappedData,
-      include: {
-        company: true,
-      },
+      include: { company: true, workflow: true, workflowstage: true },
     });
 
-    const serializedProject = {
-      ...(serializeProject(project) as Record<string, unknown>),
-      company: {
-        ...project.company,
-        id: project.company.id.toString(),
-      },
-    };
-
-    return NextResponse.json(serializedProject);
+    return NextResponse.json(project);
   } catch (error) {
     console.error('Error updating project:', error);
     return NextResponse.json(
@@ -198,9 +147,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.project.delete({
-      where: { id: BigInt(id) },
-    });
+    await prisma.project.delete({ where: { id: Number(id) } });
 
     return NextResponse.json({ message: 'Project deleted successfully' });
   } catch (error) {

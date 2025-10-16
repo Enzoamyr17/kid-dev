@@ -34,9 +34,7 @@ export async function GET(request: NextRequest) {
   try {
     const products = await prisma.product.findMany({
       where: active ? { isActive: true } : undefined,
-      orderBy: {
-        id: 'desc',
-      },
+      orderBy: { id: 'desc' },
     });
 
     const serializedProducts = products.map(serializeProduct);
@@ -106,7 +104,7 @@ export async function PATCH(request: NextRequest) {
     if (updateData.is_active !== undefined) mappedData.isActive = updateData.is_active;
 
     const product = await prisma.product.update({
-      where: { id: id },
+      where: { id: Number(id) },
       data: mappedData,
     });
 
@@ -133,9 +131,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.product.delete({
-      where: { id: id },
-    });
+    await prisma.product.delete({ where: { id: Number(id) } });
 
     return NextResponse.json({ message: 'Product deleted successfully' });
   } catch (error) {

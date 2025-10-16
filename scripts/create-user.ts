@@ -28,12 +28,7 @@ async function createUser() {
         email,
         password: hashedPassword,
         firstName: "Gregorio",
-        secondName: "",
-        middleName: "",
         lastName: "Renzo",
-        birthdate,
-        contact: "",
-        emailVerified: new Date(), // Auto-verify for script-created user
       },
     });
 

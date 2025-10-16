@@ -50,8 +50,7 @@ export async function GET() {
 
     console.log('Companies fetched:', companies.length);
 
-    const serializedCompanies = companies.map(serializeCompany);
-    return NextResponse.json(serializedCompanies);
+    return NextResponse.json(companies);
   } catch (error) {
     console.error('Error fetching companies:', error);
     return NextResponse.json(
@@ -66,24 +65,32 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.company_name || !body.type) {
+    const companyName = body.companyName ?? body.company_name;
+    const tinNumber = body.tinNumber ?? body.tin_number ?? '';
+    const isClient = body.isClient ?? body.is_client ?? false;
+    const isSupplier = body.isSupplier ?? body.is_supplier ?? false;
+    const isVendor = body.isVendor ?? body.is_vendor ?? false;
+    const isInternal = body.isInternal ?? body.is_internal ?? false;
+
+    if (!companyName) {
       return NextResponse.json(
-        { error: 'Missing required fields: company_name, type' },
+        { error: 'Missing required field: companyName' },
         { status: 400 }
       );
     }
 
     const company = await prisma.company.create({
       data: {
-        companyName: body.company_name,
-        tinNumber: body.tin_number,
-        type: body.type,
+        companyName,
+        tinNumber,
+        isClient,
+        isSupplier,
+        isVendor,
+        isInternal,
       },
     });
 
-    const serializedCompany = serializeCompany(company);
-    return NextResponse.json(serializedCompany, { status: 201 });
+    return NextResponse.json(company, { status: 201 });
   } catch (error) {
     console.error('Error creating company:', error);
     return NextResponse.json(
@@ -106,19 +113,26 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Convert snake_case to camelCase
     const mappedData: Record<string, unknown> = {};
+    if (updateData.companyName !== undefined) mappedData.companyName = updateData.companyName;
     if (updateData.company_name !== undefined) mappedData.companyName = updateData.company_name;
+    if (updateData.tinNumber !== undefined) mappedData.tinNumber = updateData.tinNumber;
     if (updateData.tin_number !== undefined) mappedData.tinNumber = updateData.tin_number;
-    if (updateData.type !== undefined) mappedData.type = updateData.type;
+    if (updateData.isClient !== undefined) mappedData.isClient = updateData.isClient;
+    if (updateData.is_client !== undefined) mappedData.isClient = updateData.is_client;
+    if (updateData.isSupplier !== undefined) mappedData.isSupplier = updateData.isSupplier;
+    if (updateData.is_supplier !== undefined) mappedData.isSupplier = updateData.is_supplier;
+    if (updateData.isVendor !== undefined) mappedData.isVendor = updateData.isVendor;
+    if (updateData.is_vendor !== undefined) mappedData.isVendor = updateData.is_vendor;
+    if (updateData.isInternal !== undefined) mappedData.isInternal = updateData.isInternal;
+    if (updateData.is_internal !== undefined) mappedData.isInternal = updateData.is_internal;
 
     const company = await prisma.company.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: mappedData,
     });
 
-    const serializedCompany = serializeCompany(company);
-    return NextResponse.json(serializedCompany);
+    return NextResponse.json(company);
   } catch (error) {
     console.error('Error updating company:', error);
     return NextResponse.json(
@@ -141,7 +155,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const companyId = BigInt(id);
+    const companyId = Number(id);
 
     // Delete related records first to avoid foreign key constraint violations
     // Delete addresses
@@ -167,9 +181,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete the company
-    await prisma.company.delete({
-      where: { id: companyId },
-    });
+    await prisma.company.delete({ where: { id: companyId } });
 
     return NextResponse.json({ message: 'Company deleted successfully' });
   } catch (error) {

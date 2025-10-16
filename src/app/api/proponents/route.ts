@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const company_id = searchParams.get('company_id');
 
     const proponents = await prisma.companyProponent.findMany({
-      where: company_id ? { companyId: BigInt(company_id) } : undefined,
+      where: company_id ? { companyId: Number(company_id) } : undefined,
       include: {
         company: true,
       },
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Validate required fields
-    if (!body.company_id || !body.contact_person || !body.contact_number) {
+    if (!(body.companyId ?? body.company_id) || !(body.contactPerson ?? body.contact_person) || !(body.contactNumber ?? body.contact_number)) {
       return NextResponse.json(
         { error: 'Missing required fields: company_id, contact_person, contact_number' },
         { status: 400 }
@@ -75,9 +75,9 @@ export async function POST(request: NextRequest) {
 
     const proponent = await prisma.companyProponent.create({
       data: {
-        companyId: BigInt(body.company_id),
-        contactPerson: body.contact_person,
-        contactNumber: body.contact_number,
+        companyId: Number(body.companyId ?? body.company_id),
+        contactPerson: body.contactPerson ?? body.contact_person,
+        contactNumber: body.contactNumber ?? body.contact_number,
       },
       include: {
         company: true,
@@ -117,12 +117,15 @@ export async function PATCH(request: NextRequest) {
 
     // Convert snake_case to camelCase and BigInt fields
     const mappedData: Record<string, unknown> = {};
-    if (updateData.company_id !== undefined) mappedData.companyId = BigInt(updateData.company_id);
+    if (updateData.companyId !== undefined) mappedData.companyId = Number(updateData.companyId);
+    if (updateData.company_id !== undefined) mappedData.companyId = Number(updateData.company_id);
     if (updateData.contact_person !== undefined) mappedData.contactPerson = updateData.contact_person;
+    if (updateData.contactPerson !== undefined) mappedData.contactPerson = updateData.contactPerson;
     if (updateData.contact_number !== undefined) mappedData.contactNumber = updateData.contact_number;
+    if (updateData.contactNumber !== undefined) mappedData.contactNumber = updateData.contactNumber;
 
     const proponent = await prisma.companyProponent.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: mappedData,
       include: {
         company: true,
@@ -160,9 +163,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.companyProponent.delete({
-      where: { id: BigInt(id) },
-    });
+    await prisma.companyProponent.delete({ where: { id: Number(id) } });
 
     return NextResponse.json({ message: 'Proponent deleted successfully' });
   } catch (error) {

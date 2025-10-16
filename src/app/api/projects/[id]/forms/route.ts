@@ -35,96 +35,62 @@ export async function GET(
     const projectId = BigInt(id);
 
     // Fetch all forms for this project
-    const forms = await prisma.form.findMany({
-      where: {
-        projectId: projectId,
-      },
-      include: {
-        lifecycleStage: true,
-        lifecycle: true,
-        formItems: {
-          include: {
-            product: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    // Group forms by type and fetch related details
-    const groupedForms = {
-      quotations: [] as unknown[],
-      purchaseRequests: [] as unknown[],
-      purchaseOrders: [] as unknown[],
-    };
-
-    for (const form of forms) {
-      const formWithDetails = {
-        ...form,
-        details: null as unknown,
-      };
-
-      if (form.type === 'q') {
-        const quotationDetail = await prisma.quotationDetail.findUnique({
-          where: { id: form.detailId },
-          include: {
-            company: {
-              include: {
-                companyProponents: true,
-                companyAddresses: true,
-              },
+    const [quotationForms, prForms, poForms] = await Promise.all([
+      prisma.quotationForm.findMany({
+        where: { projectId: Number(projectId) },
+        include: {
+          quotationItems: {
+            include: {
+              product: true,
+              supplier: true,
             },
           },
-        });
-        formWithDetails.details = quotationDetail;
-        groupedForms.quotations.push(formWithDetails);
-      } else if (form.type === 'pr') {
-        const prDetail = await prisma.prDetail.findUnique({
-          where: { id: form.detailId },
-          include: {
-            company: true,
+          forCompany: {
+            include: {
+              companyProponents: true,
+              companyAddresses: true,
+            },
           },
-        });
-        formWithDetails.details = prDetail;
-        groupedForms.purchaseRequests.push(formWithDetails);
-      } else if (form.type === 'po') {
-        const poDetail = await prisma.poDetail.findUnique({
-          where: { id: form.detailId },
-          include: {
-            company: true,
+          requestor: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.prForm.findMany({
+        where: { projectId: Number(projectId) },
+        include: {
+          prItems: {
+            include: {
+              product: true,
+              supplier: true,
+            },
           },
-        });
-        formWithDetails.details = poDetail;
-        groupedForms.purchaseOrders.push(formWithDetails);
-      }
-    }
+          forCompany: true,
+          fromSupplier: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.poForm.findMany({
+        where: { projectId: Number(projectId) },
+        include: {
+          poItems: {
+            include: {
+              product: true,
+              supplier: true,
+            },
+          },
+          forCompany: true,
+          fromSupplier: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
-    // Sort each group by their respective code
-    groupedForms.quotations.sort((a: unknown, b: unknown) => {
-      const aForm = a as { details?: { quoteNo?: string } };
-      const bForm = b as { details?: { quoteNo?: string } };
-      const codeA = aForm.details?.quoteNo || '';
-      const codeB = bForm.details?.quoteNo || '';
-      return codeA.localeCompare(codeB);
-    });
-
-    groupedForms.purchaseRequests.sort((a: unknown, b: unknown) => {
-      const aForm = a as { details?: { prNo?: string } };
-      const bForm = b as { details?: { prNo?: string } };
-      const codeA = aForm.details?.prNo || '';
-      const codeB = bForm.details?.prNo || '';
-      return codeA.localeCompare(codeB);
-    });
-
-    groupedForms.purchaseOrders.sort((a: unknown, b: unknown) => {
-      const aForm = a as { details?: { poNo?: bigint } };
-      const bForm = b as { details?: { poNo?: bigint } };
-      const codeA = aForm.details?.poNo?.toString() || '0';
-      const codeB = bForm.details?.poNo?.toString() || '0';
-      return parseInt(codeA) - parseInt(codeB);
-    });
+    // Group forms by type
+    const groupedForms = {
+      quotations: quotationForms,
+      purchaseRequests: prForms,
+      purchaseOrders: poForms,
+    };
 
     // Serialize BigInt values
     const serializedResult = serializeBigInt(groupedForms as unknown as Record<string, unknown>);

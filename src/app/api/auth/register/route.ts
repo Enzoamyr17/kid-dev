@@ -1,35 +1,29 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
+import { z } from "zod";
 
 const prisma = new PrismaClient();
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const {
-      email,
-      password,
-      firstName,
-      secondName,
-      middleName,
-      lastName,
-      birthdate,
-      contact,
-    } = body;
+const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+  firstName: z.string().min(1),
+  secondName: z.string().optional(),
+  middleName: z.string().optional(),
+  lastName: z.string().min(1),
+  birthdate: z.string().optional(),
+  contact: z.string().optional(),
+});
 
-    // Validate required fields
-    if (!email || !password || !firstName || !lastName || !birthdate || !contact) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const validatedData = registerSchema.parse(body);
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: validatedData.email },
     });
 
     if (existingUser) {
@@ -40,49 +34,45 @@ export async function POST(req: NextRequest) {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Generate verification token
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const hashedPassword = await bcrypt.hash(validatedData.password, 10);
 
     // Create user
     const user = await prisma.user.create({
       data: {
-        email,
+        email: validatedData.email,
         password: hashedPassword,
-        firstName,
-        secondName: secondName || "",
-        middleName: middleName || "",
-        lastName,
-        birthdate: new Date(birthdate),
-        contact,
-        emailVerified: null,
-        department: "",
-        position: "",
+        firstName: validatedData.firstName,
+        secondName: validatedData.secondName || null,
+        middleName: validatedData.middleName || null,
+        lastName: validatedData.lastName,
+        birthdate: validatedData.birthdate ? new Date(validatedData.birthdate) : null,
+        contact: validatedData.contact || null,
+        emailVerified: new Date(), // Auto-verify for now
+        isActive: true,
       },
     });
 
-    // Create verification token
-    await prisma.verificationToken.create({
-      data: {
-        identifier: email,
-        token: verificationToken,
-        expires: tokenExpiry,
+    return NextResponse.json(
+      {
+        message: "User created successfully",
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
       },
-    });
+      { status: 201 }
+    );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid data", details: error.issues },
+        { status: 400 }
+      );
+    }
 
-    // TODO: Send verification email
-    // For now, we'll return the token in the response (remove in production)
-    const verificationUrl = `${process.env.NEXTAUTH_URL}/api/auth/verify-email?token=${verificationToken}`;
-
-    return NextResponse.json({
-      message: "Registration successful. Please check your email to verify your account.",
-      verificationUrl, // Remove this in production
-      userId: user.id,
-    });
-  } catch {
-    console.error("Registration error:");
+    console.error("Registration error:", error);
     return NextResponse.json(
       { error: "An error occurred during registration" },
       { status: 500 }

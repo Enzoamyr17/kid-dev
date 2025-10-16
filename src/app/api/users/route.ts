@@ -3,11 +3,11 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// Helper function to convert BigInt to string
-function serializeUser(user: { id: bigint; [key: string]: unknown }) {
+// Helper function to serialize user data
+function serializeUser(user: { id: number; [key: string]: unknown }) {
   return {
     ...user,
-    id: user.id.toString(),
+    id: user.id,
   };
 }
 

@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import AuthSessionProvider from "@/components/providers/session-provider";
+import SWRProvider from "@/components/providers/swr-provider";
 
 const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
@@ -24,7 +25,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${poppins.variable} antialiased`}>
         <AuthSessionProvider>
-          {children}
+          <SWRProvider>
+            {children}
+          </SWRProvider>
         </AuthSessionProvider>
         <Toaster />
       </body>

@@ -42,13 +42,39 @@ function LoginForm() {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate form
+    if (!loginData.email || !loginData.password) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    if (loginData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // DEV MODE: Just redirect to dashboard
-      router.push("/dashboard");
-      router.refresh();
-    } catch {
+      const result = await signIn("credentials", {
+        email: loginData.email,
+        password: loginData.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        toast.error("Invalid email or password");
+        return;
+      }
+
+      if (result?.ok) {
+        toast.success("Login successful!");
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Login error:", error);
       toast.error("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);
@@ -95,15 +121,9 @@ function LoginForm() {
         return;
       }
 
-      toast.success("Registration successful! Please check your email to verify your account.");
+      toast.success("Registration successful! You can now log in.");
 
-      // For development: show verification URL
-      if (data.verificationUrl) {
-        console.log("Verification URL:", data.verificationUrl);
-        toast.info("Check console for verification link (dev mode)");
-      }
-
-      // Clear form
+      // Clear form and switch to login tab
       setRegisterData({
         email: "",
         password: "",
@@ -115,6 +135,10 @@ function LoginForm() {
         birthdate: "",
         contact: "",
       });
+
+      // Switch to login tab
+      const loginTab = document.querySelector('[value="login"]') as HTMLButtonElement;
+      loginTab?.click();
     } catch {
       toast.error("An error occurred during registration");
     } finally {

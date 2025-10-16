@@ -1,16 +1,20 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
 const prisma = new PrismaClient();
 
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
     signIn: "/login",
@@ -23,49 +27,74 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // DEV MODE: Auto-login as default user
-        const defaultUser = await prisma.user.findUnique({
-          where: { email: "gregoriorenzo05@gmail.com" },
-        });
+        try {
+          const { email, password } = loginSchema.parse(credentials);
 
-        if (!defaultUser) {
+          // Find user by email
+          const user = await prisma.user.findUnique({
+            where: { email },
+          });
+
+          if (!user) {
+            console.log("User not found:", email);
+            return null;
+          }
+
+          // Check if user is active
+          if (!user.isActive) {
+            console.log("User is inactive:", email);
+            return null;
+          }
+
+          // Verify password
+          const isPasswordValid = await bcrypt.compare(password, user.password);
+          if (!isPasswordValid) {
+            console.log("Invalid password for:", email);
+            return null;
+          }
+
+          // Check email verification (optional - can be enforced later)
+          // if (!user.emailVerified) {
+          //   console.log("Email not verified:", email);
+          //   return null;
+          // }
+
+          return {
+            id: user.id.toString(),
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`,
+            firstName: user.firstName,
+            secondName: user.secondName || undefined,
+            middleName: user.middleName || undefined,
+            lastName: user.lastName,
+            emailVerified: user.emailVerified || undefined,
+          };
+        } catch (error) {
+          console.error("Authorization error:", error);
           return null;
         }
-
-        return {
-          id: defaultUser.id.toString(),
-          email: defaultUser.email,
-          name: `${defaultUser.firstName} ${defaultUser.lastName}`,
-          firstName: defaultUser.firstName,
-          lastName: defaultUser.lastName,
-        };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      // DEV MODE: Always set default user if no token exists
-      if (!token.id) {
-        const defaultUser = await prisma.user.findUnique({
-          where: { email: "gregoriorenzo05@gmail.com" },
-        });
-
-        if (defaultUser) {
-          token.id = defaultUser.id.toString();
-          token.email = defaultUser.email;
-          token.name = `${defaultUser.firstName} ${defaultUser.lastName}`;
-          token.firstName = defaultUser.firstName;
-          token.lastName = defaultUser.lastName;
-        }
-      }
-
+    async jwt({ token, user, trigger, session }) {
+      // Initial sign in
       if (user) {
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
         token.firstName = user.firstName;
+        token.secondName = user.secondName;
+        token.middleName = user.middleName;
         token.lastName = user.lastName;
+        token.emailVerified = user.emailVerified;
       }
+
+      // Session update
+      if (trigger === "update" && session) {
+        token = { ...token, ...session };
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -74,7 +103,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.email = token.email as string;
         session.user.name = token.name as string;
         session.user.firstName = token.firstName as string;
+        session.user.secondName = token.secondName as string | undefined;
+        session.user.middleName = token.middleName as string | undefined;
         session.user.lastName = token.lastName as string;
+        if (token.emailVerified) {
+          session.user.emailVerified = token.emailVerified as Date;
+        }
       }
       return session;
     },

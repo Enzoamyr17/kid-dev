@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const company_id = searchParams.get('company_id');
 
     const addresses = await prisma.companyAddress.findMany({
-      where: company_id ? { companyId: BigInt(company_id) } : undefined,
+      where: company_id ? { companyId: Number(company_id) } : undefined,
       include: {
         company: true,
       },
@@ -65,21 +65,22 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    if (!body.company_id || !body.house_no || !body.street || !body.region || !body.province || !body.city_municipality || !body.barangay) {
+    const companyId = body.companyId ?? body.company_id;
+    if (!companyId) {
       return NextResponse.json(
-        { error: 'Missing required fields: company_id, house_no, street, region, province, city_municipality, barangay' },
+        { error: 'Missing required field: companyId' },
         { status: 400 }
       );
     }
     const address = await prisma.companyAddress.create({
       data: {
-        companyId: BigInt(body.company_id),
-        houseNo: body.house_no,
+        companyId: Number(companyId),
+        houseNo: body.houseNo ?? body.house_no,
         street: body.street,
         subdivision: body.subdivision || null,
         region: body.region,
         province: body.province,
-        cityMunicipality: body.city_municipality,
+        cityMunicipality: body.cityMunicipality ?? body.city_municipality,
         barangay: body.barangay,
       },
       include: {
@@ -120,8 +121,10 @@ export async function PATCH(request: NextRequest) {
 
     // Convert snake_case fields and BigInt fields
     const mappedData: Record<string, unknown> = {};
-    if (updateData.company_id !== undefined) mappedData.companyId = BigInt(updateData.company_id);
+    if (updateData.companyId !== undefined) mappedData.companyId = Number(updateData.companyId);
+    if (updateData.company_id !== undefined) mappedData.companyId = Number(updateData.company_id);
     if (updateData.house_no !== undefined) mappedData.houseNo = updateData.house_no;
+    if (updateData.houseNo !== undefined) mappedData.houseNo = updateData.houseNo;
     if (updateData.street !== undefined) mappedData.street = updateData.street;
     if (updateData.subdivision !== undefined) mappedData.subdivision = updateData.subdivision;
     if (updateData.region !== undefined) mappedData.region = updateData.region;
@@ -130,7 +133,7 @@ export async function PATCH(request: NextRequest) {
     if (updateData.barangay !== undefined) mappedData.barangay = updateData.barangay;
 
     const address = await prisma.companyAddress.update({
-      where: { id: BigInt(id) },
+      where: { id: Number(id) },
       data: mappedData,
       include: {
         company: true,
@@ -168,9 +171,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.companyAddress.delete({
-      where: { id: BigInt(id) },
-    });
+    await prisma.companyAddress.delete({ where: { id: Number(id) } });
 
     return NextResponse.json({ message: 'Address deleted successfully' });
   } catch (error) {
