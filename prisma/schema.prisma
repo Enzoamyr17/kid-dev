@@ -99,7 +99,7 @@ model Company {
 model CompanyAddress {
   id               Int       @id @default(autoincrement())
   companyId        Int
-  province         String    @db.VarChar(255)
+  province         String?   @db.VarChar(255)
   barangay         String    @db.VarChar(255)
   cityMunicipality String    @db.VarChar(255)
   houseNo          String?   @db.VarChar(255)

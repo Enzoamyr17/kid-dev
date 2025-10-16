@@ -10,10 +10,22 @@ export function middleware(request: NextRequest) {
   // API routes are handled separately
   const isApiRoute = pathname.startsWith("/api");
 
-  // Check for session token (NextAuth uses next-auth.session-token)
-  const sessionToken = request.cookies.get("next-auth.session-token") ||
-                       request.cookies.get("__Secure-next-auth.session-token");
+  // Check for session token - NextAuth v5 uses different cookie names
+  // Try multiple cookie names for compatibility
+  const sessionToken =
+    request.cookies.get("authjs.session-token")?.value ||
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("next-auth.session-token")?.value ||
+    request.cookies.get("__Secure-next-auth.session-token")?.value;
+
   const isLoggedIn = !!sessionToken;
+
+  console.log("Middleware:", {
+    pathname,
+    isLoggedIn,
+    sessionToken: sessionToken ? "exists" : "missing",
+    cookies: request.cookies.getAll().map(c => c.name),
+  });
 
   // If user is logged in and tries to access login page, redirect to dashboard
   if (isLoggedIn && isPublicRoute) {

@@ -88,6 +88,17 @@ export async function POST(request: NextRequest) {
         isVendor,
         isInternal,
       },
+      include: {
+        companyAddresses: true,
+        companyProponents: true,
+        _count: {
+          select: {
+            projects: true,
+            companyAddresses: true,
+            companyProponents: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(company, { status: 201 });
@@ -130,6 +141,17 @@ export async function PATCH(request: NextRequest) {
     const company = await prisma.company.update({
       where: { id: Number(id) },
       data: mappedData,
+      include: {
+        companyAddresses: true,
+        companyProponents: true,
+        _count: {
+          select: {
+            projects: true,
+            companyAddresses: true,
+            companyProponents: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(company);

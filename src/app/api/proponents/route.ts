@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Validate required fields
-    if (!(body.companyId ?? body.company_id) || !(body.contactPerson ?? body.contact_person) || !(body.contactNumber ?? body.contact_number)) {
+    if (!(body.companyId ?? body.company_id) || !(body.contactPerson ?? body.contact_person)) {
       return NextResponse.json(
-        { error: 'Missing required fields: company_id, contact_person, contact_number' },
+        { error: 'Missing required fields: company_id, contact_person' },
         { status: 400 }
       );
     }
@@ -77,7 +77,8 @@ export async function POST(request: NextRequest) {
       data: {
         companyId: Number(body.companyId ?? body.company_id),
         contactPerson: body.contactPerson ?? body.contact_person,
-        contactNumber: body.contactNumber ?? body.contact_number,
+        contactNumber: body.contactNumber ?? body.contact_number ?? null,
+        email: body.email ?? null,
       },
       include: {
         company: true,
@@ -123,6 +124,7 @@ export async function PATCH(request: NextRequest) {
     if (updateData.contactPerson !== undefined) mappedData.contactPerson = updateData.contactPerson;
     if (updateData.contact_number !== undefined) mappedData.contactNumber = updateData.contact_number;
     if (updateData.contactNumber !== undefined) mappedData.contactNumber = updateData.contactNumber;
+    if (updateData.email !== undefined) mappedData.email = updateData.email;
 
     const proponent = await prisma.companyProponent.update({
       where: { id: Number(id) },

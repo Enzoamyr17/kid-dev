@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import useSWR, { mutate } from "swr";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -289,8 +289,8 @@ export default function WorkflowTemplatesPage() {
               </TableRow>
             ) : (
               templates.map((template) => (
-                <>
-                  <TableRow key={template.id} className="cursor-pointer hover:bg-muted/50">
+                <React.Fragment key={template.id}>
+                  <TableRow className="cursor-pointer hover:bg-muted/50">
                     <TableCell onClick={() => toggleExpanded(template.id)}>
                       {expandedTemplates.has(template.id) ? (
                         <ChevronDown className="h-4 w-4" />
@@ -308,7 +308,7 @@ export default function WorkflowTemplatesPage() {
                       {template.workflowStages.length} stages
                     </TableCell>
                     <TableCell onClick={() => toggleExpanded(template.id)}>
-                      {template._count.projects}
+                      {template._count?.projects ?? 0}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -316,7 +316,7 @@ export default function WorkflowTemplatesPage() {
                         size="sm"
                         onClick={() => handleDeleteTemplate(template.id)}
                         className="h-8 w-8 p-0"
-                        disabled={template._count.projects > 0}
+                        disabled={(template._count?.projects ?? 0) > 0}
                       >
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
@@ -363,7 +363,7 @@ export default function WorkflowTemplatesPage() {
                       </TableCell>
                     </TableRow>
                   )}
-                </>
+                </React.Fragment>
               ))
             )}
           </TableBody>

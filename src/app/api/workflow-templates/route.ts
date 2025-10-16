@@ -58,7 +58,12 @@ export async function POST(request: NextRequest) {
           })),
         },
       },
-      include: { workflowStages: true },
+      include: {
+        workflowStages: true,
+        _count: {
+          select: { projects: true },
+        },
+      },
     });
 
     return NextResponse.json(template, { status: 201 });
@@ -91,7 +96,12 @@ export async function PATCH(request: NextRequest) {
     const template = await prisma.workflowTemplate.update({
       where: { id: Number(id) },
       data: { name, description },
-      include: { workflowStages: true },
+      include: {
+        workflowStages: true,
+        _count: {
+          select: { projects: true },
+        },
+      },
     });
 
     return NextResponse.json(template);

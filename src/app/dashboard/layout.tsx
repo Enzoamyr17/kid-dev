@@ -17,6 +17,10 @@ const sidebarItems = [
 
 const managementItems = [
   {
+    label: "User Management",
+    href: "/users",
+  },
+  {
     label: "Company Management",
     href: "/companies",
   },
@@ -29,8 +33,8 @@ const managementItems = [
     href: "/projects",
   },
   {
-    label: "Lifecycle Templates",
-    href: "/lifecycle-templates",
+    label: "Workflow Templates",
+    href: "/workflow-templates",
   }
 ];
 
@@ -87,7 +91,10 @@ export default function DashboardLayout({
             </SidebarMenuSub>
           </SidebarGroup>
           <SidebarFooter>
-              <SidebarMenuButton onClick={() => signOut({ callbackUrl: "/login" })}>
+              <SidebarMenuButton onClick={async () => {
+                await signOut({ redirect: false });
+                window.location.href = "/login";
+              }}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </SidebarMenuButton>
