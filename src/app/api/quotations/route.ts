@@ -14,8 +14,32 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      // Get the most recent quotation code
+      const lastQuotation = await tx.quotationForm.findFirst({
+        where: {
+          code: {
+            startsWith: 'RFQ-'
+          }
+        },
+        orderBy: {
+          code: 'desc'
+        },
+        select: {
+          code: true
+        }
+      });
+
+      // Generate next code
+      let nextNumber = 1;
+      if (lastQuotation?.code) {
+        const lastNumber = parseInt(lastQuotation.code.split('-')[1] || '0');
+        nextNumber = lastNumber + 1;
+      }
+      const code = `RFQ-${nextNumber.toString().padStart(4, '0')}`;
+
       const form = await tx.quotationForm.create({
         data: {
+          code,
           forCompanyId: Number(body.forCompanyId),
           projectId: Number(body.projectId),
           requestorId: body.requestorId ? Number(body.requestorId) : null,

@@ -399,10 +399,15 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
       const result = await response.json();
 
-      // The API returns the form directly with an id
-      const quotationId = result.id;
+      // The API returns the form directly with code
+      const quotationCode = result.code;
 
-      toast.success(`Quotation saved successfully! ID: ${quotationId}`);
+      toast.success(`Quotation saved successfully! Code: ${quotationCode}`);
+
+      // Call onSaveSuccess to refresh the forms list
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
 
       // Clear form after successful save (unless skipClearForm is true for PDF export)
       if (!skipClearForm) {
@@ -410,8 +415,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
         setActiveTab("products");
       }
 
-      // Return the quotation id for PDF export
-      return quotationId;
+      // Return the quotation code for PDF export
+      return quotationCode;
     } catch (error) {
       console.error("Error saving quotation:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save quotation");
@@ -466,7 +471,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     const pageHeight = doc.internal.pageSize.getHeight();
 
     // Helper function to format currency without ± symbol
-    const formatPeso = (amount: any) => {
+    const formatPeso = (amount: number | string | undefined) => {
       const num = Number(amount) || 0; // fallback to 0 if invalid
       return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
@@ -475,15 +480,26 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     doc.setFillColor(59, 130, 246);
     doc.rect(0, 0, pageWidth, 25, 'F');
 
+    // Add logo with white background in upper left corner
+    try {
+      // White background for logo (maintaining aspect ratio ~4.5:1)
+      const logoWidth = 80;
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, logoWidth + 4, 25, 'F');
+
+      // Add logo image
+      const logoImg = new Image();
+      logoImg.src = '/wide_logo.png';
+      doc.addImage(logoImg, 'PNG', 2, 2, logoWidth, 23);
+    } catch (error) {
+      console.error('Error adding logo to PDF:', error);
+    }
+
     // Header Text - Price Quotation #
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("Price Quotation  #", pageWidth / 2 - 30, 15);
-
-    // Quotation Number - use the saved quote number
-    doc.setFontSize(22);
-    doc.text(quoteNo, pageWidth - 15, 15, { align: "right" });
+    doc.text(quoteNo, pageWidth - 10, 15, { align: "right" });
     
     // Reset text color to black
     doc.setTextColor(0, 0, 0);

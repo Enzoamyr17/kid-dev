@@ -78,7 +78,7 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     const pageHeight = doc.internal.pageSize.getHeight();
     
     // Helper function to format currency without ± symbol
-    const formatPeso = (amount: any) => {
+    const formatPeso = (amount: number | string | undefined) => {
       const num = Number(amount) || 0; // fallback to 0 if invalid
       return parseFloat(num.toFixed(2));
     };
@@ -98,16 +98,27 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     // Blue Header Background
     doc.setFillColor(59, 130, 246);
     doc.rect(0, 0, pageWidth, 25, 'F');
-    
-    // Header Text - Price Quotation #
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("Price Quotation  #", pageWidth / 2 - 30, 15);
-    
+
+    // Add logo with white background in upper left corner
+    try {
+      // White background for logo (maintaining aspect ratio ~4.5:1)
+      const logoWidth = 80;
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, logoWidth + 4, 25, 'F');
+
+      // Add logo image
+      const logoImg = new Image();
+      logoImg.src = '/wide_logo.png';
+      doc.addImage(logoImg, 'PNG', 2, 2, logoWidth, 23);
+    } catch (error) {
+      console.error('Error adding logo to PDF:', error);
+    }
+
     // Quotation Number
-    doc.setFontSize(22);
-    doc.text(data.code || "N/A", pageWidth - 15, 15, { align: "right" });
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text(data.code || "N/A", pageWidth - 10, 15, { align: "right" });
     
     // Reset text color to black
     doc.setTextColor(0, 0, 0);

@@ -287,7 +287,14 @@ export default function ProjectPage() {
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                             {forms.quotations.map((form: unknown) => {
-                                                const formData = form as { id: number; code?: string; totalCost?: string; bidPrice?: string; deliveryDate?: string ; createdAt: string; formItems?: unknown[] };
+                                                const formData = form as { id: number; code?: string; totalCost?: string; bidPrice?: string; deliveryDate?: string ; createdAt: string; quotationItems?: QuotationItem[] };
+                                                interface QuotationItem {
+                                                    id: number;
+                                                    name: string;
+                                                    quantity: number;
+                                                    price: number;
+                                                    total: number;
+                                                }
                                                 return (
                                                 <div
                                                     key={formData.id}
