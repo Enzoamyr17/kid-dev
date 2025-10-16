@@ -24,6 +24,7 @@ interface QuotationCardProps {
   }>; 
   approvedBudget: number;
   initialData?: unknown; // For creating new versions from existing quotations
+  onSaveSuccess?: () => void;
 }
 
 interface Product {
@@ -49,53 +50,54 @@ interface CartItem extends Product {
 
 interface User {
   id: string;
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
   email: string;
 }
 
 interface QuotationFormData {
   // Basic Info
-  quote_no: string;
-  for_company_id: string;
-  project_id: string;
-  requestor_id: string;
-  delivery_date: string;
-  approved_budget: number;
+  code: string;
+  forCompanyId: string;
+  projectId: string;
+  requestorId: string;
+  deliveryTerm: string;
+  approvedBudget: number;
 
   // Pricing & Settings
-  bid_percentage: number;
-  supplier_price_vat_inclusive: "yes" | "no";
-  payment_method: string;
+  bidPercentage: number;
+  supplierPriceVatInclusive: "yes" | "no";
+  paymentTerm: string;
 
   // Tax & Financial
-  ewt_percentage: number;
-  contingency_percentage: number;
-  loan_interest_percentage: number;
-  loan_months: number;
+  ewtPercentage: number;
+  contingencyPercentage: number;
+  loanInterestPercentage: number;
+  loanMonths: number;
 }
 
 
 
-function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget, initialData }: QuotationCardProps) {
+function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget, initialData, onSaveSuccess }: QuotationCardProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("products");
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   const [formData, setFormData] = useState<QuotationFormData>({
-    quote_no: "",
-    for_company_id: clientDetails[0]?.id || "",
-    project_id: projectId,
-    requestor_id: "",
-    delivery_date: "",
-    approved_budget: approvedBudget,
-    bid_percentage: bidPercentage,
-    supplier_price_vat_inclusive: "yes",
-    payment_method: "",
-    ewt_percentage: 1,
-    contingency_percentage: 5,
-    loan_interest_percentage: 3,
-    loan_months: 0,
+    code: "",
+    forCompanyId: clientDetails[0]?.id || "",
+    projectId: projectId,
+    requestorId: "",
+    deliveryTerm: "",
+    approvedBudget: approvedBudget,
+    bidPercentage: bidPercentage,
+    supplierPriceVatInclusive: "yes",
+    paymentTerm: "",
+    ewtPercentage: 1,
+    contingencyPercentage: 5,
+    loanInterestPercentage: 3,
+    loanMonths: 0,
   });
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -114,10 +116,37 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     setUsers(data);
   };
 
+  const [currentUserName, setCurrentUserName] = useState<string>("");
+
+  const fetchCurrentUserId = async () => {
+    try {
+      const response = await fetch("/api/auth/session");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user && data.user.id) {
+          setCurrentUserId(data.user.id);
+          formData.requestorId = data.user.id;
+          setCurrentUserName(data.user.name);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch current user:", error);
+    }
+  };
+  
+
   useEffect(() => {
     fetchProducts();
     fetchUsers();
+    fetchCurrentUserId();
   }, []);
+
+  // Auto-populate requestor_id when currentUserId is set
+  useEffect(() => {
+    if (currentUserId) {
+      setFormData(prev => ({ ...prev, requestorId: currentUserId }));
+    }
+  }, [currentUserId]);
 
   const updateFormData = useCallback(<K extends keyof QuotationFormData>(
     field: K,
@@ -139,7 +168,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     } else {
       // Add new item with default internal price of 0
       const basePrice = 0;
-      const calculatedPrice = basePrice * (1 + formData.bid_percentage / 100);
+      const calculatedPrice = basePrice * (1 + formData.bidPercentage / 100);
       const proposalPrice = calculatedPrice; // ABC is 0 by default, so no cap initially
 
       const newItem: CartItem = {
@@ -168,8 +197,9 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
   const handleUpdateInternalPrice = (sku: string, price: number) => {
     setCart(cart.map(item => {
       if (item.sku === sku) {
-        const calculatedPrice = price * (1 + formData.bid_percentage / 100);
-        const newProposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
+        const calculatedPrice = price * (1 + formData.bidPercentage / 100);
+        let newProposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
+        newProposalPrice = Math.ceil(newProposalPrice * 100) / 100;
         return { ...item, internalPrice: price, proposalPrice: newProposalPrice };
       }
       return item;
@@ -179,7 +209,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
   const handleUpdateProposalPrice = (sku: string, price: number) => {
     setCart(cart.map(item => {
       if (item.sku === sku) {
-        const cappedPrice = item.abcPrice > 0 ? Math.min(price, item.abcPrice) : price;
+        let cappedPrice = item.abcPrice > 0 ? Math.min(price, item.abcPrice) : price;
+        cappedPrice = Math.ceil(cappedPrice * 100) / 100;
         return { ...item, proposalPrice: cappedPrice };
       }
       return item;
@@ -191,7 +222,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     setCart(cart.map(item => {
       if (item.sku === sku) {
         // Cap proposal price if it exceeds new ABC price
-        const cappedProposalPrice = price > 0 ? Math.min(item.proposalPrice, price) : item.proposalPrice;
+        let cappedProposalPrice = price > 0 ? Math.min(item.proposalPrice, price) : item.proposalPrice;
+        cappedProposalPrice = Math.ceil(cappedProposalPrice * 100) / 100;
         return { ...item, abcPrice: price, proposalPrice: cappedProposalPrice };
       }
       return item;
@@ -207,7 +239,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
   };
 
   const handleBidPercentageChange = async (percentage: number) => {
-    updateFormData("bid_percentage", percentage);
+    updateFormData("bidPercentage", percentage);
     // Update all proposal prices based on new bid percentage, capped by ABC price
     setCart(cart.map(item => {
       const calculatedPrice = item.internalPrice * (1 + percentage / 100);
@@ -219,7 +251,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     const oldValue = bidPercentage;
     if (oldValue != percentage) {
       // Optimistic update
-      setFormData(prev => ({ ...prev, bid_percentage: percentage }));
+      setFormData(prev => ({ ...prev, bidPercentage: percentage }));
 
       try {
           const response = await fetch(`/api/projects/${projectId}`, {
@@ -233,7 +265,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
           bidPercentage = percentage;
       } catch {
           // Revert on error
-          setFormData(prev => ({ ...prev, bid_percentage: oldValue }));
+          setFormData(prev => ({ ...prev, bidPercentage: oldValue }));
           toast.error("Failed to update bid percentage");
       }
     }
@@ -257,7 +289,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     let vatExcludedCost: number;
     let inputVat: number;
 
-    if (formData.supplier_price_vat_inclusive === "yes") {
+    if (formData.supplierPriceVatInclusive === "yes") {
       // Supplier prices already include VAT
       totalCost = totalInternal;
       vatExcludedCost = totalCost / (1 + VAT_RATE);
@@ -271,18 +303,18 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
     const vatPayable = outputVat - inputVat;
     const grossProfit = vatExcludedSales - vatExcludedCost;
-    const ewtAmount = vatExcludedSales * (formData.ewt_percentage / 100);
+    const ewtAmount = vatExcludedSales * (formData.ewtPercentage / 100);
     const incomeTax25 = grossProfit * INCOME_TAX_RATE;
     const finalIncomeTax = Math.max(0, incomeTax25 - ewtAmount);
 
     const netProfit = grossProfit - finalIncomeTax;
-    const contingencyAmount = totalCost * (formData.contingency_percentage / 100);
+    const contingencyAmount = totalCost * (formData.contingencyPercentage / 100);
     const finalNetProfit = netProfit - contingencyAmount;
     const netProfitMargin = totalInternal > 0 ? (netProfit / totalInternal) * 100 : 0;
 
     // Loan calculations (based on Total Cost)
-    const calculatedLoanAmount = formData.loan_months > 0 ? totalCost : 0;
-    const loanInterest = calculatedLoanAmount * (formData.loan_interest_percentage / 100) * formData.loan_months;
+    const calculatedLoanAmount = formData.loanMonths > 0 ? totalCost : 0;
+    const loanInterest = calculatedLoanAmount * (formData.loanInterestPercentage / 100) * formData.loanMonths;
     const netProfitWithLoan = finalNetProfit - loanInterest;
 
     return {
@@ -313,11 +345,11 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
   const handleSaveQuotation = async (skipClearForm = false) => {
     // Validate required fields
-    if (!formData.for_company_id) {
+    if (!formData.forCompanyId) {
       toast.error("Please select a client");
       return null;
     }
-    if (!formData.project_id) {
+    if (!formData.projectId) {
       toast.error("Please select a project");
       return null;
     }
@@ -330,27 +362,29 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
     try {
       const payload = {
-        quote_no: formData.quote_no || "", // Will be auto-generated if empty
-        company_id: formData.for_company_id,
-        project_id: formData.project_id,
-        requestor_id: formData.requestor_id || null,
-        delivery_date: formData.delivery_date || null,
-        approved_budget: formData.approved_budget,
-        bid_percentage: formData.bid_percentage,
-        payment_method: formData.payment_method || null,
-        cart_items: cart.map(item => ({
-          product_id: item.id,
-          sku: item.sku,
-          quantity: item.quantity,
-          internal_price: item.internalPrice,
-          proposal_price: item.proposalPrice,
-          supplier: item.supplier,
-        })),
-        financials: {
-          total_cost: financials.totalCost,
-          total_bid_price: financials.totalBidPrice,
+        forCompanyId: formData.forCompanyId,
+        projectId: formData.projectId,
+        requestorId: formData.requestorId || null,
+        deliveryTerm: formData.deliveryTerm || null,
+        paymentTerm: formData.paymentTerm || null,
+        approvedBudget: formData.approvedBudget,
+        bidPercentage: formData.bidPercentage,
+        totals: {
+          totalCost: financials.totalCost,
+          bidPrice: financials.totalBidPrice,
         },
+        items: cart.map(item => ({
+          productId: item.id,
+          supplierId: 1, // TODO: Add supplier selection
+          quantity: item.quantity,
+          internalPrice: item.internalPrice,
+          clientPrice: item.proposalPrice,
+          total: item.quantity * item.proposalPrice,
+          remarks: null,
+        })),
       };
+
+      console.log(payload);
 
       const response = await fetch("/api/quotations", {
         method: "POST",
@@ -365,11 +399,10 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
       const result = await response.json();
 
-      // Update formData with the generated quote number (API returns quoteNo in camelCase)
-      const quoteNumber = result.quotationDetail.quoteNo || result.quotationDetail.quote_no;
-      setFormData(prev => ({ ...prev, quote_no: quoteNumber }));
+      // The API returns the form directly with an id
+      const quotationId = result.id;
 
-      toast.success(`Quotation saved successfully! Quote No: ${quoteNumber}`);
+      toast.success(`Quotation saved successfully! ID: ${quotationId}`);
 
       // Clear form after successful save (unless skipClearForm is true for PDF export)
       if (!skipClearForm) {
@@ -377,8 +410,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
         setActiveTab("products");
       }
 
-      // Return the quote number for PDF export
-      return quoteNumber;
+      // Return the quotation id for PDF export
+      return quotationId;
     } catch (error) {
       console.error("Error saving quotation:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save quotation");
@@ -390,19 +423,19 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
   const handleClearForm = () => {
     setFormData({
-      quote_no: "",
-      for_company_id: "",
-      project_id: "",
-      requestor_id: "",
-      delivery_date: "",
-      approved_budget: 0,
-      bid_percentage: 15,
-      supplier_price_vat_inclusive: "no",
-      payment_method: "",
-      ewt_percentage: 1,
-      contingency_percentage: 5,
-      loan_interest_percentage: 3,
-      loan_months: 0,
+      code: "",
+      forCompanyId: "",
+      projectId: "",
+      requestorId: "",
+      deliveryTerm: "",
+      approvedBudget: 0,
+      bidPercentage: 15,
+      supplierPriceVatInclusive: "yes",
+      paymentTerm: "",
+      ewtPercentage: 1,
+      contingencyPercentage: 5,
+      loanInterestPercentage: 3,
+      loanMonths: 0,
     });
     setCart([]);
   };
@@ -433,8 +466,9 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     const pageHeight = doc.internal.pageSize.getHeight();
 
     // Helper function to format currency without ± symbol
-    const formatPeso = (amount: number) => {
-      return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const formatPeso = (amount: any) => {
+      const num = Number(amount) || 0; // fallback to 0 if invalid
+      return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 
     // Blue Header Background
@@ -514,8 +548,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
       [
         `Name:\n${currentClientDetails.companyName}\n\nAddress:\n${currentClientDetails.address}`,
         `${currentClientDetails.contactPerson}\n${currentClientDetails.contactNumber}`,
-        currentFormData.payment_method || "7 CD",
-        currentFormData.delivery_date || "3-5CD upon receipt of PO"
+        currentFormData.paymentTerm || "7 CD",
+        currentFormData.deliveryTerm || "3-5CD upon receipt of PO"
       ]
     ];
     
@@ -774,21 +808,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
       };
 
       // Load form data from initial quotation
-      setFormData({
-        quote_no: "", // New quote number will be generated
-        for_company_id: data.details?.forCompanyId || clientDetails[0].id,
-        project_id: projectId,
-        requestor_id: data.details?.requestorId || "",
-        delivery_date: data.details?.deliveryDate || "",
-        approved_budget: data.details?.approvedBudget ? parseInt(data.details.approvedBudget) / 100 : approvedBudget,
-        bid_percentage: data.details?.bidPercentage || bidPercentage,
-        supplier_price_vat_inclusive: "yes",
-        payment_method: data.details?.paymentMethod || "",
-        ewt_percentage: 1,
-        contingency_percentage: 5,
-        loan_interest_percentage: 3,
-        loan_months: 0,
-      });
+      setFormData(data as QuotationFormData);
 
       // Load cart items from initial quotation
       if (data.formItems && data.formItems.length > 0) {
@@ -925,12 +945,22 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
             {/* Basic Information Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 mt-2">
               <Field
-                type="select"
+                type="text"
                 label={<>Requested By <span className="text-red-500">*</span></>}
                 placeholder="Select requestor"
-                value={formData.requestor_id}
-                onChange={(value) => updateFormData("requestor_id", value)}
-                options={users.map(u => ({ value: u.id, label: `${u.first_name} ${u.last_name}` }))}
+                value={currentUserName}
+                onChange={(value) => updateFormData("requestorId", value)}
+                className="h-10"
+                disabled={true}
+              />
+
+              <Field
+                type="number"
+                label="Approved Budget Cost (ABC)"
+                placeholder="0.00"
+                value={formData.approvedBudget}
+                onChange={(value) => updateFormData("approvedBudget", value)}
+                decimals={2}
                 className="h-10"
               />
 
@@ -938,8 +968,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                 type="text"
                 label={<>Payment Term</>}
                 placeholder="Enter payment Term"
-                value={formData.payment_method}
-                onChange={(value) => updateFormData("payment_method", value)}
+                value={formData.paymentTerm}
+                onChange={(value) => updateFormData("paymentTerm", value)}
                 className="h-10"
               />
 
@@ -947,18 +977,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                 type="text"
                 label={<>Delivery Term <span className="text-red-500">*</span></>}
                 placeholder="Enter delivery term"
-                value={formData.delivery_date}
-                onChange={(value) => updateFormData("delivery_date", value)}
-                className="h-10"
-              />
-
-              <Field
-                type="number"
-                label="Approved Budget Cost (ABC)"
-                placeholder="0.00"
-                value={formData.approved_budget}
-                onChange={(value) => updateFormData("approved_budget", value)}
-                decimals={2}
+                value={formData.deliveryTerm}
+                onChange={(value) => updateFormData("deliveryTerm", value)}
                 className="h-10"
               />
 
@@ -966,7 +986,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                 type="number"
                 label="Bid Percentage (Markup %)"
                 placeholder="40"
-                value={formData.bid_percentage}
+                value={formData.bidPercentage}
                 onChange={handleBidPercentageChange}
                 decimals={2}
                 className="h-10"
@@ -975,11 +995,11 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
               <Field
                 type="select"
                 label="Supplier Price VAT Inclusive?"
-                value={formData.supplier_price_vat_inclusive}
-                onChange={(value) => updateFormData("supplier_price_vat_inclusive", value as "yes" | "no")}
+                value={formData.supplierPriceVatInclusive}
+                onChange={(value) => updateFormData("supplierPriceVatInclusive", value as 'yes' | 'no')}
                 options={[
-                  { value: "no", label: "No" },
-                  { value: "yes", label: "Yes" }
+                  { value: 'no', label: 'No' },
+                  { value: 'yes', label: 'Yes' }
                 ]}
                 className="h-10"
               />
@@ -1157,7 +1177,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
                 {/* Cost Column */}
                 <div className="space-y-2 border-l pl-6">
-                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost {formData.supplier_price_vat_inclusive === "yes" ? "(VAT-inclusive)" : "(VAT-exclusive)"}</h4>
+                  <h4 className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-3">Cost {formData.supplierPriceVatInclusive === 'yes' ? '(VAT-inclusive)' : '(VAT-exclusive)'}</h4>
                   
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>VAT-excluded Cost:</span>
@@ -1189,8 +1209,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={formData.ewt_percentage}
-                        onChange={(value) => updateFormData("ewt_percentage", value)}
+                        value={formData.ewtPercentage}
+                        onChange={(value) => updateFormData("ewtPercentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -1209,7 +1229,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                     <span className="font-medium">₱{financials.incomeTax25.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>EWT ({formData.ewt_percentage}%):</span>
+                    <span>EWT ({formData.ewtPercentage}%):</span>
                     <span>₱{financials.ewtAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -1225,8 +1245,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={formData.contingency_percentage}
-                        onChange={(value) => updateFormData("contingency_percentage", value)}
+                        value={formData.contingencyPercentage}
+                        onChange={(value) => updateFormData("contingencyPercentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -1250,8 +1270,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                     <div className="flex items-center gap-2">
                       <Field
                         type="number"
-                        value={formData.loan_interest_percentage}
-                        onChange={(value) => updateFormData("loan_interest_percentage", value)}
+                        value={formData.loanInterestPercentage}
+                        onChange={(value) => updateFormData("loanInterestPercentage", value)}
                         className="h-7 w-16 text-xs text-right"
                       />
                       <span className="text-xs">%</span>
@@ -1261,8 +1281,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                     <span>Number of Months:</span>
                     <Field
                       type="number"
-                      value={formData.loan_months}
-                      onChange={(value) => updateFormData("loan_months", value)}
+                      value={formData.loanMonths}
+                      onChange={(value) => updateFormData("loanMonths", value)}
                       className="h-7 w-16 text-xs text-right"
                     />
                   </div>

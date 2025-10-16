@@ -9,38 +9,54 @@ import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 
 interface QuotationData {
-  details?: {
-    quoteNo?: string;
-    company?: {
-      companyName?: string;
-      tinNumber?: string;
-      companyProponents?: Array<{ contactPerson?: string; contactNumber?: string }>;
-      companyAddresses?: Array<{
-        houseNo?: string;
-        street?: string;
-        subdivision?: string;
-        cityMunicipality?: string;
-        province?: string;
-        region?: string;
-        barangay?: string;
-      }>;
-    };
-    paymentMethod?: string;
-    deliveryDate?: string;
-    approvedBudget?: number;
-    bidPercentage?: number;
-    bidPrice?: number;
-    totalCost?: number;
-  };
-  formItems?: Array<{
-    product?: { sku?: string; name?: string; brand?: string; uom?: string };
-    quantity?: string;
-    supplierPrice?: number;
-    supplierName?: string;
+  id?: number;
+  code?: string;
+  approvedBudget?: number;
+  bidPercentage?: number;
+  paymentTerm?: string;
+  deliveryTerm?: string;
+  totalCost?: number;
+  bidPrice?: number;
+  forCompany?: {
+    id?: number;
+    companyName?: string;
+    tinNumber?: string;
+    companyAddresses?: Array<{
+      id?: number;
+      companyId?: number;
+      houseNo?: string;
+      street?: string;
+      barangay?: string;
+      cityMunicipality?: string;
+      province?: string;
+      region?: string;
+      subdivision?: string;
+    }>;
+    companyProponents?: Array<{
+      id?: number;
+      companyId?: number;
+      contactPerson?: string;
+      contactNumber?: string;
+      email?: string;
+    }>;
+  }
+  quotationItems?: Array<{
+    id?: number;
+    formId?: number;
+    productId?: number;
+    quantity?: number;
+    internalPrice?: number;
     clientPrice?: number;
     total?: number;
+    product?: {
+      id?: number;
+      sku?: string;
+      name?: string;
+      brand?: string;
+      uom?: string;
+    };
+    remarks?: string;
   }>;
-  createdAt?: string;
 }
 
 interface QuotationViewModalProps {
@@ -55,10 +71,6 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
 
   const data = quotation as QuotationData;
 
-  const formatCurrency = (amount: string | number) => {
-    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PHP' }).format(numAmount / 100);
-  };
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -66,20 +78,22 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     const pageHeight = doc.internal.pageSize.getHeight();
     
     // Helper function to format currency without ± symbol
-    const formatPeso = (amount: number) => {
-      return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const formatPeso = (amount: any) => {
+      const num = Number(amount) || 0; // fallback to 0 if invalid
+      return parseFloat(num.toFixed(2));
     };
     
+    
     // Construct client address from company relation
-    const clientAddress = data.details?.company?.companyAddresses?.[0];
+    const clientAddress = data.forCompany?.companyAddresses?.[0];
     const fullAddress = clientAddress
       ? `${clientAddress.houseNo || ''} ${clientAddress.street || ''}, ${clientAddress.subdivision || ''}, ${clientAddress.cityMunicipality || ''}, ${clientAddress.province || ''}, ${clientAddress.region || ''}`
       : 'N/A';
 
-    const clientName = data.details?.company?.companyName || 'N/A';
-    const clientTIN = data.details?.company?.tinNumber || '';
-    const contactPerson = data.details?.company?.companyProponents?.[0]?.contactPerson || 'N/A';
-    const contactNumber = data.details?.company?.companyProponents?.[0]?.contactNumber || 'N/A';
+    const clientName = data.forCompany?.companyName || 'N/A';
+    const clientTIN = data.forCompany?.tinNumber || '';
+    const contactPerson = data.forCompany?.companyProponents?.[0]?.contactPerson || 'N/A';
+    const contactNumber = data.forCompany?.companyProponents?.[0]?.contactNumber || 'N/A';
     
     // Blue Header Background
     doc.setFillColor(59, 130, 246);
@@ -93,7 +107,7 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     
     // Quotation Number
     doc.setFontSize(22);
-    doc.text(data.details?.quoteNo || "N/A", pageWidth - 15, 15, { align: "right" });
+    doc.text(data.code || "N/A", pageWidth - 15, 15, { align: "right" });
     
     // Reset text color to black
     doc.setTextColor(0, 0, 0);
@@ -158,8 +172,8 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
       [
         `Name:\n${clientName}\n\nAddress:\n${fullAddress}`,
         `${contactPerson}\n${contactNumber}`,
-        data.details?.paymentMethod || "7 CD",
-        data.details?.deliveryDate || "3-5CD upon receipt of PO"
+        data.paymentTerm || "N/A",
+        data.deliveryTerm || "N/A"
       ]
     ];
     
@@ -193,14 +207,16 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     // Items Table
     yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 5;
     
-    const tableData = (data.formItems || []).map((item) => [
+    const tableData = (data.quotationItems || []).map((item) => [
       item.product?.sku || 'N/A',
       item.product?.name || 'N/A',
       item.product?.brand || 'N/A',
       item.quantity?.toString() || '0',
       item.product?.uom || 'PCS',
-      `P${formatPeso((item.clientPrice || 0) / 100)}`,
-      `P${formatPeso((item.total || 0) / 100)}`,
+      `P${formatPeso(item.internalPrice || 0)}`,
+      `P${formatPeso(item.total || 0)}`,
+      `P${formatPeso(item.clientPrice || 0)}`,
+      `P${formatPeso(item.total || 0)}`,
     ]);
     
     autoTable(doc, {
@@ -252,7 +268,7 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     doc.setFont("helvetica", "normal");
     
     // Calculate values - bid price is VAT inclusive
-    const totalBidPrice = (data.details?.bidPrice || 0) / 100;
+    const totalBidPrice = data.bidPrice || 0;
     const VAT_RATE = 0.12;
     const subtotal = totalBidPrice / (1 + VAT_RATE);
     const vatAmount = totalBidPrice - subtotal;
@@ -377,7 +393,7 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     doc.text("https://shop.kingland.ph", 155, pageHeight - 6);
     
     // Save PDF
-    const fileName = `Quotation_${data.details?.quoteNo || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const fileName = `Quotation_${data.code || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(fileName);
     toast.success("PDF exported successfully");
   };
@@ -391,7 +407,7 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-full sm:max-w-6xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Quotation Details - {data.details?.quoteNo}</SheetTitle>
+          <SheetTitle>Quotation Details - {data.code}</SheetTitle>
         </SheetHeader>
 
         <div className="space-y-6">
@@ -400,31 +416,25 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Quote No:</span>
-                <span className="text-sm font-medium">{data.details?.quoteNo || 'N/A'}</span>
+                <span className="text-sm font-medium">{data.code || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Company:</span>
-                <span className="text-sm font-medium">{data.details?.company?.companyName || 'N/A'}</span>
+                <span className="text-sm font-medium">{data.forCompany?.companyName || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Payment Term:</span>
-                <span className="text-sm font-medium">{data.details?.paymentMethod || 'N/A'}</span>
+                <span className="text-sm font-medium">{data.paymentTerm || 'N/A'}</span>
               </div>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">Date:</span>
-                <span className="text-sm font-medium">
-                  {data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A'}
-                </span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Delivery Term:</span>
-                <span className="text-sm font-medium">{data.details?.deliveryDate || 'N/A'}</span>
+                <span className="text-sm font-medium">{data.deliveryTerm || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Bid Percentage:</span>
-                <span className="text-sm font-medium">{data.details?.bidPercentage || 0}%</span>
+                <span className="text-sm font-medium">{data.bidPercentage || 0}%</span>
               </div>
             </div>
           </div>
@@ -439,28 +449,26 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
                   <TableHead>Brand</TableHead>
                   <TableHead>Qty</TableHead>
                   <TableHead>Internal Price</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Proposal Price</TableHead>
+                  <TableHead>Client Price</TableHead>
                   <TableHead>Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.formItems && data.formItems.length > 0 ? (
-                  data.formItems.map((item, index) => (
+                {data.quotationItems && data.quotationItems.length > 0 ? (
+                  data.quotationItems.map((item, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-mono text-xs">{item.product?.sku || 'N/A'}</TableCell>
                       <TableCell>{item.product?.name || 'N/A'}</TableCell>
                       <TableCell>{item.product?.brand || 'N/A'}</TableCell>
                       <TableCell>{item.quantity || 0}</TableCell>
-                      <TableCell>{formatCurrency(item.supplierPrice || 0)}</TableCell>
-                      <TableCell>{item.supplierName || 'N/A'}</TableCell>
-                      <TableCell>{formatCurrency(item.clientPrice || 0)}</TableCell>
-                      <TableCell className="font-medium">{formatCurrency(item.total || 0)}</TableCell>
+                      <TableCell>₱{item.internalPrice || 0}</TableCell>
+                      <TableCell>₱{item.clientPrice || 0}</TableCell>
+                      <TableCell className="font-medium">₱{item.total || 0}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       No items found
                     </TableCell>
                   </TableRow>
@@ -474,21 +482,21 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Total Cost:</span>
-                <span className="text-sm font-medium">{formatCurrency(data.details?.totalCost || 0)}</span>
+                <span className="text-sm font-medium">₱{data.totalCost || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Approved Budget:</span>
-                <span className="text-sm font-medium">{formatCurrency(data.details?.approvedBudget || 0)}</span>
+                <span className="text-sm font-medium">₱{data.approvedBudget || 0}</span>
               </div>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm font-semibold">Total Bid Price:</span>
-                <span className="text-sm font-bold text-blue-600">{formatCurrency(data.details?.bidPrice || 0)}</span>
+                <span className="text-sm font-bold text-blue-600">₱{data.bidPrice || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Items Count:</span>
-                <span className="text-sm font-medium">{data.formItems?.length || 0}</span>
+                <span className="text-sm font-medium">{data.quotationItems?.length || 0}</span>
               </div>
             </div>
           </div>

@@ -119,6 +119,7 @@ export default function ProjectPage() {
 
             const data = await response.json();
             setForms(data);
+            console.log(data);
         } catch (error) {
             console.error("Error fetching forms:", error);
             toast.error("Failed to load forms");
@@ -126,6 +127,10 @@ export default function ProjectPage() {
             setFormsLoading(false);
         }
     }
+
+    const handleSaveSuccess = () => {
+        fetchForms();
+    };
 
     useEffect(() => {
         if (activeTab === "directory" && !forms) {
@@ -255,6 +260,7 @@ export default function ProjectPage() {
                         }))}
                         approvedBudget={Number(project.approvedBudget) || 0}
                         initialData={quotationInitialData}
+                        onSaveSuccess={handleSaveSuccess}
                     />
                 </TabsContent>
                 <TabsContent value="directory" className="w-full space-y-4">
@@ -281,7 +287,7 @@ export default function ProjectPage() {
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                             {forms.quotations.map((form: unknown) => {
-                                                const formData = form as { id: string; details?: { quoteNo?: string; totalCost?: string; bidPrice?: string; deliveryDate?: string }; createdAt: string; formItems?: unknown[] };
+                                                const formData = form as { id: number; code?: string; totalCost?: string; bidPrice?: string; deliveryDate?: string ; createdAt: string; formItems?: unknown[] };
                                                 return (
                                                 <div
                                                     key={formData.id}
@@ -289,30 +295,21 @@ export default function ProjectPage() {
                                                     onClick={() => handleQuotationClick(form)}
                                                 >
                                                     <div className="flex justify-between items-start mb-2">
-                                                        <h3 className="font-semibold text-sm">{formData.details?.quoteNo || 'N/A'}</h3>
-                                                        <span className="text-xs text-muted-foreground">
-                                                            {new Date(formData.createdAt).toLocaleDateString()}
-                                                        </span>
+                                                        <h3 className="font-semibold text-sm">{formData.code || 'N/A'}</h3>
                                                     </div>
                                                     <div className="space-y-1 text-xs">
                                                         <div className="flex justify-between">
                                                             <span className="text-muted-foreground">Total Cost:</span>
-                                                            <span className="font-medium">{formatCurrency(formData.details?.totalCost || "0")}</span>
+                                                            <span className="font-medium">{formatCurrency(formData.totalCost || "0")}</span>
                                                         </div>
                                                         <div className="flex justify-between">
                                                             <span className="text-muted-foreground">Bid Price:</span>
-                                                            <span className="font-medium">{formatCurrency(formData.details?.bidPrice || "0")}</span>
+                                                            <span className="font-medium">{formatCurrency(formData.bidPrice || "0")}</span>
                                                         </div>
                                                         <div className="flex justify-between">
                                                             <span className="text-muted-foreground">Items:</span>
-                                                            <span className="font-medium">{formData.formItems?.length || 0}</span>
+                                                            <span className="font-medium">{formData.quotationItems?.length || 0}</span>
                                                         </div>
-                                                        {formData.details?.deliveryDate && (
-                                                            <div className="flex justify-between">
-                                                                <span className="text-muted-foreground">Delivery:</span>
-                                                                <span className="font-medium">{formData.details.deliveryDate}</span>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                 </div>
                                                 );
