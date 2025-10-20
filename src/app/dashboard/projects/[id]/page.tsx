@@ -64,7 +64,7 @@ export default function ProjectPage() {
     const [loading, setLoading] = useState(true);
     const [bidPercentage] = useState<number>(15);
     const [isProjectDetailsOpen, setIsProjectDetailsOpen] = useState(true);
-    const [activeTab, setActiveTab] = useState("dashboard");
+    const [activeTab, setActiveTab] = useState("details");
     const [forms, setForms] = useState<{
         quotations: unknown[];
         purchaseRequests: unknown[];
@@ -182,15 +182,17 @@ export default function ProjectPage() {
 
     // Render the actual project data
     return (
-        <div className="flex flex-col justify-start items-center gap-2 w-full overflow-x-hidden p-2">
+        <div className="flex flex-col justify-start items-center gap-2 w-full overflow-x-hidden px-1">
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col justify-start items-center gap-1 h-full w-full mt-1">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col justify-start items-center gap-1 h-full w-full">
                 <TabsList>
-                    <TabsTrigger value="dashboard">Project Dashboard</TabsTrigger>
+                    <TabsTrigger value="details">Project Details</TabsTrigger>
+                    <TabsTrigger value="budgetAllocation">Budget Allocation</TabsTrigger>
+                    <TabsTrigger value="currentAction">{project.workflowstage.code === "QUOTE" ? "Create Quotation" : project.workflowstage.code === "PR" ? "Create Purchase Request" : "Create Purchase Order"}</TabsTrigger>
                     <TabsTrigger value="directory">Project Directory</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="dashboard" className="w-full space-y-2">
+                <TabsContent value="details" className="w-full space-y-2">
                     {/* Project Details */}
                     <div className="rounded-lg border w-full">
                         <div onClick={() => setIsProjectDetailsOpen(!isProjectDetailsOpen)} className={`flex justify-between items-center border-b p-4 ${isProjectDetailsOpen ? "border-zinc-200" : "border-transparent"}`}>
@@ -241,28 +243,36 @@ export default function ProjectPage() {
                             </div>
                         </div>
                     </div>
+                </TabsContent>
 
-                    {project.workflowstage.code === "PR" && (
-                        <BudgetAllocationCard />
+                <TabsContent value="currentAction" className="w-full space-y-4">
+                    {project.workflowstage.code === "QUOTE" && (
+                        <QuotationCard
+                            projectId={String(project.id)}
+                            bidPercentage={bidPercentage}
+                            clientDetails={project.company.companyProponents.map(proponent => ({
+                                id: String(project.company.id),
+                                companyName: project.company.companyName,
+                                tinNumber: project.company.tinNumber || "",
+                                address: constructAddress(project.company.companyAddresses[0]),
+                                contactPerson: proponent.contactPerson,
+                                contactNumber: proponent.contactNumber,
+                                email: null,
+                            }))}
+                            approvedBudget={Number(project.approvedBudget) || 0}
+                            initialData={quotationInitialData}
+                            onSaveSuccess={handleSaveSuccess}
+                        />
                     )}
+                </TabsContent>
 
-                    <QuotationCard
-                        projectId={String(project.id)}
-                        bidPercentage={bidPercentage}
-                        clientDetails={project.company.companyProponents.map(proponent => ({
-                            id: String(project.company.id),
-                            companyName: project.company.companyName,
-                            tinNumber: project.company.tinNumber || "",
-                            address: constructAddress(project.company.companyAddresses[0]),
-                            contactPerson: proponent.contactPerson,
-                            contactNumber: proponent.contactNumber,
-                            email: null,
-                        }))}
-                        approvedBudget={Number(project.approvedBudget) || 0}
-                        initialData={quotationInitialData}
-                        onSaveSuccess={handleSaveSuccess}
+                <TabsContent value="budgetAllocation" className="w-full space-y-4">
+                    <BudgetAllocationCard
+                        projectBudget={Number(project.approvedBudget) || 0}
+                        projectId={project.id}
                     />
                 </TabsContent>
+                
                 <TabsContent value="directory" className="w-full space-y-4">
                     {formsLoading ? (
                         <div className="space-y-4">
