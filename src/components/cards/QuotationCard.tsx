@@ -428,13 +428,13 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
   const handleClearForm = () => {
     setFormData({
-      code: "",
-      forCompanyId: "",
-      projectId: "",
-      requestorId: "",
+      code: formData.code,
+      forCompanyId: formData.forCompanyId,
+      projectId: formData.projectId,
+      requestorId: formData.requestorId,
       deliveryTerm: "",
-      approvedBudget: 0,
-      bidPercentage: 15,
+      approvedBudget: formData.approvedBudget,
+      bidPercentage: formData.bidPercentage,
       supplierPriceVatInclusive: "yes",
       paymentTerm: "",
       ewtPercentage: 1,
