@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Loader2, Check, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ProductSearch } from "@/components/ui/product-search";
 
 interface Product {
   id: string;
@@ -39,6 +40,7 @@ export default function ProductsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ productId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [newProduct, setNewProduct] = useState<NewProduct>({
     sku: "",
     name: "",
@@ -306,6 +308,33 @@ export default function ProductsPage() {
     }
   };
 
+  // Fuzzy search function - searches across name, description, uom, category, subCategory, and adCategory
+  // Supports word order independence (e.g., "black pen" matches "pen black")
+  const filterProducts = (products: Product[]) => {
+    if (!searchQuery.trim()) return products;
+
+    const searchTerms = searchQuery.toLowerCase().trim().split(/\s+/);
+
+    return products.filter((product) => {
+      const searchableText = [
+        product.name,
+        product.description,
+        product.uom,
+        product.category,
+        product.subCategory,
+        product.adCategory,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      // All search terms must be present in the searchable text (order independent)
+      return searchTerms.every((term) => searchableText.includes(term));
+    });
+  };
+
+  const filteredProducts = filterProducts(products);
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -319,6 +348,11 @@ export default function ProductsPage() {
             Add Product
           </Button>
         )}
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-4">
+        <ProductSearch value={searchQuery} onChange={setSearchQuery} />
       </div>
 
       <div className="rounded-md border">
@@ -455,14 +489,14 @@ export default function ProductsPage() {
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                 </TableRow>
               ))
-            ) : products.length === 0 && !isAddingRow ? (
+            ) : filteredProducts.length === 0 && !isAddingRow ? (
               <TableRow>
-                <TableCell colSpan={9} className="text-center py-10 text-muted-foreground">
-                  No products found. Add your first product to get started.
+                <TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
+                  {searchQuery ? "No products match your search." : "No products found. Add your first product to get started."}
                 </TableCell>
               </TableRow>
             ) : (
-              products.map((product) => (
+              filteredProducts.map((product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">{product.sku}</TableCell>
                   <TableCell

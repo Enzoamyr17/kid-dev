@@ -9,6 +9,7 @@ import { X, Loader2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ProductSearch } from "@/components/ui/product-search";
 
 interface QuotationCardProps {
   projectId: string;
@@ -99,6 +100,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Helper function to construct full address from components
   const constructAddress = (address: typeof companyAddresses[0]) => {
@@ -842,6 +844,33 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
     setActiveTab("products");
   };
 
+  // Fuzzy search function - searches across name, description, uom, category, subCategory, and adCategory
+  // Supports word order independence (e.g., "black pen" matches "pen black")
+  const filterProducts = (products: Product[]) => {
+    if (!searchQuery.trim()) return products;
+
+    const searchTerms = searchQuery.toLowerCase().trim().split(/\s+/);
+
+    return products.filter((product) => {
+      const searchableText = [
+        product.name,
+        product.description,
+        product.uom,
+        product.category,
+        product.subCategory,
+        product.adCategory,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      // All search terms must be present in the searchable text (order independent)
+      return searchTerms.every((term) => searchableText.includes(term));
+    });
+  };
+
+  const filteredProducts = filterProducts(products);
+
   // Load initial data if provided (for creating new versions)
   useEffect(() => {
     if (initialData) {
@@ -919,6 +948,11 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
 
         {/* Products Tab */}
         <TabsContent value="products" className="w-full p-2">
+          {/* Search Bar */}
+          <div className="mb-4 px-2">
+            <ProductSearch value={searchQuery} onChange={setSearchQuery} />
+          </div>
+
           <div className="bg-sidebar border border-blue-900/10 rounded-lg w-full h-auto max-h-full">
             <Table>
               <TableHeader>
@@ -934,7 +968,14 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product) => (
+                {filteredProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
+                      {searchQuery ? "No products match your search." : "No products available."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredProducts.map((product) => (
                   <TableRow key={product.sku}>
                     <TableCell>{product.sku}</TableCell>
                     <TableCell>{product.name}</TableCell>
@@ -961,7 +1002,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
                     )}
                     </TableCell>
                   </TableRow>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
