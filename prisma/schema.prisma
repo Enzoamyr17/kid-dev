@@ -8,24 +8,23 @@ datasource db {
 }
 
 model User {
-  id            Int               @id @default(autoincrement())
-  firstName     String            @db.VarChar(255)
-  secondName    String?           @db.VarChar(255)
-  middleName    String?           @db.VarChar(255)
-  lastName      String            @db.VarChar(255)
-  email         String            @unique @db.VarChar(255)
-  emailVerified DateTime?
-  password      String            @db.VarChar(255)
-  birthdate     DateTime?         @db.Date
-  contact       String?           @db.VarChar(255)
-  department    String?           @db.VarChar(255)
-  position      String?           @db.VarChar(255)
-  isActive      Boolean           @default(true)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-
-  quotationForms QuotationForm[]  @relation("QuotationRequestor")
+  id             Int             @id @default(autoincrement())
+  firstName      String          @db.VarChar(255)
+  lastName       String          @db.VarChar(255)
+  email          String          @unique @db.VarChar(255)
+  password       String          @db.VarChar(255)
+  department     String?         @db.VarChar(255)
+  position       String?         @db.VarChar(255)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  birthdate      DateTime?       @db.Date
+  contact        String?         @db.VarChar(255)
+  emailVerified  DateTime?
+  middleName     String?         @db.VarChar(255)
+  secondName     String?         @db.VarChar(255)
   accounts       Account[]
+  quotationForms QuotationForm[] @relation("QuotationRequestor")
   sessions       Session[]
 
   @@map("user")
@@ -37,15 +36,14 @@ model Account {
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("account")
@@ -74,102 +72,98 @@ model Company {
   id                Int                @id @default(autoincrement())
   companyName       String             @db.VarChar(255)
   tinNumber         String             @db.VarChar(255)
-  isClient          Boolean            @default(false)
-  isSupplier        Boolean            @default(false)
-  isVendor          Boolean            @default(false)
-  isInternal        Boolean            @default(false)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-
+  isClient          Boolean            @default(false)
+  isInternal        Boolean            @default(false)
+  isSupplier        Boolean            @default(false)
+  isVendor          Boolean            @default(false)
   companyAddresses  CompanyAddress[]
+  poItems           PoItem[]
+  prItems           PrItem[]
+  quotationsItems   QuotationItem[]
   companyProponents CompanyProponent[]
+  poForms           PoForm[]           @relation("PoCompany")
+  supplierPoForms   PoForm[]           @relation("PoSupplier")
+  prForms           PrForm[]           @relation("PrCompany")
+  supplierPrForms   PrForm[]           @relation("PrSupplier")
   projects          Project[]
   quotationForms    QuotationForm[]    @relation("QuotationCompany")
-  prForms           PrForm[]           @relation("PrCompany")
-  poForms           PoForm[]           @relation("PoCompany")
-  supplierPrForms   PrForm[]           @relation("PrSupplier")
-  supplierPoForms   PoForm[]           @relation("PoSupplier")
-  quotationsItems   QuotationItem[]
-  prItems           PrItem[]
-  poItems           PoItem[]
 
   @@map("company")
 }
 
 model CompanyAddress {
-  id               Int       @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   companyId        Int
-  province         String?   @db.VarChar(255)
-  barangay         String    @db.VarChar(255)
-  cityMunicipality String    @db.VarChar(255)
-  houseNo          String?   @db.VarChar(255)
-  region           String    @db.VarChar(255)
-  street           String?   @db.VarChar(255)
-  subdivision      String?   @db.VarChar(255)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  province         String?  @db.VarChar(255)
+  barangay         String   @db.VarChar(255)
+  cityMunicipality String   @db.VarChar(255)
+  houseNo          String?  @db.VarChar(255)
+  region           String   @db.VarChar(255)
+  street           String?  @db.VarChar(255)
+  subdivision      String?  @db.VarChar(255)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
 
 model CompanyProponent {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   companyId     Int
-  contactPerson String    @db.VarChar(255)
-  contactNumber String?   @db.VarChar(255)
-  email         String?   @db.VarChar(255)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactPerson String   @db.VarChar(255)
+  contactNumber String?  @db.VarChar(255)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  email         String?  @db.VarChar(255)
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@map("companyProponents")
 }
 
 model Product {
-  id            Int         @id @default(autoincrement())
-  sku           String      @db.VarChar(255)
-  name          String      @db.VarChar(255)
-  description   String
-  brand         String      @db.VarChar(255)
-  category      String?     @db.VarChar(255)
-  subCategory   String?     @db.VarChar(255)
-  adCategory    String?     @db.VarChar(255)
-  uom           String      @db.VarChar(255)
-  currentStock  Int         @default(0)
-  orderedStock  Int         @default(0)
-  isActive      Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id             Int             @id @default(autoincrement())
+  sku            String          @db.VarChar(255)
+  name           String          @db.VarChar(255)
+  description    String
+  brand          String          @db.VarChar(255)
+  category       String?         @db.VarChar(255)
+  subCategory    String?         @db.VarChar(255)
+  adCategory     String?         @db.VarChar(255)
+  uom            String          @db.VarChar(255)
+  currentStock   Int             @default(0)
+  orderedStock   Int             @default(0)
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime?       @updatedAt
+  poItems        PoItem[]
+  prItems        PrItem[]
+  quotationItems QuotationItem[]
 
   @@index([sku])
-  quotationItems QuotationItem[]
-  prItems        PrItem[]
-  poItems        PoItem[]
 }
 
 model Project {
-  id              Int               @id @default(autoincrement())
+  id              Int                  @id @default(autoincrement())
   workflowId      Int
-  workflowStageId Int
   companyId       Int
-  code            String            @db.VarChar(255)
-  description     String            @db.Text
-  approvedBudget  Decimal           @db.Decimal(12,2) @default(0)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-
-  company         Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  workflow        WorkflowTemplate  @relation(fields: [workflowId], references: [id])
-  workflowstage   WorkflowStage     @relation(fields: [workflowStageId], references: [id])
-  quotationForms  QuotationForm[]
-  prForms         PrForm[]
-  poForms         PoForm[]
+  code            String               @db.VarChar(255)
+  description     String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  approvedBudget  Decimal              @default(0) @db.Decimal(12, 2)
+  workflowStageId Int
   budget          BudgetCategory[]
   transaction     ProjectTransaction[]
+  poForms         PoForm[]
+  prForms         PrForm[]
+  company         Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workflow        WorkflowTemplate     @relation(fields: [workflowId], references: [id])
+  workflowstage   WorkflowStage        @relation(fields: [workflowStageId], references: [id])
+  quotationForms  QuotationForm[]
 
   @@index([companyId])
   @@index([workflowId])
@@ -177,18 +171,17 @@ model Project {
 }
 
 model BudgetCategory {
-  id            Int                 @id @default(autoincrement())
-  projectId     Int?
-  name          String              @db.VarChar(255)
-  description   String?             @db.VarChar(255)
-  budget        Decimal             @db.Decimal(12,2) @default(0)
-  color         String             @db.VarChar(255)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id           Int                  @id @default(autoincrement())
+  projectId    Int?
+  name         String               @db.VarChar(255)
+  description  String?              @db.VarChar(255)
+  budget       Decimal              @default(0) @db.Decimal(12, 2)
+  color        String               @db.VarChar(255)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  project      Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  transactions ProjectTransaction[]
 
-  project       Project?            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  transactions  ProjectTransaction[]
-  
   @@index([projectId])
 }
 
@@ -197,37 +190,35 @@ model ProjectTransaction {
   projectId   Int
   categoryId  Int
   description String         @db.VarChar(255)
-  amount      Decimal        @db.Decimal(12,2)
-  attachment  String?        @db.VarChar(255)
+  amount      Decimal        @db.Decimal(12, 2)
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
-
-  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  attachment  String?        @db.VarChar(255)
   category    BudgetCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model QuotationForm {
-  id              Int       @id @default(autoincrement())
-  code            String?    @db.VarChar(255)
+  id              Int             @id @default(autoincrement())
   projectId       Int
   forCompanyId    Int
   requestorId     Int?
-  deliveryTerm    String?   @db.Text
-  deliveryAddress String?   @db.Text
-  approvedBudget  Decimal?  @db.Decimal(12,2)
-  bidPercentage   Decimal?  @db.Decimal(5,2)
-  paymentTerm     String?   @db.Text
-  totalCost       Decimal?  @db.Decimal(12,2)
-  bidPrice        Decimal?  @db.Decimal(12,2)
-  remarks         String?   @db.Text
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  deliveryTerm    String?
+  approvedBudget  Decimal?        @db.Decimal(12, 2)
+  bidPercentage   Decimal?        @db.Decimal(5, 2)
+  paymentTerm     String?
+  totalCost       Decimal?        @db.Decimal(12, 2)
+  bidPrice        Decimal?        @db.Decimal(12, 2)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  code            String?         @db.VarChar(255)
+  deliveryAddress String?
+  remarks         String?
+  quotationItems  QuotationItem[]
+  forCompany      Company         @relation("QuotationCompany", fields: [forCompanyId], references: [id])
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requestor       User?           @relation("QuotationRequestor", fields: [requestorId], references: [id])
 
-  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  forCompany      Company   @relation("QuotationCompany", fields: [forCompanyId], references: [id])
-  requestor       User?     @relation("QuotationRequestor", fields: [requestorId], references: [id])
-
-  quotationItems QuotationItem[]
   @@index([projectId])
   @@index([forCompanyId])
   @@index([requestorId])
@@ -235,45 +226,43 @@ model QuotationForm {
 }
 
 model QuotationItem {
-  id            Int             @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   formId        Int
   productId     Int
   supplierId    Int
   quantity      Int?
-  internalPrice Decimal @db.Decimal(12,2)
-  clientPrice   Decimal @db.Decimal(12,2)
-  total         Decimal @db.Decimal(12,2)
+  internalPrice Decimal       @db.Decimal(12, 2)
+  clientPrice   Decimal       @db.Decimal(12, 2)
+  total         Decimal       @db.Decimal(12, 2)
   remarks       String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-
-  form          QuotationForm   @relation(fields: [formId], references: [id], onDelete: Cascade)
-  product       Product         @relation(fields: [productId], references: [id])
-  supplier      Company         @relation(fields: [supplierId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  form          QuotationForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+  supplier      Company       @relation(fields: [supplierId], references: [id])
 
   @@index([formId])
   @@index([productId])
 }
 
 model PrForm {
-  id             Int        @id @default(autoincrement())
-  code           String?    @db.VarChar(255)
+  id             Int       @id @default(autoincrement())
   projectId      Int
-  dateRequired   DateTime?  @db.Date
+  dateRequired   DateTime? @db.Date
   forCompanyId   Int
   fromSupplierId Int?
-  preparedBy     String?    @db.VarChar(255)
-  approvedBy     String?    @db.VarChar(255)
-  totalCost      Decimal?   @db.Decimal(12,2)
-  bidPrice       Decimal?   @db.Decimal(12,2)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  forCompany     Company    @relation("PrCompany", fields: [forCompanyId], references: [id])
-  fromSupplier   Company?   @relation("PrSupplier", fields: [fromSupplierId], references: [id])
-
+  preparedBy     String?   @db.VarChar(255)
+  approvedBy     String?   @db.VarChar(255)
+  totalCost      Decimal?  @db.Decimal(12, 2)
+  bidPrice       Decimal?  @db.Decimal(12, 2)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  code           String?   @db.VarChar(255)
   prItems        PrItem[]
+  forCompany     Company   @relation("PrCompany", fields: [forCompanyId], references: [id])
+  fromSupplier   Company?  @relation("PrSupplier", fields: [fromSupplierId], references: [id])
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
   @@index([projectId])
   @@index([forCompanyId])
   @@index([fromSupplierId])
@@ -281,21 +270,20 @@ model PrForm {
 }
 
 model PrItem {
-  id            Int        @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   formId        Int
   productId     Int
   supplierId    Int
   quantity      Int?
-  internalPrice Decimal    @db.Decimal(12,2)
-  clientPrice   Decimal    @db.Decimal(12,2)
-  total         Decimal    @db.Decimal(12,2)
+  internalPrice Decimal  @db.Decimal(12, 2)
+  clientPrice   Decimal  @db.Decimal(12, 2)
+  total         Decimal  @db.Decimal(12, 2)
   remarks       String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
-  form          PrForm     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  product       Product    @relation(fields: [productId], references: [id])
-  supplier      Company    @relation(fields: [supplierId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  form          PrForm   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id])
+  supplier      Company  @relation(fields: [supplierId], references: [id])
 
   @@index([formId])
   @@index([productId])
@@ -303,22 +291,21 @@ model PrItem {
 
 model PoForm {
   id             Int            @id @default(autoincrement())
-  code           String?    @db.VarChar(255)
   projectId      Int
   fromSupplierId Int?
   forCompanyId   Int
   paymentMethod  PaymentMethod?
   deliveryDate   DateTime?
-  totalCost      Decimal?       @db.Decimal(12,2)
-  bidPrice       Decimal?       @db.Decimal(12,2)
+  totalCost      Decimal?       @db.Decimal(12, 2)
+  bidPrice       Decimal?       @db.Decimal(12, 2)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
-
-  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  code           String?        @db.VarChar(255)
+  poItems        PoItem[]
   forCompany     Company        @relation("PoCompany", fields: [forCompanyId], references: [id])
   fromSupplier   Company?       @relation("PoSupplier", fields: [fromSupplierId], references: [id])
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  poItems        PoItem[]
   @@index([projectId])
   @@index([forCompanyId])
   @@index([fromSupplierId])
@@ -326,54 +313,52 @@ model PoForm {
 }
 
 model PoItem {
-  id            Int          @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   formId        Int
   productId     Int
   supplierId    Int
   quantity      Int?
-  internalPrice Decimal      @db.Decimal(12,2)
-  clientPrice   Decimal      @db.Decimal(12,2)
-  total         Decimal      @db.Decimal(12,2)
+  internalPrice Decimal  @db.Decimal(12, 2)
+  clientPrice   Decimal  @db.Decimal(12, 2)
+  total         Decimal  @db.Decimal(12, 2)
   remarks       String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  form          PoForm       @relation(fields: [formId], references: [id], onDelete: Cascade)
-  product       Product      @relation(fields: [productId], references: [id])
-  supplier      Company      @relation(fields: [supplierId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  form          PoForm   @relation(fields: [formId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id])
+  supplier      Company  @relation(fields: [supplierId], references: [id])
 
   @@index([formId])
   @@index([productId])
 }
 
 model WorkflowTemplate {
-  id              Int              @id @default(autoincrement())
-  name            String           @db.VarChar(255)
-  description     String           @db.VarChar(255)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  workflowStages  WorkflowStage[]
-  projects        Project[]
+  id             Int             @id @default(autoincrement())
+  name           String          @db.VarChar(255)
+  description    String          @db.VarChar(255)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  projects       Project[]
+  workflowStages WorkflowStage[]
 
   @@map("workflowTemplate")
 }
 
 model WorkflowStage {
-  id               Int               @id @default(autoincrement())
+  id               Int              @id @default(autoincrement())
   templateId       Int
-  name             String            @db.VarChar(255)
-  code             String            @db.VarChar(255)
+  name             String           @db.VarChar(255)
+  code             String           @db.VarChar(255)
   order            Int
   requiresApproval Boolean
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-
-  template         WorkflowTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   projects         Project[]
+  template         WorkflowTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
+  @@unique([templateId, code])
   @@index([templateId])
   @@map("workflowStage")
-  @@unique([templateId, code])
 }
 
 enum PaymentMethod {
