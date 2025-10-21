@@ -260,6 +260,7 @@ export default function ProjectPage() {
                                 contactNumber: proponent.contactNumber,
                                 email: proponent.email,
                             }))}
+                            companyAddresses={project.company.companyAddresses}
                             approvedBudget={Number(project.approvedBudget) || 0}
                             initialData={quotationInitialData}
                             onSaveSuccess={handleSaveSuccess}

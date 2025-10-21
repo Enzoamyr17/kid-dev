@@ -22,6 +22,17 @@ interface QuotationCardProps {
     contactNumber: string;
     email: string | null;
   }>; 
+  companyAddresses: Array<{
+    id: number;
+    companyId: number;
+    houseNo: string;
+    street: string;
+    subdivision?: string;
+    region: string;
+    province: string;
+    cityMunicipality: string;
+    barangay: string;
+  }>;
   approvedBudget: number;
   initialData?: unknown; // For creating new versions from existing quotations
   onSaveSuccess?: () => void;
@@ -62,6 +73,7 @@ interface QuotationFormData {
   projectId: string;
   requestorId: string;
   deliveryTerm: string;
+  deliveryAddress: string;
   approvedBudget: number;
 
   // Pricing & Settings
@@ -74,15 +86,33 @@ interface QuotationFormData {
   contingencyPercentage: number;
   loanInterestPercentage: number;
   loanMonths: number;
+
+  // Additional
+  remarks: string;
 }
 
 
 
-function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget, initialData, onSaveSuccess }: QuotationCardProps) {
+function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddresses, approvedBudget, initialData, onSaveSuccess }: QuotationCardProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState("products");
   const [users, setUsers] = useState<User[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [showAddressDropdown, setShowAddressDropdown] = useState(false);
+
+  // Helper function to construct full address from components
+  const constructAddress = (address: typeof companyAddresses[0]) => {
+    const parts = [
+      address.houseNo,
+      address.street,
+      address.subdivision,
+      address.barangay,
+      address.cityMunicipality,
+      address.province,
+      address.region
+    ].filter(Boolean);
+    return parts.join(', ');
+  };
 
   const [formData, setFormData] = useState<QuotationFormData>({
     code: "",
@@ -90,6 +120,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     projectId: projectId,
     requestorId: "",
     deliveryTerm: "",
+    deliveryAddress: companyAddresses[0] ? constructAddress(companyAddresses[0]) : "",
     approvedBudget: approvedBudget,
     bidPercentage: bidPercentage,
     supplierPriceVatInclusive: "yes",
@@ -98,6 +129,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     contingencyPercentage: 5,
     loanInterestPercentage: 3,
     loanMonths: 0,
+    remarks: "",
   });
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -366,9 +398,11 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
         projectId: formData.projectId,
         requestorId: formData.requestorId || null,
         deliveryTerm: formData.deliveryTerm || null,
+        deliveryAddress: formData.deliveryAddress || null,
         paymentTerm: formData.paymentTerm || null,
         approvedBudget: formData.approvedBudget,
         bidPercentage: formData.bidPercentage,
+        remarks: formData.remarks || null,
         totals: {
           totalCost: financials.totalCost,
           bidPrice: financials.totalBidPrice,
@@ -433,6 +467,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
       projectId: formData.projectId,
       requestorId: formData.requestorId,
       deliveryTerm: "",
+      deliveryAddress: companyAddresses[0] ? constructAddress(companyAddresses[0]) : "",
       approvedBudget: formData.approvedBudget,
       bidPercentage: formData.bidPercentage,
       supplierPriceVatInclusive: "yes",
@@ -441,6 +476,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
       contingencyPercentage: 5,
       loanInterestPercentage: 3,
       loanMonths: 0,
+      remarks: "",
     });
     setCart([]);
   };
@@ -562,7 +598,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     // Create table for Shipped/Delivered section
     const shippedTableData = [
       [
-        `Name:\n${currentClientDetails.companyName}\n\nAddress:\n${currentClientDetails.address}`,
+        `Name:\n${currentClientDetails.companyName}\n\nAddress:\n${currentFormData.deliveryAddress || currentClientDetails.address}`,
         `${currentClientDetails.contactPerson}\n${currentClientDetails.contactNumber}`,
         currentFormData.paymentTerm || "7 CD",
         currentFormData.deliveryTerm || "3-5CD upon receipt of PO"
@@ -647,9 +683,17 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
     doc.setLineWidth(0.5);
     doc.rect(14, tableEndY, 95, 40);
     doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
+    doc.setFont("helvetica", "bold");
     doc.text("Remarks / Instructions:", 16, tableEndY + 5);
-    
+
+    // Add remarks content if available
+    if (currentFormData.remarks) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const remarksLines = doc.splitTextToSize(currentFormData.remarks, 90);
+      doc.text(remarksLines, 16, tableEndY + 10);
+    }
+
     // Financial summary (right side)
     const summaryX = 117;
     let summaryY = tableEndY + 2;
@@ -940,10 +984,6 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
 
                 <div className="flex flex-col justify-between divide-y divide-zinc-200 w-1/2 min-h-32">
                   <div className="flex justify-between items-start w-full">
-                    <h1 className="text-sm font-medium text-muted-foreground">Address:</h1>
-                    <h1 className="text-md font-medium text-right">{clientDetails[0].address}</h1>
-                  </div>
-                  <div className="flex justify-between items-start w-full">
                     <h1 className="text-sm font-medium text-muted-foreground">TIN:</h1>
                     <h1 className="text-md font-medium text-right">{clientDetails[0].tinNumber}</h1>
                   </div>
@@ -1021,6 +1061,47 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
               />
             </div>
 
+            {/* Delivery Address Input with Dropdown */}
+            <div className="mb-6">
+              <div className="relative">
+                <Field
+                  type="text"
+                  label={<>Delivery Address <span className="text-red-500">*</span></>}
+                  placeholder="Enter delivery address"
+                  value={formData.deliveryAddress}
+                  onChange={(value) => {
+                    updateFormData("deliveryAddress", value);
+                    setShowAddressDropdown(false);
+                  }}
+                  className="h-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAddressDropdown(!showAddressDropdown)}
+                  className="absolute right-2 top-[34px] text-xs text-blue-600 hover:text-blue-800 underline"
+                >
+                  {showAddressDropdown ? 'Hide' : 'Show'} saved addresses
+                </button>
+
+                {showAddressDropdown && companyAddresses.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    {companyAddresses.map((address) => (
+                      <button
+                        key={address.id}
+                        type="button"
+                        onClick={() => {
+                          updateFormData("deliveryAddress", constructAddress(address));
+                          setShowAddressDropdown(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-blue-50 transition-colors border-b last:border-b-0"
+                      >
+                        {constructAddress(address)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Items Table */}
             <div className="space-y-4 mb-6">
@@ -1316,6 +1397,18 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Remarks / Instructions */}
+            <div className="mb-6">
+              <Field
+                type="textarea"
+                label="Remarks / Instructions"
+                placeholder="Enter any special instructions or remarks for this quotation..."
+                value={formData.remarks}
+                onChange={(value) => updateFormData("remarks", value)}
+                rows={3}
+              />
             </div>
 
             {/* Action Buttons */}

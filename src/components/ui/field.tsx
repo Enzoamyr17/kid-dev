@@ -27,6 +27,13 @@ interface TextFieldProps extends BaseFieldProps {
   onChange?: (value: string) => void
 }
 
+interface TextareaFieldProps extends BaseFieldProps {
+  type: "textarea"
+  value?: string
+  onChange?: (value: string) => void
+  rows?: number
+}
+
 interface PasswordFieldProps extends BaseFieldProps {
   type: "password"
   value?: string
@@ -65,7 +72,7 @@ interface SelectFieldProps extends BaseFieldProps {
   options: SelectOption[]
 }
 
-type FieldProps = TextFieldProps | PasswordFieldProps | NumberFieldProps | DateFieldProps | SelectFieldProps
+type FieldProps = TextFieldProps | TextareaFieldProps | PasswordFieldProps | NumberFieldProps | DateFieldProps | SelectFieldProps
 
 export function Field(props: FieldProps) {
   const { className, disabled, placeholder, label, error } = props
@@ -97,6 +104,25 @@ export function Field(props: FieldProps) {
           disabled={disabled}
           className={cn(
             "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+            error && "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border-destructive",
+            className
+          )}
+          aria-invalid={!!error}
+        />
+      )
+    }
+
+    if (props.type === "textarea") {
+      return (
+        <textarea
+          value={props.value || ""}
+          onChange={(e) => props.onChange?.(e.target.value)}
+          placeholder={placeholder}
+          disabled={disabled}
+          rows={props.rows || 4}
+          className={cn(
+            "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input w-full min-w-0 rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm resize-y",
             "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
             error && "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border-destructive",
             className

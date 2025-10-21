@@ -44,11 +44,13 @@ export async function POST(request: NextRequest) {
           projectId: Number(body.projectId),
           requestorId: body.requestorId ? Number(body.requestorId) : null,
           deliveryTerm: body.deliveryTerm ?? null,
+          deliveryAddress: body.deliveryAddress ?? null,
           paymentTerm: body.paymentTerm ?? null,
           approvedBudget: body.approvedBudget ?? null,
           bidPercentage: body.bidPercentage ?? null,
           totalCost: body.totals?.totalCost ?? null,
           bidPrice: body.totals?.bidPrice ?? null,
+          remarks: body.remarks ?? null,
           quotationItems: {
             create: body.items.map((i: { productId: number; supplierId: number; quantity?: number; internalPrice: number; clientPrice: number; total: number; remarks?: string; }) => ({
               productId: Number(i.productId),
