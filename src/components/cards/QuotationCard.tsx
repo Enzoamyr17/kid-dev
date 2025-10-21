@@ -949,7 +949,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, approvedBudget
                   </div>
                   <div className="flex justify-between items-start w-full">
                     <h1 className="text-sm font-medium text-muted-foreground">Email:</h1>
-                    <h1 className="text-md font-medium text-right">{clientDetails[0].email ?? "Unavailable"}</h1>
+                    <a href={`mailto:${clientDetails[0].email}`} target="_blank" rel="noopener noreferrer" className="text-md font-medium text-blue-500 text-right underline">{clientDetails[0].email ?? "Unavailable"}</a>
                   </div>
                 </div>
               </div>

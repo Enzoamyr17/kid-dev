@@ -31,6 +31,7 @@ interface Project {
             companyId: number;
             contactPerson: string;
             contactNumber: string;
+            email: string | null;
         }>;
         companyAddresses: Array<{
             id: number;
@@ -257,7 +258,7 @@ export default function ProjectPage() {
                                 address: constructAddress(project.company.companyAddresses[0]),
                                 contactPerson: proponent.contactPerson,
                                 contactNumber: proponent.contactNumber,
-                                email: null,
+                                email: proponent.email,
                             }))}
                             approvedBudget={Number(project.approvedBudget) || 0}
                             initialData={quotationInitialData}
