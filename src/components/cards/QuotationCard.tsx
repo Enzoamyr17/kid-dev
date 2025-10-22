@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { X, Loader2, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -135,12 +136,66 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
   });
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [productPrices, setProductPrices] = useState<
+    Record<number, Array<{ companyId: number; companyName: string; price: number }>>
+  >({});
+  const [suppliers, setSuppliers] = useState<Array<{ id: number; name: string }>>([]);
+
+  // State for save price confirmation modal
+  const [showSavePriceModal, setShowSavePriceModal] = useState(false);
+  const [pendingPriceSave, setPendingPriceSave] = useState<{
+    productId: number;
+    productName: string;
+    supplierId: number;
+    supplierName: string;
+    price: number;
+  } | null>(null);
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
 
   const fetchProducts = async () => {
     const response = await fetch("/api/products?active=true");
     const data = await response.json();
     if (!response.ok) throw new Error("Failed to fetch products");
     setProducts(data);
+  };
+
+  const fetchProductPrices = async () => {
+    try {
+      const response = await fetch("/api/product-prices");
+      if (!response.ok) throw new Error("Failed to fetch product prices");
+      const data = await response.json();
+
+      // Create a map of productId -> array of { companyId, companyName, price }
+      const priceMap: Record<number, Array<{ companyId: number; companyName: string; price: number }>> = {};
+      data.forEach((priceEntry: { productId: number; companyId: number; price: number; company: { companyName: string } }) => {
+        const productId = priceEntry.productId;
+        const price = Number(priceEntry.price);
+
+        if (!priceMap[productId]) {
+          priceMap[productId] = [];
+        }
+
+        priceMap[productId].push({
+          companyId: priceEntry.companyId,
+          companyName: priceEntry.company.companyName,
+          price: price,
+        });
+      });
+
+      setProductPrices(priceMap);
+
+      // Extract unique suppliers
+      const uniqueSuppliers = new Map<number, string>();
+      data.forEach((priceEntry: { companyId: number; company: { companyName: string } }) => {
+        uniqueSuppliers.set(priceEntry.companyId, priceEntry.company.companyName);
+      });
+
+      setSuppliers(
+        Array.from(uniqueSuppliers.entries()).map(([id, name]) => ({ id, name }))
+      );
+    } catch (error) {
+      console.error("Error fetching product prices:", error);
+    }
   };
 
   const fetchUsers = async () => {
@@ -171,6 +226,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
 
   useEffect(() => {
     fetchProducts();
+    fetchProductPrices();
     fetchUsers();
     fetchCurrentUserId();
   }, []);
@@ -200,8 +256,22 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
           : item
       ));
     } else {
-      // Add new item with default internal price of 0
-      const basePrice = 0;
+      // Get the lowest price for this product from productPrices
+      const productId = Number(product.id);
+      const pricesForProduct = productPrices[productId] || [];
+
+      let basePrice = 0;
+      let supplierName = "-";
+
+      if (pricesForProduct.length > 0) {
+        // Find the lowest priced supplier
+        const lowestPriceEntry = pricesForProduct.reduce((lowest, current) =>
+          current.price < lowest.price ? current : lowest
+        );
+        basePrice = lowestPriceEntry.price;
+        supplierName = lowestPriceEntry.companyName;
+      }
+
       const calculatedPrice = basePrice * (1 + formData.bidPercentage / 100);
       const proposalPrice = calculatedPrice; // ABC is 0 by default, so no cap initially
 
@@ -209,7 +279,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
         ...product,
         quantity: 1,
         internalPrice: basePrice,
-        supplier: "OFPS",
+        supplier: supplierName,
         abcPrice: 0,
         proposalPrice: proposalPrice,
       };
@@ -229,15 +299,125 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
   };
 
   const handleUpdateInternalPrice = (sku: string, price: number) => {
+    // First, update the cart
     setCart(cart.map(item => {
       if (item.sku === sku) {
         const calculatedPrice = price * (1 + formData.bidPercentage / 100);
         let newProposalPrice = item.abcPrice > 0 ? Math.min(calculatedPrice, item.abcPrice) : calculatedPrice;
         newProposalPrice = Math.ceil(newProposalPrice * 100) / 100;
+
+        // Check if we should prompt to save this price
+        // Only prompt if: supplier is set (not "-"), price is > 0, and it's different from existing price
+        if (item.supplier && item.supplier !== "-" && price > 0) {
+          const product = products.find(p => p.sku === sku);
+          const supplier = suppliers.find(s => s.name === item.supplier);
+
+          if (product && supplier) {
+            const productId = Number(product.id);
+            const existingPrices = productPrices[productId] || [];
+            const existingPrice = existingPrices.find(p => p.companyId === supplier.id);
+
+            // Only show modal if price is different from existing or doesn't exist
+            if (!existingPrice || existingPrice.price !== price) {
+              setPendingPriceSave({
+                productId: productId,
+                productName: product.name,
+                supplierId: supplier.id,
+                supplierName: supplier.name,
+                price: price,
+              });
+              setShowSavePriceModal(true);
+            }
+          }
+        }
+
         return { ...item, internalPrice: price, proposalPrice: newProposalPrice };
       }
       return item;
     }));
+  };
+
+  const handleSavePriceToDatabase = async () => {
+    if (!pendingPriceSave) return;
+
+    setIsSavingPrice(true);
+    try {
+      const response = await fetch("/api/product-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: pendingPriceSave.productId,
+          companyId: pendingPriceSave.supplierId,
+          price: pendingPriceSave.price,
+        }),
+      });
+
+      if (response.ok) {
+        const newPrice = await response.json();
+
+        // Update the productPrices state with the new price
+        setProductPrices(prev => {
+          const updated = { ...prev };
+          if (!updated[pendingPriceSave.productId]) {
+            updated[pendingPriceSave.productId] = [];
+          }
+
+          // Remove old price if exists and add new one
+          updated[pendingPriceSave.productId] = updated[pendingPriceSave.productId].filter(
+            p => p.companyId !== pendingPriceSave.supplierId
+          );
+          updated[pendingPriceSave.productId].push({
+            companyId: pendingPriceSave.supplierId,
+            companyName: pendingPriceSave.supplierName,
+            price: pendingPriceSave.price,
+          });
+
+          return updated;
+        });
+
+        toast.success("Supplier price saved to database");
+      } else {
+        const error = await response.json();
+        // If it already exists, try PATCH instead
+        if (error.error?.includes("already exists")) {
+          const patchResponse = await fetch("/api/product-prices", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              productId: pendingPriceSave.productId,
+              companyId: pendingPriceSave.supplierId,
+              price: pendingPriceSave.price,
+            }),
+          });
+
+          if (patchResponse.ok) {
+            // Update the productPrices state
+            setProductPrices(prev => {
+              const updated = { ...prev };
+              const priceIndex = updated[pendingPriceSave.productId]?.findIndex(
+                p => p.companyId === pendingPriceSave.supplierId
+              );
+              if (priceIndex !== -1) {
+                updated[pendingPriceSave.productId][priceIndex].price = pendingPriceSave.price;
+              }
+              return updated;
+            });
+            toast.success("Supplier price updated in database");
+          } else {
+            throw new Error("Failed to update price");
+          }
+        } else {
+          throw new Error(error.error || "Failed to save price");
+        }
+      }
+    } catch (error) {
+      console.error("Error saving price:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to save price to database");
+    } finally {
+      setIsSavingPrice(false);
+      setShowSavePriceModal(false);
+      setPendingPriceSave(null);
+    }
   };
 
   const handleUpdateProposalPrice = (sku: string, price: number) => {
@@ -266,10 +446,45 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
 
   };
 
-  const handleUpdateSupplier = (sku: string, supplier: string) => {
-    setCart(cart.map(item =>
-      item.sku === sku ? { ...item, supplier } : item
-    ));
+  const handleUpdateSupplier = (sku: string, supplierName: string) => {
+    setCart(cart.map(item => {
+      if (item.sku === sku) {
+        // If "No Supplier" or "-" is selected, reset to 0 price
+        if (supplierName === "No Supplier" || supplierName === "-") {
+          return {
+            ...item,
+            supplier: "-",
+            internalPrice: 0,
+            proposalPrice: 0,
+          };
+        }
+
+        // Find the product and get prices for it
+        const product = products.find(p => p.sku === sku);
+        if (!product) return { ...item, supplier: supplierName };
+
+        const productId = Number(product.id);
+        const pricesForProduct = productPrices[productId] || [];
+
+        // Find the price for the selected supplier
+        const supplierPrice = pricesForProduct.find(p => p.companyName === supplierName);
+        const newInternalPrice = supplierPrice ? supplierPrice.price : 0;
+
+        // Recalculate proposal price with new internal price
+        const calculatedPrice = newInternalPrice * (1 + formData.bidPercentage / 100);
+        const newProposalPrice = item.abcPrice > 0
+          ? Math.min(calculatedPrice, item.abcPrice)
+          : calculatedPrice;
+
+        return {
+          ...item,
+          supplier: supplierName,
+          internalPrice: newInternalPrice,
+          proposalPrice: newProposalPrice,
+        };
+      }
+      return item;
+    }));
   };
 
   const handleBidPercentageChange = async (percentage: number) => {
@@ -1233,9 +1448,11 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
                               value={item.supplier}
                               onChange={(value) => handleUpdateSupplier(item.sku, value)}
                               options={[
-                                { value: "OFPS", label: "OFPS" },
-                                { value: "Shopee", label: "Shopee" },
-                                { value: "P-lim", label: "P-lim" }
+                                { value: "-", label: "-" },
+                                ...suppliers.map(supplier => ({
+                                  value: supplier.name,
+                                  label: supplier.name
+                                }))
                               ]}
                               className="h-8 text-xs w-full"
                             />
@@ -1482,6 +1699,73 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
         </TabsContent>
 
       </Tabs>
+
+      {/* Save Price Confirmation Modal */}
+      <Sheet open={showSavePriceModal} onOpenChange={setShowSavePriceModal}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Save Supplier Price</SheetTitle>
+            <SheetDescription>
+              Would you like to save this price to the database for future use?
+            </SheetDescription>
+          </SheetHeader>
+
+          {pendingPriceSave && (
+            <div className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Product</div>
+                <div className="text-base font-semibold">{pendingPriceSave.productName}</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Supplier</div>
+                <div className="text-base font-semibold">{pendingPriceSave.supplierName}</div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-muted-foreground">Price</div>
+                <div className="text-2xl font-bold text-primary">
+                  ₱{pendingPriceSave.price.toFixed(2)}
+                </div>
+              </div>
+
+              <div className="bg-muted/50 p-4 rounded-lg text-sm text-muted-foreground">
+                This will save the price relationship to the database and make it available for future quotations.
+              </div>
+            </div>
+          )}
+
+          <SheetFooter className="mt-6">
+            <div className="flex gap-2 w-full">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowSavePriceModal(false);
+                  setPendingPriceSave(null);
+                }}
+                disabled={isSavingPrice}
+                className="flex-1"
+              >
+                Skip
+              </Button>
+              <Button
+                onClick={handleSavePriceToDatabase}
+                disabled={isSavingPrice}
+                className="flex-1"
+              >
+                {isSavingPrice ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save to Database"
+                )}
+              </Button>
+            </div>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

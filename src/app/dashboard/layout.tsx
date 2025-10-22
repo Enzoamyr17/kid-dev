@@ -21,16 +21,20 @@ const managementItems = [
     href: "/users",
   },
   {
+    label: "Project Management",
+    href: "/projects",
+  },
+  {
     label: "Company Management",
     href: "/companies",
   },
   {
-    label: "Product Management",
-    href: "/products",
+    label: "Supplier Management",
+    href: "/suppliers",
   },
   {
-    label: "Project Management",
-    href: "/projects",
+    label: "Product Management",
+    href: "/products",
   },
   {
     label: "Workflow Templates",

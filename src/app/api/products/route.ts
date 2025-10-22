@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   try {
     const products = await prisma.product.findMany({
       where: active ? { isActive: true } : undefined,
-      orderBy: { id: 'desc' },
+      orderBy: { sku: 'asc' },
     });
 
     const serializedProducts = products.map(serializeProduct);
