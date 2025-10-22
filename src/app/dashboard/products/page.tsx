@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Loader2, Check, X, Trash2 } from "lucide-react";
+import { Plus, Loader2, Check, X, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductSearch } from "@/components/ui/product-search";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Field } from "@/components/ui/field";
 
 interface Product {
   id: string;
@@ -19,6 +21,9 @@ interface Product {
   subCategory: string;
   adCategory: string;
   uom: string;
+  incomingStock: number;
+  outgoingStock: number;
+  currentStock: number;
   isActive: boolean;
 }
 
@@ -41,6 +46,9 @@ export default function ProductsPage() {
   const [editingCell, setEditingCell] = useState<{ productId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isEditSidebarOpen, setIsEditSidebarOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [newProduct, setNewProduct] = useState<NewProduct>({
     sku: "",
     name: "",
@@ -335,6 +343,58 @@ export default function ProductsPage() {
 
   const filteredProducts = filterProducts(products);
 
+  // Handle save from edit sidebar
+  const handleSaveFromSidebar = async () => {
+    if (!editingProduct) return;
+
+    // Validate required fields
+    if (!editingProduct.name || !editingProduct.description ||
+        !editingProduct.brand || !editingProduct.category ||
+        !editingProduct.subCategory || !editingProduct.adCategory || !editingProduct.uom) {
+      toast.error("Please fill in all required fields");
+      return;
+    }
+
+    setIsSavingEdit(true);
+
+    try {
+      const response = await fetch("/api/products", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: editingProduct.id,
+          name: editingProduct.name,
+          description: editingProduct.description,
+          brand: editingProduct.brand,
+          category: editingProduct.category,
+          sub_category: editingProduct.subCategory,
+          ad_category: editingProduct.adCategory,
+          uom: editingProduct.uom,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update product");
+
+      // Update local state
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.id === editingProduct.id ? editingProduct : p
+        )
+      );
+
+      toast.success("Product updated successfully");
+      setIsEditSidebarOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error("Error updating product:", error);
+      toast.error("Failed to update product");
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -363,10 +423,11 @@ export default function ProductsPage() {
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Brand</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Ad Category</TableHead>
               <TableHead>Sub Category</TableHead>
               <TableHead>UOM</TableHead>
+              <TableHead className="text-right">Outgoing</TableHead>
+              <TableHead className="text-right">Incoming</TableHead>
+              <TableHead className="text-right">Current</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[100px]">Actions</TableHead>
             </TableRow>
@@ -411,24 +472,6 @@ export default function ProductsPage() {
                 </TableCell>
                 <TableCell>
                   <Input
-                    placeholder="Category"
-                    value={newProduct.category}
-                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                    disabled={isSubmitting}
-                    className="h-8"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
-                    placeholder="Ad Category"
-                    value={newProduct.adCategory}
-                    onChange={(e) => setNewProduct({ ...newProduct, adCategory: e.target.value })}
-                    disabled={isSubmitting}
-                    className="h-8"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Input
                     placeholder="Sub Category"
                     value={newProduct.subCategory}
                     onChange={(e) => setNewProduct({ ...newProduct, subCategory: e.target.value })}
@@ -445,6 +488,9 @@ export default function ProductsPage() {
                     className="h-8"
                   />
                 </TableCell>
+                <TableCell className="text-right text-muted-foreground">0</TableCell>
+                <TableCell className="text-right text-muted-foreground">0</TableCell>
+                <TableCell className="text-right text-muted-foreground">0</TableCell>
                 <TableCell>
                 </TableCell>
                 <TableCell>
@@ -552,40 +598,6 @@ export default function ProductsPage() {
                     )}
                   </TableCell>
                   <TableCell
-                    onClick={() => handleCellClick(product.id, 'category', product.category)}
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    {editingCell?.productId === product.id && editingCell?.field === 'category' ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => saveEdit(product.id, 'category', product.category)}
-                        onKeyDown={(e) => handleKeyPress(e, product.id, 'category', product.category)}
-                        className="h-8"
-                        autoFocus
-                      />
-                    ) : (
-                      product.category
-                    )}
-                  </TableCell>
-                  <TableCell
-                    onClick={() => handleCellClick(product.id, 'adCategory', product.adCategory)}
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    {editingCell?.productId === product.id && editingCell?.field === 'adCategory' ? (
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onBlur={() => saveEdit(product.id, 'adCategory', product.adCategory)}
-                        onKeyDown={(e) => handleKeyPress(e, product.id, 'adCategory', product.adCategory)}
-                        className="h-8"
-                        autoFocus
-                      />
-                    ) : (
-                      product.adCategory
-                    )}
-                  </TableCell>
-                  <TableCell
                     onClick={() => handleCellClick(product.id, 'subCategory', product.subCategory)}
                     className="cursor-pointer hover:bg-muted/50"
                   >
@@ -619,12 +631,15 @@ export default function ProductsPage() {
                       product.uom
                     )}
                   </TableCell>
+                  <TableCell className="text-right">{product.outgoingStock}</TableCell>
+                  <TableCell className="text-right">{product.incomingStock}</TableCell>
+                  <TableCell className="text-right">{product.currentStock}</TableCell>
                   <TableCell>
                     <button
                       onClick={() => toggleProductStatus(product.id, product.isActive)}
                       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium transition-colors cursor-pointer hover:opacity-80 ${
-                        product.isActive 
-                          ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400' 
+                        product.isActive
+                          ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
                           : 'bg-gray-50 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400'
                       }`}
                     >
@@ -632,9 +647,27 @@ export default function ProductsPage() {
                     </button>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => handleDeleteProduct(product.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setEditingProduct(product);
+                          setIsEditSidebarOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-600 hover:text-red-700"
+                        onClick={() => handleDeleteProduct(product.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -642,6 +675,125 @@ export default function ProductsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Edit Product Sidebar */}
+      <Sheet open={isEditSidebarOpen} onOpenChange={setIsEditSidebarOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Product</SheetTitle>
+            <SheetDescription>
+              Update product information. All fields are required.
+            </SheetDescription>
+          </SheetHeader>
+
+          {editingProduct && (
+            <div className="mt-6 space-y-4">
+              <Field
+                label="SKU"
+                value={editingProduct.sku}
+                disabled
+                helperText="SKU cannot be changed"
+              />
+
+              <Field
+                label="Product Name"
+                value={editingProduct.name}
+                onChange={(value) => setEditingProduct({ ...editingProduct, name: value })}
+                required
+              />
+
+              <Field
+                label="Description"
+                value={editingProduct.description}
+                onChange={(value) => setEditingProduct({ ...editingProduct, description: value })}
+                required
+              />
+
+              <Field
+                label="Brand"
+                value={editingProduct.brand}
+                onChange={(value) => setEditingProduct({ ...editingProduct, brand: value })}
+                required
+              />
+
+              <Field
+                label="Category"
+                value={editingProduct.category}
+                onChange={(value) => setEditingProduct({ ...editingProduct, category: value })}
+                required
+              />
+
+              <Field
+                label="Ad Category"
+                value={editingProduct.adCategory}
+                onChange={(value) => setEditingProduct({ ...editingProduct, adCategory: value })}
+                required
+              />
+
+              <Field
+                label="Sub Category"
+                value={editingProduct.subCategory}
+                onChange={(value) => setEditingProduct({ ...editingProduct, subCategory: value })}
+                required
+              />
+
+              <Field
+                label="Unit of Measure"
+                value={editingProduct.uom}
+                onChange={(value) => setEditingProduct({ ...editingProduct, uom: value })}
+                required
+              />
+
+              <div className="pt-4 border-t space-y-4">
+                <h3 className="text-sm font-medium">Stock Information</h3>
+                <p className="text-xs text-muted-foreground">Stock values are managed through stock transactions and cannot be edited directly.</p>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Outgoing</label>
+                    <p className="text-2xl font-bold">{editingProduct.outgoingStock}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Incoming</label>
+                    <p className="text-2xl font-bold">{editingProduct.incomingStock}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground">Current</label>
+                    <p className="text-2xl font-bold">{editingProduct.currentStock}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={handleSaveFromSidebar}
+                  disabled={isSavingEdit}
+                  className="flex-1"
+                >
+                  {isSavingEdit ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditSidebarOpen(false);
+                    setEditingProduct(null);
+                  }}
+                  disabled={isSavingEdit}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

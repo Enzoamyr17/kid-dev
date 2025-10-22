@@ -424,8 +424,9 @@ Array<{
   subCategory: string;
   adCategory: string;
   uom: string;
+  incomingStock: number;
+  outgoingStock: number;
   currentStock: number;
-  orderedStock: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -458,6 +459,66 @@ Update a product.
 ### DELETE `/api/products`
 
 Delete a product (via request body with `{ id: number }`).
+
+---
+
+## Stock Transactions
+
+### GET `/api/stock-transactions?product_id={productId}`
+
+Fetch all stock transactions, optionally filtered by product.
+
+**Response:**
+```typescript
+Array<{
+  id: number;
+  productId: number;
+  type: "incoming" | "outgoing" | "received" | "delivered" | "adjustment";
+  quantity: number;
+  referenceId: string | null;
+  status: "pending" | "approved" | "completed";
+  createdAt: string;
+  updatedAt: string;
+  product?: Product; // Included if expand=true
+}>
+```
+
+### POST `/api/stock-transactions`
+
+Create a new stock transaction.
+
+**Request:**
+```typescript
+{
+  productId: number;
+  type: "incoming" | "outgoing" | "received" | "delivered" | "adjustment";
+  quantity: number;
+  referenceId?: string;
+  status: "pending" | "approved" | "completed";
+}
+```
+
+**Notes:**
+- Stock fields on Product model should be updated based on transaction type and status
+- `incoming` transactions increase `incomingStock` when status is `pending`/`approved`, increase `currentStock` when `completed`
+- `outgoing` transactions increase `outgoingStock` when status is `pending`/`approved`, decrease `currentStock` when `completed`
+- `received` transactions increase `currentStock` and decrease `incomingStock`
+- `delivered` transactions decrease `currentStock` and decrease `outgoingStock`
+- `adjustment` transactions directly modify `currentStock` (positive or negative quantity)
+
+### PATCH `/api/stock-transactions`
+
+Update a stock transaction (typically for status changes).
+
+**Request:**
+```typescript
+{
+  id: number;
+  status?: "pending" | "approved" | "completed";
+  quantity?: number;
+  referenceId?: string;
+}
+```
 
 ---
 
@@ -516,7 +577,16 @@ Array<{
 - `companyId` → Company
 
 ### Product
-- Related to: QuotationItem, PrItem, PoItem
+- Related to: QuotationItem, PrItem, PoItem, ProductPrice, StockTransaction
+- Stock fields:
+  - `incomingStock`: Stock on order (pending/approved incoming transactions)
+  - `outgoingStock`: Stock allocated for delivery (pending/approved outgoing transactions)
+  - `currentStock`: Stock physically available in warehouse
+
+### StockTransaction
+- `productId` → Product
+- Tracks all stock movements with reference to source documents
+- Affects Product stock fields based on type and status
 
 ---
 
@@ -532,4 +602,12 @@ Array<{
 - **Form models refactored:**
   - Generic `Form`, `FormItem` → specific `QuotationForm`/`QuotationItem`, `PrForm`/`PrItem`, `PoForm`/`PoItem`
   - `QuotationDetail`, `PrDetail`, `PoDetail` → merged into respective Form models
+- **Product stock fields updated:**
+  - Removed: `orderedStock`
+  - Added: `incomingStock`, `outgoingStock`
+  - Kept: `currentStock` (but with fresh meaning - physical stock on hand)
+- **Stock tracking added:**
+  - New `StockTransaction` model to track all stock movements
+  - Supports transaction types: incoming, outgoing, received, delivered, adjustment
+  - Status tracking: pending, approved, completed
 

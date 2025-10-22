@@ -126,24 +126,26 @@ model CompanyProponent {
 }
 
 model Product {
-  id             Int             @id @default(autoincrement())
-  sku            String          @db.VarChar(255)
-  name           String          @db.VarChar(255)
-  description    String
-  brand          String          @db.VarChar(255)
-  category       String?         @db.VarChar(255)
-  subCategory    String?         @db.VarChar(255)
-  adCategory     String?         @db.VarChar(255)
-  uom            String          @db.VarChar(255)
-  currentStock   Int             @default(0)
-  orderedStock   Int             @default(0)
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime?       @updatedAt
-  poItems        PoItem[]
-  prItems        PrItem[]
-  quotationItems QuotationItem[]
-  productPrices  ProductPrice[]
+  id                Int                @id @default(autoincrement())
+  sku               String             @db.VarChar(255)
+  name              String             @db.VarChar(255)
+  description       String
+  brand             String             @db.VarChar(255)
+  category          String?            @db.VarChar(255)
+  subCategory       String?            @db.VarChar(255)
+  adCategory        String?            @db.VarChar(255)
+  uom               String             @db.VarChar(255)
+  incomingStock     Int                @default(0)
+  outgoingStock     Int                @default(0)
+  currentStock      Int                @default(0)
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime?          @updatedAt
+  poItems           PoItem[]
+  prItems           PrItem[]
+  quotationItems    QuotationItem[]
+  productPrices     ProductPrice[]
+  stockTransactions StockTransaction[]
 
   @@index([sku])
 }
@@ -371,6 +373,20 @@ enum PaymentMethod {
   online_payment
 }
 
+enum TransactionType {
+  incoming
+  outgoing
+  received
+  delivered
+  adjustment
+}
+
+enum TransactionStatus {
+  pending
+  approved
+  completed
+}
+
 model ProductPrice {
   id        Int      @id @default(autoincrement())
   productId Int
@@ -385,4 +401,20 @@ model ProductPrice {
   @@index([productId])
   @@index([companyId])
   @@map("productPrice")
+}
+
+model StockTransaction {
+  id          Int               @id @default(autoincrement())
+  productId   Int
+  type        TransactionType
+  quantity    Int
+  referenceId String?           @db.VarChar(255)
+  status      TransactionStatus
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([referenceId])
+  @@map("stockTransaction")
 }
