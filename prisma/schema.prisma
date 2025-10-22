@@ -388,6 +388,7 @@ model StockTransaction {
   quantity    Int
   referenceId String?           @db.VarChar(255)
   status      TransactionStatus
+  remarks     String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)

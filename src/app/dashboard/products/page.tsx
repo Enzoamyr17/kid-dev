@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Loader2, Check, X, Trash2, Pencil } from "lucide-react";
+import { Plus, Loader2, Check, X, Trash2, Pencil, Package } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductSearch } from "@/components/ui/product-search";
@@ -49,6 +49,11 @@ export default function ProductsPage() {
   const [isEditSidebarOpen, setIsEditSidebarOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [isStockAdjustmentOpen, setIsStockAdjustmentOpen] = useState(false);
+  const [adjustmentProduct, setAdjustmentProduct] = useState<Product | null>(null);
+  const [adjustmentQuantity, setAdjustmentQuantity] = useState("");
+  const [adjustmentRemarks, setAdjustmentRemarks] = useState("");
+  const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState(false);
   const [newProduct, setNewProduct] = useState<NewProduct>({
     sku: "",
     name: "",
@@ -395,6 +400,67 @@ export default function ProductsPage() {
     }
   };
 
+  // Handle stock adjustment
+  const handleStockAdjustment = async () => {
+    if (!adjustmentProduct) return;
+
+    const qty = parseFloat(adjustmentQuantity);
+    if (isNaN(qty) || qty === 0) {
+      toast.error("Please enter a valid adjustment quantity");
+      return;
+    }
+
+    setIsSubmittingAdjustment(true);
+
+    // Store old stock value for rollback
+    const oldStock = adjustmentProduct.currentStock;
+    const newStock = oldStock + qty;
+
+    // Optimistic update
+    setProducts(prevProducts =>
+      prevProducts.map(p =>
+        p.id === adjustmentProduct.id ? { ...p, currentStock: newStock } : p
+      )
+    );
+
+    try {
+      const response = await fetch("/api/stock-transactions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          productId: adjustmentProduct.id,
+          type: "adjustment",
+          quantity: qty,
+          status: "completed",
+          remarks: adjustmentRemarks || null,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create stock adjustment");
+
+      toast.success(`Stock adjusted successfully. New stock: ${newStock}`);
+      setIsStockAdjustmentOpen(false);
+      setAdjustmentProduct(null);
+      setAdjustmentQuantity("");
+      setAdjustmentRemarks("");
+    } catch (error) {
+      console.error("Error adjusting stock:", error);
+
+      // Revert optimistic update
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.id === adjustmentProduct.id ? { ...p, currentStock: oldStock } : p
+        )
+      );
+
+      toast.error("Failed to adjust stock");
+    } finally {
+      setIsSubmittingAdjustment(false);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -429,7 +495,7 @@ export default function ProductsPage() {
               <TableHead className="text-right">Incoming</TableHead>
               <TableHead className="text-right">Current</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
+              <TableHead className="w-[140px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -653,9 +719,24 @@ export default function ProductsPage() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => {
+                          setAdjustmentProduct(product);
+                          setAdjustmentQuantity("");
+                          setAdjustmentRemarks("");
+                          setIsStockAdjustmentOpen(true);
+                        }}
+                        title="Adjust Stock"
+                      >
+                        <Package className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => {
                           setEditingProduct(product);
                           setIsEditSidebarOpen(true);
                         }}
+                        title="Edit Product"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -664,6 +745,7 @@ export default function ProductsPage() {
                         size="icon"
                         className="h-8 w-8 text-red-600 hover:text-red-700"
                         onClick={() => handleDeleteProduct(product.id)}
+                        title="Delete Product"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -789,6 +871,93 @@ export default function ProductsPage() {
                     setEditingProduct(null);
                   }}
                   disabled={isSavingEdit}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Stock Adjustment Sidebar */}
+      <Sheet open={isStockAdjustmentOpen} onOpenChange={setIsStockAdjustmentOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>Adjust Stock</SheetTitle>
+            <SheetDescription>
+              Make manual adjustments to stock levels. Use positive numbers to increase and negative numbers to decrease.
+            </SheetDescription>
+          </SheetHeader>
+
+          {adjustmentProduct && (
+            <div className="mt-6 space-y-4">
+              <div className="p-4 bg-muted rounded-lg space-y-2">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Product</label>
+                  <p className="text-sm font-medium">{adjustmentProduct.name}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">SKU</label>
+                  <p className="text-sm">{adjustmentProduct.sku}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Current Stock</label>
+                  <p className="text-2xl font-bold">{adjustmentProduct.currentStock}</p>
+                </div>
+              </div>
+
+              <Field
+                type="number"
+                label="Adjustment Quantity"
+                value={adjustmentQuantity}
+                onChange={(value) => setAdjustmentQuantity(String(value))}
+                placeholder="e.g., +10 or -5"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter a positive number to add stock or a negative number to remove stock.
+              </p>
+
+              {adjustmentQuantity && !isNaN(parseFloat(adjustmentQuantity)) && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    New stock level: {adjustmentProduct.currentStock + parseFloat(adjustmentQuantity)}
+                  </p>
+                </div>
+              )}
+
+              <Field
+                type="text"
+                label="Remarks (Optional)"
+                value={adjustmentRemarks}
+                onChange={setAdjustmentRemarks}
+                placeholder="Reason for adjustment..."
+              />
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={handleStockAdjustment}
+                  disabled={isSubmittingAdjustment || !adjustmentQuantity}
+                  className="flex-1"
+                >
+                  {isSubmittingAdjustment ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Adjusting...
+                    </>
+                  ) : (
+                    "Confirm Adjustment"
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsStockAdjustmentOpen(false);
+                    setAdjustmentProduct(null);
+                    setAdjustmentQuantity("");
+                    setAdjustmentRemarks("");
+                  }}
+                  disabled={isSubmittingAdjustment}
                 >
                   Cancel
                 </Button>

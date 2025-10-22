@@ -476,6 +476,7 @@ Array<{
   type: "incoming" | "outgoing" | "received" | "delivered" | "adjustment";
   quantity: number;
   referenceId: string | null;
+  remarks: string | null;
   status: "pending" | "approved" | "completed";
   createdAt: string;
   updatedAt: string;
@@ -494,6 +495,7 @@ Create a new stock transaction.
   type: "incoming" | "outgoing" | "received" | "delivered" | "adjustment";
   quantity: number;
   referenceId?: string;
+  remarks?: string;
   status: "pending" | "approved" | "completed";
 }
 ```
@@ -517,6 +519,7 @@ Update a stock transaction (typically for status changes).
   status?: "pending" | "approved" | "completed";
   quantity?: number;
   referenceId?: string;
+  remarks?: string;
 }
 ```
 
