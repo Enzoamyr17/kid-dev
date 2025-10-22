@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,19 +54,22 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    const product = await prisma.product.create({
-      data: {
-        sku: body.sku,
-        name: body.name,
-        description: body.description,
-        brand: body.brand,
-        category: body.category,
-        subCategory: body.sub_category,
-        adCategory: body.ad_category,
-        uom: body.uom,
-        isActive: body.is_active ?? true,
-      },
+    const userId = await getSessionUserId();
+
+    const product = await withAuditUser(userId, async () => {
+      return await prisma.product.create({
+        data: {
+          sku: body.sku,
+          name: body.name,
+          description: body.description,
+          brand: body.brand,
+          category: body.category,
+          subCategory: body.sub_category,
+          adCategory: body.ad_category,
+          uom: body.uom,
+          isActive: body.is_active ?? true,
+        },
+      });
     });
 
     const serializedProduct = serializeProduct(product);
@@ -91,6 +96,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const userId = await getSessionUserId();
+
     // Convert snake_case to camelCase
     const mappedData: Record<string, unknown> = {};
     if (updateData.sku !== undefined) mappedData.sku = updateData.sku;
@@ -103,9 +110,11 @@ export async function PATCH(request: NextRequest) {
     if (updateData.uom !== undefined) mappedData.uom = updateData.uom;
     if (updateData.is_active !== undefined) mappedData.isActive = updateData.is_active;
 
-    const product = await prisma.product.update({
-      where: { id: Number(id) },
-      data: mappedData,
+    const product = await withAuditUser(userId, async () => {
+      return await prisma.product.update({
+        where: { id: Number(id) },
+        data: mappedData,
+      });
     });
 
     const serializedProduct = serializeProduct(product);
@@ -131,7 +140,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.product.delete({ where: { id: Number(id) } });
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async () => {
+      await prisma.product.delete({ where: { id: Number(id) } });
+    });
 
     return NextResponse.json({ message: 'Product deleted successfully' });
   } catch (error) {

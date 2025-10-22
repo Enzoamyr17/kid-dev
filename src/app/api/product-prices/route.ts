@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,16 +61,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const productPrice = await prisma.productPrice.create({
-      data: {
-        productId: Number(productId),
-        companyId: Number(companyId),
-        price: Number(price),
-      },
-      include: {
-        product: true,
-        company: true,
-      },
+    const userId = await getSessionUserId();
+
+    const productPrice = await withAuditUser(userId, async () => {
+      return await prisma.productPrice.create({
+        data: {
+          productId: Number(productId),
+          companyId: Number(companyId),
+          price: Number(price),
+        },
+        include: {
+          product: true,
+          company: true,
+        },
+      });
     });
 
     return NextResponse.json(productPrice, { status: 201 });
@@ -94,31 +100,36 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const userId = await getSessionUserId();
     let productPrice;
 
     // Support both id-based and productId/companyId-based updates
     if (id) {
-      productPrice = await prisma.productPrice.update({
-        where: { id: Number(id) },
-        data: { price: Number(price) },
-        include: {
-          product: true,
-          company: true,
-        },
+      productPrice = await withAuditUser(userId, async () => {
+        return await prisma.productPrice.update({
+          where: { id: Number(id) },
+          data: { price: Number(price) },
+          include: {
+            product: true,
+            company: true,
+          },
+        });
       });
     } else if (productId && companyId) {
-      productPrice = await prisma.productPrice.update({
-        where: {
-          productId_companyId: {
-            productId: Number(productId),
-            companyId: Number(companyId),
+      productPrice = await withAuditUser(userId, async () => {
+        return await prisma.productPrice.update({
+          where: {
+            productId_companyId: {
+              productId: Number(productId),
+              companyId: Number(companyId),
+            },
           },
-        },
-        data: { price: Number(price) },
-        include: {
-          product: true,
-          company: true,
-        },
+          data: { price: Number(price) },
+          include: {
+            product: true,
+            company: true,
+          },
+        });
       });
     } else {
       return NextResponse.json(
@@ -150,7 +161,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.productPrice.delete({ where: { id: Number(id) } });
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async () => {
+      await prisma.productPrice.delete({ where: { id: Number(id) } });
+    });
 
     return NextResponse.json({ message: 'Product price deleted successfully' });
   } catch (error) {
