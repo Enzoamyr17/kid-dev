@@ -521,7 +521,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
     // Helper function to format currency without ± symbol
     const formatPeso = (amount: number | string | undefined) => {
       const num = Number(amount) || 0; // fallback to 0 if invalid
-      return parseFloat(num.toFixed(2));
+      return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     };
 
     // Blue Header Background
