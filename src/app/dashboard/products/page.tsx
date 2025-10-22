@@ -688,60 +688,63 @@ export default function ProductsPage() {
 
           {editingProduct && (
             <div className="mt-6 space-y-4">
-              <Field
-                label="SKU"
-                value={editingProduct.sku}
-                disabled
-                helperText="SKU cannot be changed"
-              />
+              <div className="space-y-1.5">
+                <Field
+                  type="text"
+                  label="SKU"
+                  value={editingProduct.sku}
+                  disabled
+                />
+                <p className="text-xs text-muted-foreground">SKU cannot be changed</p>
+              </div>
 
               <Field
+                type="text"
                 label="Product Name"
                 value={editingProduct.name}
                 onChange={(value) => setEditingProduct({ ...editingProduct, name: value })}
-                required
               />
 
               <Field
+                type="text"
                 label="Description"
                 value={editingProduct.description}
                 onChange={(value) => setEditingProduct({ ...editingProduct, description: value })}
-                required
               />
 
               <Field
+                type="text"
                 label="Brand"
                 value={editingProduct.brand}
                 onChange={(value) => setEditingProduct({ ...editingProduct, brand: value })}
-                required
               />
 
               <Field
+                type="text"
                 label="Category"
                 value={editingProduct.category}
                 onChange={(value) => setEditingProduct({ ...editingProduct, category: value })}
-                required
               />
 
               <Field
+                type="text"
                 label="Ad Category"
                 value={editingProduct.adCategory}
                 onChange={(value) => setEditingProduct({ ...editingProduct, adCategory: value })}
-                required
               />
 
               <Field
+                type="text"
                 label="Sub Category"
                 value={editingProduct.subCategory}
                 onChange={(value) => setEditingProduct({ ...editingProduct, subCategory: value })}
-                required
               />
 
               <Field
+                type="text"
                 label="Unit of Measure"
                 value={editingProduct.uom}
                 onChange={(value) => setEditingProduct({ ...editingProduct, uom: value })}
-                required
               />
 
               <div className="pt-4 border-t space-y-4">
