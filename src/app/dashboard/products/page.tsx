@@ -489,11 +489,21 @@ export default function ProductsPage() {
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Brand</TableHead>
+              {isAddingRow && (
+                <TableHead>Category</TableHead>
+              )}
+              {isAddingRow && (
+                <TableHead>Ad Category</TableHead>
+              )}
               <TableHead>Sub Category</TableHead>
-              <TableHead>UOM</TableHead>
-              <TableHead className="text-right">Outgoing</TableHead>
-              <TableHead className="text-right">Incoming</TableHead>
-              <TableHead className="text-right">Current</TableHead>
+              <TableHead className={`${isAddingRow ? 'min-w-32' : ''}`}>UOM</TableHead>
+              {!isAddingRow && (
+                <>
+                  <TableHead className="text-right">Outgoing</TableHead>
+                  <TableHead className="text-right">Incoming</TableHead>
+                  <TableHead className="text-right">Current</TableHead>
+                </>
+              )}
               <TableHead>Status</TableHead>
               <TableHead className="w-[140px]">Actions</TableHead>
             </TableRow>
@@ -536,6 +546,24 @@ export default function ProductsPage() {
                     className="h-8"
                   />
                 </TableCell>
+                <TableCell className="text-right text-muted-foreground">
+                  <Input
+                    placeholder="Category"
+                    value={newProduct.category}
+                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                    disabled={isSubmitting}
+                    className="h-8"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    placeholder="Ad Category"
+                    value={newProduct.adCategory}
+                    onChange={(e) => setNewProduct({ ...newProduct, adCategory: e.target.value })}
+                    disabled={isSubmitting}
+                    className="h-8"
+                  />
+                </TableCell>
                 <TableCell>
                   <Input
                     placeholder="Sub Category"
@@ -554,11 +582,9 @@ export default function ProductsPage() {
                     className="h-8"
                   />
                 </TableCell>
-                <TableCell className="text-right text-muted-foreground">0</TableCell>
-                <TableCell className="text-right text-muted-foreground">0</TableCell>
-                <TableCell className="text-right text-muted-foreground">0</TableCell>
-                <TableCell>
-                </TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
+
                 <TableCell>
                   <div className="flex gap-1">
                     <Button
