@@ -299,7 +299,7 @@ export default function ProjectPage() {
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                             {forms.quotations.map((form: unknown) => {
-                                                const formData = form as { id: number; code?: string; totalCost?: string; bidPrice?: string; deliveryDate?: string ; createdAt: string; quotationItems?: QuotationItem[] };
+                                                const formData = form as { id: number; code?: string; totalCost?: string; bidPrice?: string; deliveryDate?: string ; createdAt: string; isComplete?: boolean; quotationItems?: QuotationItem[] };
                                                 interface QuotationItem {
                                                     id: number;
                                                     name: string;
@@ -310,7 +310,7 @@ export default function ProjectPage() {
                                                 return (
                                                 <div
                                                     key={formData.id}
-                                                    className="border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                                                    className={`border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer ${formData.isComplete ? "bg-green-200/30 border-green-400" : ""}`}
                                                     onClick={() => handleQuotationClick(form)}
                                                 >
                                                     <div className="flex justify-between items-start mb-2">

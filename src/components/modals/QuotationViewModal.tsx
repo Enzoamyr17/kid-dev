@@ -3,14 +3,16 @@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileDown, Copy } from "lucide-react";
+import { FileDown, Copy, CheckCircle } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api";
 
 interface QuotationData {
   id?: number;
   code?: string;
+  projectId?: number;
   approvedBudget?: number;
   bidPercentage?: number;
   paymentTerm?: string;
@@ -58,6 +60,7 @@ interface QuotationData {
     };
     remarks?: string;
   }>;
+  isComplete?: boolean;
 }
 
 interface QuotationViewModalProps {
@@ -409,6 +412,26 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     onClose();
   };
 
+  const handleApproveQuotation = async (quotationId: number) => {
+    if (!quotationId) return Promise.resolve(null); 
+    console.log('Approve Quotation...', quotationId); 
+    try { 
+      const response = await apiFetch<QuotationData>(`/api/quotations/mark-as-approved`, { 
+        method: "PATCH", 
+        body: JSON.stringify({ 
+          id: quotationId, 
+          projectId: data.projectId || 0,
+          isComplete: true, 
+        }) 
+      }); 
+
+      toast.success("Quotation approved successfully");
+      onClose()
+    } catch (error) { 
+      toast.error(error instanceof Error ? error.message : "Failed to approve quotation"); 
+    } 
+  }
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent side="right" className="w-full sm:max-w-6xl overflow-y-auto">
@@ -516,9 +539,18 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
               <FileDown className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
-            <Button onClick={handleCreateNewVersion}>
+            <Button variant="outline" onClick={handleCreateNewVersion}>
               <Copy className="h-4 w-4 mr-2" />
               Create New Version
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => handleApproveQuotation(data.id || 0)} 
+              disabled={data.isComplete}
+              className={data.isComplete ? "bg-green-500 text-white" : "bg-gray-500 text-white"}
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              {data.isComplete ? "Approved" : "Mark as Approved"}
             </Button>
           </div>
         </div>

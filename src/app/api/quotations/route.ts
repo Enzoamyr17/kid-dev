@@ -93,3 +93,24 @@ export async function GET() {
     );
   }
 }
+
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, ...updateData } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Quotation ID is required' }, { status: 400 });
+    }
+    
+    const quotation = await prisma.quotationForm.update({
+      where: { id },
+      data: updateData,
+    });
+    return NextResponse.json(quotation);
+  } catch (error) {
+    console.error('Error updating quotation:', error);
+    return NextResponse.json({ error: 'Failed to update quotation' }, { status: 500 });
+  }
+}

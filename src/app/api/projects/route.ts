@@ -88,6 +88,14 @@ export async function POST(request: NextRequest) {
       include: { company: true, workflow: true, workflowstage: true },
     });
 
+    //Initialize project budget default categories
+    await prisma.budgetCategory.createMany({
+      data: [
+        { projectId: project.id, name: 'Logistics', description: '', budget: Math.round(Number(approvedBudget) / 20), color: '#3b82f6' },
+        { projectId: project.id, name: 'Procurement', description: '', budget: 0, color: '#3b82f6' },
+      ],
+    });
+
     return NextResponse.json(project, { status: 201 });
   } catch (error) {
     console.error('Error creating project:', error);
