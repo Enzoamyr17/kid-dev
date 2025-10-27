@@ -1,7 +1,7 @@
 "use client";
 
 import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter, SidebarMenuSub } from "@/components/ui/sidebar";
-import { ChartBar, LogOut, MoonIcon, SunIcon, Package } from "lucide-react";
+import { ChartBar, LogOut, MoonIcon, SunIcon, Package, ArrowLeft } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -74,7 +74,7 @@ export default function DashboardLayout({
         <SidebarContent className="flex flex-col justify-between h-full pt-2 pb-6">
           <SidebarGroup>
             {sidebarItems.map((item) => (
-              <SidebarMenuItem key={item.label}>
+              <SidebarMenuItem key={item.label} onClick={() => router.push(item.href)}>
                 <SidebarMenuButton>
                   <item.icon className="mr-2 h-4 w-4" />
                   <span>{item.label}</span>
@@ -118,6 +118,11 @@ export default function DashboardLayout({
               <MoonIcon className="dark:hidden"/>
               <SunIcon className="hidden dark:block"/>
             </Button>
+            {pathname !== "/dashboard" && (
+              <Button onClick={() => router.push(pathname.split('/').slice(0, -1).join('/'))} variant="ghost" size="icon">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-1">
