@@ -50,7 +50,7 @@ interface Company {
 }
 
 export default function CompaniesPage() {
-  const { data: companies, error, isLoading } = useSWR<Company[]>("/api/companies");
+  const { data: companies, error, isLoading, mutate: mutateCompanies } = useSWR<Company[]>("/api/companies");
   const [isAddingCompany, setIsAddingCompany] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
@@ -234,13 +234,40 @@ export default function CompaniesPage() {
     }
   };
 
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="text-center text-red-600">Failed to load companies</div>
-      </div>
+  const handleToggleRole = (companyId: number, role: keyof Company) => async () => {
+    if (!companyId || !companies) return;
+  
+    console.log('Toggling role...', companyId, role);
+    
+    // Find the company to update
+    const updatedCompanies = companies.map((company) =>
+      company.id === companyId
+        ? { ...company, [role]: !company[role] }
+        : company
     );
-  }
+  
+    // Optimistically update cache
+    mutateCompanies(updatedCompanies, { revalidate: false });
+    setSelectedCompany(updatedCompanies.find((c) => c.id === companyId) as Company);
+  
+    try {
+      // Send patch to server
+      const response = await apiFetch<Company>(`/api/companies/${companyId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: companyId,
+          [role]: !companies.find((c) => c.id === companyId)?.[role],
+        }),
+      });
+  
+      // Revalidate to sync with server data
+      mutateCompanies();
+    } catch (error) {
+      // Rollback on failure
+      mutateCompanies(companies, { revalidate: false });
+      toast.error(error instanceof Error ? error.message : "Failed to toggle role");
+    }
+  };
 
   return (
     <div className="p-6">
@@ -406,10 +433,27 @@ export default function CompaniesPage() {
                     <div>
                       <span className="text-muted-foreground">Roles:</span>
                       <div className="flex gap-1 flex-wrap mt-1">
-                        {selectedCompany.isClient && <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">Client</span>}
+                        {/* {selectedCompany.isClient && <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">Client</span>}
                         {selectedCompany.isSupplier && <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded">Supplier</span>}
                         {selectedCompany.isVendor && <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded">Vendor</span>}
-                        {selectedCompany.isInternal && <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">Internal</span>}
+                        {selectedCompany.isInternal && <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">Internal</span>} */}
+
+                        <label className="flex items-center gap-1 text-xs">
+                          <input type="checkbox" checked={selectedCompany.isClient} onChange={handleToggleRole(selectedCompany.id, 'isClient')} />
+                          Client
+                        </label>
+                        <label className="flex items-center gap-1 text-xs">
+                          <input type="checkbox" checked={selectedCompany.isSupplier} onChange={handleToggleRole(selectedCompany.id, 'isSupplier')} />
+                          Supplier
+                        </label>
+                        <label className="flex items-center gap-1 text-xs">
+                          <input type="checkbox" checked={selectedCompany.isVendor} onChange={handleToggleRole(selectedCompany.id, 'isVendor')} />
+                          Vendor
+                        </label>
+                        <label className="flex items-center gap-1 text-xs">
+                          <input type="checkbox" checked={selectedCompany.isInternal} onChange={handleToggleRole(selectedCompany.id, 'isInternal')} />
+                          Internal
+                        </label>
                       </div>
                     </div>
                   </div>
