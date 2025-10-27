@@ -222,6 +222,7 @@ model QuotationForm {
   forCompany      Company         @relation("QuotationCompany", fields: [forCompanyId], references: [id])
   project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   requestor       User?           @relation("QuotationRequestor", fields: [requestorId], references: [id])
+  isComplete      Boolean         @default(false)
 
   @@index([projectId])
   @@index([forCompanyId])

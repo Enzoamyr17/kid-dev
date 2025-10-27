@@ -4,12 +4,11 @@ import { prisma } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export async function PATCH(request: NextRequest) {
-    console.log('Updating company...');
 
     try {
         const body = await request.json();
-        console.log('Body...', body);
         const { id, ...updateData } = body;
+        
 
         if (!id) {
             return NextResponse.json({ error: 'Company ID is required' }, { status: 400 });

@@ -65,7 +65,6 @@ export default function SuppliersPage() {
       if (!response.ok) throw new Error("Failed to fetch product prices");
       const data = await response.json();
       setProductPrices(data);
-      console.log(data);
     } catch (error) {
       console.error("Error fetching product prices:", error);
       toast.error("Failed to load product prices");
@@ -96,7 +95,6 @@ export default function SuppliersPage() {
       // Filter only suppliers
       const supplierList = data.filter((company: Company) => company.isSupplier);
       setSuppliers(supplierList);
-      console.log(supplierList);
     } catch (error) {
       console.error("Error fetching suppliers:", error);
       toast.error("Failed to load suppliers");
