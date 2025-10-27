@@ -303,8 +303,7 @@ export default function SuppliersPage() {
       .map(supplier => ({
         ...supplier,
         priceCount: productPrices.filter(pp => pp.companyId === supplier.id).length,
-      }))
-      .filter(supplier => supplier.priceCount > 0);
+      }));
   };
 
   // Get product prices for selected supplier
@@ -345,7 +344,7 @@ export default function SuppliersPage() {
               ) : suppliersWithPrices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={2} className="text-center py-10 text-muted-foreground">
-                    No suppliers with prices found. Add product prices to get started.
+                    No suppliers found. Please add suppliers from the Companies page to get started.
                   </TableCell>
                 </TableRow>
               ) : (

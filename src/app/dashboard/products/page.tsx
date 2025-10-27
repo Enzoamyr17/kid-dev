@@ -468,12 +468,10 @@ export default function ProductsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Products</h1>
           <p className="text-muted-foreground">Manage your product inventory</p>
         </div>
-        {!isAddingRow && (
-          <Button onClick={handleAddRow} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Product
-          </Button>
-        )}
+        <Button onClick={handleAddRow} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add Product
+        </Button>
       </div>
 
       {/* Search Bar */}
