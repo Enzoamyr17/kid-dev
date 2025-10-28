@@ -4,10 +4,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileDown, Copy, CheckCircle } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { exportQuotationPDF } from "@/lib/pdfExport";
 
 interface QuotationData {
   id?: number;
@@ -61,6 +60,7 @@ interface QuotationData {
     remarks?: string;
   }>;
   isComplete?: boolean;
+  remarks?: string;
 }
 
 interface QuotationViewModalProps {
@@ -75,18 +75,10 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
 
   const data = quotation as QuotationData;
 
+  console.log(data);
+
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    
-    // Helper function to format currency without ± symbol
-    const formatPeso = (amount: number | string | undefined) => {
-      const num = Number(amount) || 0; // fallback to 0 if invalid
-      return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    };
-    
     
     // Construct client address from company relation
     const clientAddress = data.forCompany?.companyAddresses?.[0];
@@ -99,312 +91,31 @@ export default function QuotationViewModal({ isOpen, onClose, quotation, onCreat
     const contactPerson = data.forCompany?.companyProponents?.[0]?.contactPerson || 'N/A';
     const contactNumber = data.forCompany?.companyProponents?.[0]?.contactNumber || 'N/A';
     
-    // Blue Header Background
-    doc.setFillColor(59, 130, 246);
-    doc.rect(0, 0, pageWidth, 25, 'F');
-
-    // Add logo with white background in upper left corner
-    try {
-      // White background for logo (maintaining aspect ratio ~4.5:1)
-      const logoWidth = 80;
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, logoWidth + 4, 25, 'F');
-
-      // Add logo image
-      const logoImg = new Image();
-      logoImg.src = '/wide_logo.png';
-      doc.addImage(logoImg, 'PNG', 2, 2, logoWidth, 21);
-    } catch (error) {
-      console.error('Error adding logo to PDF:', error);
-    }
-
-    // Quotation Number
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
-    doc.text(data.code || "N/A", pageWidth - 8, 14, { align: "right" });
-    
-    // Reset text color to black
-    doc.setTextColor(0, 0, 0);
-    
-    // Two-column layout for Quotation to/by
-    let yPos = 30;
-
-    // LEFT COLUMN - Quotation to:
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Quotation to:", 8, yPos);
-
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text("Name:", 8, yPos + 5);
-    doc.setFont("helvetica", "bold");
-    const clientNameLines = doc.splitTextToSize(clientName, 65);
-    doc.text(clientNameLines, 28, yPos + 5);
-
-    doc.setFont("helvetica", "normal");
-    doc.text("Address:", 8, yPos + 9);
-    const addressLines = doc.splitTextToSize(fullAddress, 65);
-    doc.text(addressLines, 28, yPos + 9);
-    const addressHeight = addressLines.length * 3.5;
-
-    doc.text("Tin:", 8, yPos + 11 + addressHeight);
-    doc.text(clientTIN || "N/A", 28, yPos + 11 + addressHeight);
-
-    doc.text("Attn:", 8, yPos + 15 + addressHeight);
-    doc.setFont("helvetica", "bold");
-    doc.text(contactPerson, 28, yPos + 15 + addressHeight);
-
-    doc.setFont("helvetica", "normal");
-    doc.text("Contact No.", 8, yPos + 19 + addressHeight);
-    doc.text(contactNumber, 28, yPos + 19 + addressHeight);
-
-    // RIGHT COLUMN - Quotation by:
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Quotation by:", 110, yPos);
-
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text("Company Name:", 110, yPos + 5);
-    doc.setFont("helvetica", "bold");
-    const kmciName = doc.splitTextToSize("Kingland Marketing Company Inc.", 50);
-    doc.text(kmciName, 145, yPos + 5);
-
-    doc.setFont("helvetica", "normal");
-    doc.text("Address:", 110, yPos + 11);
-    const kmciAddress = doc.splitTextToSize("Phase 4B Blk 7 Lot 28 Golden City, Dila, City of Santa Rosa, Laguna, Philippines 4026", 50);
-    doc.text(kmciAddress, 145, yPos + 11);
-
-    doc.text("Tin:", 110, yPos + 23);
-    doc.text("645-630-230-000", 145, yPos + 23);
-
-    // Shipped / Delivered to section (as a table)
-    yPos = yPos + 26 + addressHeight;
-    
-    // Create table for Shipped/Delivered section
-    const shippedTableData = [
-      [
-        `Name:\n${clientName}\n\nAddress:\n${fullAddress}`,
-        `${contactPerson}\n${contactNumber}`,
-        data.paymentTerm || "N/A",
-        data.deliveryTerm || "N/A"
-      ]
-    ];
-    
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Shipped / Delivered to', 'Contact', 'PAYMENT', 'DELIVERY DATE']],
-      body: shippedTableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [59, 130, 246],
-        textColor: [255, 255, 255],
-        fontSize: 8,
-        fontStyle: 'bold',
-        halign: 'left',
-        cellPadding: 2
+    exportQuotationPDF({
+      quoteNo: data.code || 'Draft',
+      clientDetails: {
+        companyName: clientName,
+        tinNumber: clientTIN,
+        address: fullAddress,
+        contactPerson: contactPerson,
+        contactNumber: contactNumber,
       },
-      bodyStyles: {
-        fontSize: 7,
-        cellPadding: 2,
-        minCellHeight: 16
-      },
-      columnStyles: {
-        0: { cellWidth: 82, valign: 'top' },
-        1: { cellWidth: 35, valign: 'top' },
-        2: { cellWidth: 30, valign: 'top' },
-        3: { cellWidth: 45, valign: 'top' }
-      },
-      margin: { left: 8, right: 8 }
+      deliveryAddress: fullAddress,
+      paymentTerm: data.paymentTerm || '7 CD',
+      deliveryTerm: data.deliveryTerm || '3-5CD upon receipt of PO',
+      cartItems: data.quotationItems?.map(item => ({
+        sku: item.product?.sku || 'N/A',
+        name: item.product?.name || 'N/A',
+        brand: item.product?.brand || 'N/A',
+        uom: item.product?.uom || 'N/A',
+        proposalPrice: item.clientPrice || 0,
+        quantity: item.quantity || 0,
+      })) || [],
+      totalBidPrice: data.bidPrice || 0,
+      remarks: data.remarks || 'N/A',
     });
     
-    // Items Table
-    yPos = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 3;
-
-    const tableData = (data.quotationItems || []).map((item) => {
-      const productName = item.product?.name || 'N/A';
-      const productDescription = item.product?.description || '';
-      const fullDescription = productDescription
-        ? `${productName} - ${productDescription}`
-        : productName;
-
-      return [
-        item.product?.sku || 'N/A',
-        fullDescription,
-        item.product?.brand || 'N/A',
-        item.quantity?.toString() || '0',
-        item.product?.uom || 'PCS',
-        `P${formatPeso(item.clientPrice || 0)}`,
-        `P${formatPeso(item.total || 0)}`,
-      ];
-    });
-
-    autoTable(doc, {
-      startY: yPos,
-      head: [['ITEM NO.', 'DESCRIPTION', 'Brand', 'QTY', 'Unit', 'UNIT PRICE', 'TOTAL']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [59, 130, 246],
-        textColor: [255, 255, 255],
-        fontSize: 7,
-        fontStyle: 'bold',
-        halign: 'center',
-        cellPadding: 2
-      },
-      bodyStyles: {
-        fontSize: 7,
-        cellPadding: 2,
-        minCellHeight: 6,
-        overflow: 'hidden'
-      },
-      columnStyles: {
-        0: { cellWidth: 26, halign: 'left', overflow: 'hidden' },
-        1: { cellWidth: 87, halign: 'left', overflow: 'hidden' },
-        2: { cellWidth: 20, halign: 'left', overflow: 'hidden' },
-        3: { cellWidth: 10, halign: 'center' },
-        4: { cellWidth: 13, halign: 'center' },
-        5: { cellWidth: 18, halign: 'right' },
-        6: { cellWidth: 18, halign: 'right' },
-      },
-      margin: { left: 8, right: 8 }
-    });
     
-    // Financial Summary on the right
-    const tableEndY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
-
-    // Remarks box (left side) - width should align with tables (total 192 units)
-    // Remarks takes ~100 units, summary takes ~92 units = 192 total
-    doc.setDrawColor(59, 130, 246);
-    doc.setLineWidth(0.5);
-    doc.rect(8, tableEndY, 100, 30);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text("Remarks / Instructions:", 10, tableEndY + 4);
-
-    // Financial summary (right side) - starts after remarks box
-    const summaryX = 116;
-    let summaryY = tableEndY + 2;
-
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-
-    // Calculate values - bid price is VAT inclusive
-    const totalBidPrice = data.bidPrice || 0;
-    const VAT_RATE = 0.12;
-    const subtotal = totalBidPrice / (1 + VAT_RATE);
-    const vatAmount = totalBidPrice - subtotal;
-
-    // Labels on left, values on right - align to table edge (x=200)
-    const valueBoxWidth = 33;
-    const valueBoxX = 200 - valueBoxWidth; // 167
-
-    doc.text("SUBTOTAL", summaryX, summaryY);
-    doc.setFillColor(59, 130, 246);
-    doc.rect(valueBoxX, summaryY - 3, valueBoxWidth, 4.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text(`P${formatPeso(subtotal)}`, 198, summaryY, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    summaryY += 4.5;
-
-    doc.text("TAX RATE", summaryX, summaryY);
-    doc.setFillColor(59, 130, 246);
-    doc.rect(valueBoxX, summaryY - 3, valueBoxWidth, 4.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text("12%", 198, summaryY, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    summaryY += 4.5;
-
-    doc.text("VAT INPUT TAX", summaryX, summaryY);
-    doc.setFillColor(59, 130, 246);
-    doc.rect(valueBoxX, summaryY - 3, valueBoxWidth, 4.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text(`P${formatPeso(vatAmount)}`, 198, summaryY, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    summaryY += 4.5;
-
-    doc.text("AMOUNT (NET OF VAT)", summaryX, summaryY);
-    doc.setFillColor(59, 130, 246);
-    doc.rect(valueBoxX, summaryY - 3, valueBoxWidth, 4.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text(`P${formatPeso(subtotal)}`, 198, summaryY, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    summaryY += 4.5;
-
-    doc.text("SHIPPING/HANDLING", summaryX, summaryY);
-    doc.setFillColor(59, 130, 246);
-    doc.rect(valueBoxX, summaryY - 3, valueBoxWidth, 4.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text("P0.00", 198, summaryY, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    summaryY += 4.5;
-
-    doc.text("OTHER", summaryX, summaryY);
-    doc.setFillColor(59, 130, 246);
-    doc.rect(valueBoxX, summaryY - 3, valueBoxWidth, 4.5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.text("P0.00", 198, summaryY, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-    summaryY += 7;
-
-    // THANK YOU text
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(59, 130, 246);
-    doc.text("THANK YOU", 8, summaryY + 4);
-    doc.setTextColor(0, 0, 0);
-
-    // TOTAL AMOUNT (prominent)
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("TOTAL AMOUNT", summaryX, summaryY);
-    doc.setFillColor(59, 130, 246);
-    doc.rect(valueBoxX, summaryY - 3.5, valueBoxWidth, 6, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.text(`P${formatPeso(totalBidPrice)}`, 198, summaryY, { align: 'right' });
-    doc.setTextColor(0, 0, 0);
-
-    // Approval Section - align to table width (192 total, split in half = 96 each)
-    summaryY += 14;
-
-    // Approved by (left) - starts at x=8, width=96
-    doc.setFillColor(59, 130, 246);
-    doc.rect(8, summaryY, 96, 5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("Approved by:", 10, summaryY + 3.5);
-    doc.setTextColor(0, 0, 0);
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("Richard A. Abanilla", 38, summaryY + 18);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.text("President", 46, summaryY + 22);
-
-    // Checked by (right) - starts at x=104 (8+96), width=96
-    doc.setFillColor(59, 130, 246);
-    doc.rect(104, summaryY, 96, 5, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("Checked by:", 106, summaryY + 3.5);
-    doc.setTextColor(0, 0, 0);
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("Katrina M. Abanilla", 133, summaryY + 18);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-    doc.text("Vice President", 140, summaryY + 22);
-    
-    // Save PDF
-    const fileName = `Quotation_${data.code || 'Draft'}_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(fileName);
-    toast.success("PDF exported successfully");
   };
 
   const handleCreateNewVersion = () => {
