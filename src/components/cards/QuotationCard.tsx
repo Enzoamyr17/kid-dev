@@ -878,14 +878,15 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
           <div className="bg-sidebar border border-blue-900/10 rounded-lg w-full h-auto max-h-full">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="">
                   <TableHead>SKU</TableHead>
-                  <TableHead>Name</TableHead>
+                  <TableHead className="whitespace-nowrap">Name</TableHead>
+                  <TableHead className="w-auto max-w-128">Description</TableHead>
                   <TableHead>Brand</TableHead>
+                  <TableHead>UOM</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Subcategory</TableHead>
                   <TableHead>Adtl. Category</TableHead>
-                  <TableHead>UOM</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -899,13 +900,21 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
                 ) : (
                   filteredProducts.map((product) => (
                   <TableRow key={product.sku}>
-                    <TableCell>{product.sku}</TableCell>
-                    <TableCell>{product.name}</TableCell>
+                    <TableCell className="whitespace-nowrap">{product.sku}</TableCell>
+                    {product.name == product.description ? (
+                      <TableCell className="w-auto max-w-256" colSpan={2}>{product.description}</TableCell>
+                    ) : (
+                      <>
+                        <TableCell className="w-auto max-w-128">{product.name}</TableCell>
+                        <TableCell className="w-auto max-w-128">{product.description ? product.description.replace(product.name, "") : ""}</TableCell>
+                        {/* <TableCell className="w-auto max-w-128">{product.description}</TableCell> */}
+                      </>
+                    )}
                     <TableCell>{product.brand}</TableCell>
+                    <TableCell>{product.uom}</TableCell>
                     <TableCell>{product.category}</TableCell>
                     <TableCell>{product.subCategory}</TableCell>
                     <TableCell>{product.adCategory}</TableCell>
-                    <TableCell>{product.uom}</TableCell>
                     <TableCell className="min-w-28 flex justify-center items-center">
                     {cart.some(item => item.sku === product.sku) ? (
                       <Button
