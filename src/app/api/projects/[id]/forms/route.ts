@@ -34,10 +34,13 @@ export async function GET(
     const { id } = await params;
     const projectId = BigInt(id);
 
-    // Fetch all forms for this project
+    // Fetch all forms for this project (exclude drafts from quotations)
     const [quotationForms, prForms, poForms] = await Promise.all([
       prisma.quotationForm.findMany({
-        where: { projectId: Number(projectId) },
+        where: {
+          projectId: Number(projectId),
+          isDraft: false,
+        },
         include: {
           quotationItems: {
             include: {

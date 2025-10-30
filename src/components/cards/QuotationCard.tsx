@@ -101,6 +101,9 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [showAddressDropdown, setShowAddressDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [draftId, setDraftId] = useState<number | null>(null);
+  const [isLoadingDraft, setIsLoadingDraft] = useState(true);
+  const [lastDraftSave, setLastDraftSave] = useState<Date | null>(null);
 
   // Helper function to construct full address from components
   const constructAddress = (address: typeof companyAddresses[0]) => {
@@ -221,6 +224,68 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
       console.error("Failed to fetch current user:", error);
     }
   };
+
+  // Fetch draft quotation for this project
+  const fetchDraft = async () => {
+    try {
+      const response = await fetch(`/api/quotations?projectId=${projectId}&isDraft=true`);
+      if (!response.ok) throw new Error("Failed to fetch draft");
+
+      const draft = await response.json();
+
+      if (draft && draft.id) {
+        // Load draft data
+        setDraftId(draft.id);
+
+        // Populate form data
+        setFormData({
+          code: draft.code || "",
+          forCompanyId: String(draft.forCompanyId),
+          projectId: String(draft.projectId),
+          requestorId: draft.requestorId ? String(draft.requestorId) : "",
+          deliveryTerm: draft.deliveryTerm || "",
+          deliveryAddress: draft.deliveryAddress || "",
+          approvedBudget: Number(draft.approvedBudget) || 0,
+          bidPercentage: Number(draft.bidPercentage) || bidPercentage,
+          supplierPriceVatInclusive: "yes",
+          paymentTerm: draft.paymentTerm || "",
+          ewtPercentage: 1,
+          contingencyPercentage: 5,
+          loanInterestPercentage: 3,
+          loanMonths: 0,
+          remarks: draft.remarks || "",
+        });
+
+        // Populate cart items
+        if (draft.quotationItems && draft.quotationItems.length > 0) {
+          const cartItems: CartItem[] = draft.quotationItems.map((item: {
+            product: Product;
+            supplier: { companyName: string };
+            quantity: number;
+            internalPrice: string;
+            clientPrice: string;
+          }) => ({
+            ...item.product,
+            quantity: item.quantity,
+            internalPrice: Number(item.internalPrice),
+            supplier: item.supplier.companyName,
+            abcPrice: 0,
+            proposalPrice: Number(item.clientPrice),
+          }));
+          setCart(cartItems);
+        }
+
+        // Switch to form tab
+        setActiveTab("form");
+        toast.success("Draft loaded successfully");
+      }
+    } catch (error) {
+      console.error("Error fetching draft:", error);
+      // No draft exists, which is fine
+    } finally {
+      setIsLoadingDraft(false);
+    }
+  };
   
 
   useEffect(() => {
@@ -228,6 +293,8 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
     fetchProductPrices();
     fetchUsers();
     fetchCurrentUserId();
+    fetchDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-populate requestor_id when currentUserId is set
@@ -236,6 +303,107 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
       setFormData(prev => ({ ...prev, requestorId: currentUserId }));
     }
   }, [currentUserId]);
+
+  // Auto-save draft with 5-second debounce
+  useEffect(() => {
+    // Don't auto-save if still loading draft or if there's no cart items
+    if (isLoadingDraft || cart.length === 0) {
+      console.log("[Auto-save] Skipped:", {
+        reason: isLoadingDraft ? "Still loading draft" : "No cart items",
+        isLoadingDraft,
+        cartLength: cart.length
+      });
+      return;
+    }
+
+    console.log("[Auto-save] Timer started (5 seconds)");
+
+    const timer = setTimeout(async () => {
+      try {
+        const payload = {
+          forCompanyId: formData.forCompanyId,
+          projectId: formData.projectId,
+          requestorId: formData.requestorId || null,
+          deliveryTerm: formData.deliveryTerm || null,
+          deliveryAddress: formData.deliveryAddress || null,
+          paymentTerm: formData.paymentTerm || null,
+          approvedBudget: formData.approvedBudget,
+          bidPercentage: formData.bidPercentage,
+          remarks: formData.remarks || null,
+          totals: {
+            totalCost: financials.totalCost,
+            bidPrice: financials.totalBidPrice,
+          },
+          items: cart.map(item => ({
+            productId: item.id,
+            supplierId: 1,
+            quantity: item.quantity,
+            internalPrice: item.internalPrice,
+            clientPrice: item.proposalPrice,
+            total: item.quantity * item.proposalPrice,
+            remarks: null,
+          })),
+          isDraft: true,
+        };
+
+        console.log("[Auto-save] Executing auto-save", {
+          draftId: draftId || "New draft",
+          projectId: formData.projectId,
+          itemCount: cart.length,
+          totalCost: financials.totalCost,
+          bidPrice: financials.totalBidPrice,
+          payload: payload
+        });
+
+        if (draftId) {
+          // Update existing draft
+          console.log("[Auto-save] Updating existing draft ID:", draftId);
+          const response = await fetch("/api/quotations", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: draftId, ...payload }),
+          });
+
+          if (response.ok) {
+            console.log("[Auto-save] Draft updated successfully");
+          } else {
+            const errorData = await response.json();
+            console.error("[Auto-save] Failed to update draft:", errorData);
+            console.error("[Auto-save] Response status:", response.status);
+          }
+        } else {
+          // Create new draft
+          console.log("[Auto-save] Creating new draft");
+          const response = await fetch("/api/quotations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            setDraftId(result.id);
+            console.log("[Auto-save] New draft created with ID:", result.id);
+          } else {
+            const errorData = await response.json();
+            console.error("[Auto-save] Failed to create draft:", errorData);
+            console.error("[Auto-save] Response status:", response.status);
+          }
+        }
+
+        setLastDraftSave(new Date());
+        console.log("[Auto-save] Completed successfully at:", new Date().toLocaleTimeString());
+      } catch (error) {
+        console.error("[Auto-save] Error auto-saving draft:", error);
+      }
+    }, 5000);
+
+    return () => {
+      console.log("[Auto-save] Timer cleared");
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, cart, isLoadingDraft]);
 
   const updateFormData = useCallback(<K extends keyof QuotationFormData>(
     field: K,
@@ -632,15 +800,28 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
           total: item.quantity * item.proposalPrice,
           remarks: null,
         })),
+        isDraft: false,
       };
 
       console.log(payload);
 
-      const response = await fetch("/api/quotations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      let response;
+
+      // If we have a draft ID, update it to final quotation
+      if (draftId) {
+        response = await fetch("/api/quotations", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: draftId, ...payload }),
+        });
+      } else {
+        // Otherwise create a new quotation
+        response = await fetch("/api/quotations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -653,6 +834,9 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
       const quotationCode = result.code;
 
       toast.success(`Quotation saved successfully! Code: ${quotationCode}`);
+
+      // Clear draft ID since it's now a final quotation
+      setDraftId(null);
 
       // Call onSaveSuccess to refresh the forms list
       if (onSaveSuccess) {
@@ -695,6 +879,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
       remarks: "",
     });
     setCart([]);
+    setDraftId(null);
   };
 
   const handleExportPDF = async () => {
@@ -943,7 +1128,14 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
         {/* Form Tab */}
         <TabsContent value="form" className="w-full">
           <div className="bg-sidebar border border-blue-900/10 w-full p-6">
-            <h2 className="text-xl font-semibold mb-6">New Quotation</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold">New Quotation</h2>
+              {lastDraftSave && (
+                <span className="text-xs text-muted-foreground">
+                  Draft auto-saved at {lastDraftSave.toLocaleTimeString()}
+                </span>
+              )}
+            </div>
             {clientDetails && clientDetails.length > 0 ? (
               <div className="flex justify-between items-center gap-6 py-2 border-b border-zinc-200 pb-6">
                 {/* Left */}
