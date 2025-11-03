@@ -159,6 +159,7 @@ model Project {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
   approvedBudget  Decimal              @default(0) @db.Decimal(12, 2)
+  receivable      Decimal?             @default(0) @db.Decimal(12, 2)
   workflowStageId Int
   budget          BudgetCategory[]
   transaction     ProjectTransaction[]
@@ -218,12 +219,12 @@ model QuotationForm {
   code            String?         @db.VarChar(255)
   deliveryAddress String?
   remarks         String?
+  isComplete      Boolean         @default(false)
+  isDraft         Boolean         @default(false)
   quotationItems  QuotationItem[]
   forCompany      Company         @relation("QuotationCompany", fields: [forCompanyId], references: [id])
   project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   requestor       User?           @relation("QuotationRequestor", fields: [requestorId], references: [id])
-  isComplete      Boolean         @default(false)
-  isDraft         Boolean         @default(false)
 
   @@index([projectId])
   @@index([forCompanyId])
@@ -390,14 +391,31 @@ model StockTransaction {
   quantity    Int
   referenceId String?           @db.VarChar(255)
   status      TransactionStatus
-  remarks     String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+  remarks     String?
   product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId])
   @@index([referenceId])
   @@map("stockTransaction")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  tableName String   @db.VarChar(255)
+  recordId  String   @db.VarChar(255)
+  action    String   @db.VarChar(10)
+  oldData   Json?
+  newData   Json?
+  changedBy Int?
+  changedAt DateTime @default(now())
+
+  @@index([tableName])
+  @@index([recordId])
+  @@index([changedBy])
+  @@index([changedAt])
+  @@map("auditLog")
 }
 
 enum PaymentMethod {
@@ -422,19 +440,30 @@ enum TransactionStatus {
   completed
 }
 
-model AuditLog {
-  id         Int      @id @default(autoincrement())
-  tableName  String   @db.VarChar(255)
-  recordId   String   @db.VarChar(255)
-  action     String   @db.VarChar(10)
-  oldData    Json?
-  newData    Json?
-  changedBy  Int?
-  changedAt  DateTime @default(now())
+enum ExpenseFrequency {
+  weekly
+  twice_monthly
+  monthly
+  quarterly
+  yearly
+  one_time
+}
 
-  @@index([tableName])
-  @@index([recordId])
-  @@index([changedBy])
-  @@index([changedAt])
-  @@map("auditLog")
+model CompanyExpense {
+  id              Int              @id @default(autoincrement())
+  name            String           @db.VarChar(255)
+  amount          Decimal          @db.Decimal(12, 2)
+  frequency       ExpenseFrequency
+  dayOfWeek       Int?
+  daysOfMonth     String?          @db.VarChar(50)
+  monthOfYear     Int?
+  specificDate    DateTime?        @db.Date
+  startOfPayment  DateTime?        @db.Date
+  isActive        Boolean          @default(true)
+  category        String?          @db.VarChar(255)
+  notes           String?          @db.Text
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("companyExpense")
 }

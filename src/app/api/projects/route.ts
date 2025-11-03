@@ -33,7 +33,13 @@ export async function GET(request: NextRequest) {
     const company_id = searchParams.get('company_id');
 
     const projects = await prisma.project.findMany({
-      where: company_id ? { companyId: Number(company_id) } : undefined,
+      where: {
+        ...(company_id ? { companyId: Number(company_id) } : {}),
+        // Only show regular projects (PROJ), not encoded projects (PPROJ)
+        code: {
+          startsWith: 'PROJ',
+        },
+      },
       include: { company: true, workflow: true, workflowstage: true },
       orderBy: { id: 'desc' },
     });

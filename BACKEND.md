@@ -182,6 +182,69 @@ Delete a project.
 
 ---
 
+## Project Encoding (Past Projects)
+
+### GET `/api/projects/encode`
+
+Fetch all encoded past projects (projects with code prefix `PPROJ`).
+
+**Response:**
+```typescript
+Array<{
+  id: number;
+  code: string; // Format: PPROJYY-#####
+  companyId: number;
+  description: string;
+  approvedBudget: number;
+  receivable: number | null; // Payment received for past project
+  createdAt: string; // Uses project date, not current date
+  updatedAt: string;
+  company: Company;
+  workflow: WorkflowTemplate;
+  workflowstage: WorkflowStage;
+  budget: Array<BudgetCategory>; // Contains "Encoded" category
+  transaction: Array<ProjectTransaction>; // Single expense transaction
+}>
+```
+
+### POST `/api/projects/encode`
+
+Create a new encoded past project with simplified budget tracking.
+
+**Request:**
+```typescript
+{
+  companyId?: number; // Optional: Use existing company
+  companyName?: string; // Optional: Search/create company by name
+  description: string; // Project name
+  projectDate: string; // ISO date - determines year in code (PPROJYY)
+  receivable?: number; // Income/payment received
+  expense?: number; // Total project expense
+}
+```
+
+**Notes:**
+- **Company handling (either companyId OR companyName required):**
+  - If `companyId` provided: uses that company directly
+  - If `companyName` provided:
+    - Searches for existing company (case-insensitive, trimmed)
+    - If found: uses existing company
+    - If not found: auto-creates company with minimal data (`tinNumber: "N/A"`, `isClient: true`)
+  - Prevents duplicate companies with smart matching
+- Auto-generates code: `PPROJ{YY}-{5-digit-number}` where YY is from projectDate
+- Creates single "Encoded" budget category with gray color (#6b7280)
+- Creates single ProjectTransaction for the expense amount
+- Uses projectDate as createdAt timestamp (not current date)
+- Sets workflowStageId to first available stage (typically "Completed")
+- `receivable` field stores income for dashboard aggregation
+- Different from regular projects: simplified single-category budget
+
+### DELETE `/api/projects/encode?id={id}`
+
+Delete an encoded past project (validates project has PPROJ code prefix).
+
+---
+
 ## Project Detail
 
 ### GET `/api/projects/{id}`
@@ -553,6 +616,11 @@ Array<{
 - `workflowId` → WorkflowTemplate
 - `workflowStageId` → WorkflowStage
 - Has many: QuotationForm, PrForm, PoForm, BudgetCategory, ProjectTransaction
+- Fields:
+  - `approvedBudget`: Budget allocated for project
+  - `receivable`: (Nullable) Payment received - used only for encoded past projects (PPROJ prefix)
+  - Regular projects (PROJ prefix) use QuotationForm bidPrice for income tracking
+  - Past projects (PPROJ prefix) use `receivable` field for income tracking
 
 ### WorkflowTemplate
 - Has many: WorkflowStage, Project

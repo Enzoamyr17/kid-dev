@@ -25,6 +25,14 @@ const managementItems = [
     href: "/projects",
   },
   {
+    label: "Project Encoding",
+    href: "/project-encoding",
+  },
+  {
+    label: "Expense Management",
+    href: "/expense-management",
+  },
+  {
     label: "Company Management",
     href: "/companies",
   },
