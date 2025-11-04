@@ -13,11 +13,17 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type');
     const status = searchParams.get('status');
     const projectId = searchParams.get('projectId');
+    const year = searchParams.get('year');
+    const month = searchParams.get('month');
 
     const where: {
       transactionType?: ExpenseTransactionType;
       status?: ExpenseTransactionStatus;
       projectId?: number;
+      datePurchased?: {
+        gte?: Date;
+        lt?: Date;
+      };
     } = {};
 
     if (type) {
@@ -28,6 +34,26 @@ export async function GET(request: NextRequest) {
     }
     if (projectId) {
       where.projectId = Number(projectId);
+    }
+
+    // Date filtering
+    if (year && month) {
+      const yearNum = parseInt(year);
+      const monthNum = parseInt(month);
+      const startDate = new Date(yearNum, monthNum - 1, 1);
+      const endDate = new Date(yearNum, monthNum, 1);
+      where.datePurchased = {
+        gte: startDate,
+        lt: endDate,
+      };
+    } else if (year) {
+      const yearNum = parseInt(year);
+      const startDate = new Date(yearNum, 0, 1);
+      const endDate = new Date(yearNum + 1, 0, 1);
+      where.datePurchased = {
+        gte: startDate,
+        lt: endDate,
+      };
     }
 
     const transactions = await prisma.transaction.findMany({

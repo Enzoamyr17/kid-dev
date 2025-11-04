@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Field } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -38,6 +38,58 @@ interface DashboardMetrics {
   }[] | null;
   projectCount: number;
   activeCompanyExpenses: number;
+  debug?: {
+    dateRange: {
+      startDate: string;
+      endDate: string;
+    };
+    counts: {
+      projectTransactions: number;
+      generalTransactions: number;
+      companyExpenses: number;
+      allProjects: number;
+    };
+  };
+}
+
+interface Transaction {
+  id: number;
+  transactionType: 'general' | 'project';
+  datePurchased: string;
+  projectId: number | null;
+  categoryId: number | null;
+  category: string | null;
+  subCategory: string | null;
+  itemDescription: string;
+  cost: number;
+  status: 'pending' | 'completed';
+  remarks: string | null;
+  attachment: string | null;
+  project: {
+    id: number;
+    code: string;
+    description: string;
+  } | null;
+  budgetCategory: {
+    id: number;
+    name: string;
+    color: string;
+  } | null;
+}
+
+interface CompanyExpense {
+  id: number;
+  name: string;
+  amount: number;
+  frequency: string;
+  dayOfWeek: number | null;
+  daysOfMonth: string | null;
+  monthOfYear: number | null;
+  specificDate: string | null;
+  startOfPayment: string | null;
+  isActive: boolean;
+  category: string | null;
+  notes: string | null;
 }
 
 const MONTHS = [
@@ -63,6 +115,11 @@ export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Monthly breakdown data (uses the main selectedMonth state)
+  const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
+  const [monthExpenses, setMonthExpenses] = useState<CompanyExpense[]>([]);
+  const [loadingMonthDetails, setLoadingMonthDetails] = useState(false);
 
   // Generate year options (current year and past 10 years)
   const yearOptions = [
@@ -95,8 +152,47 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchMetrics();
+    // Fetch month details if a specific month is selected
+    if (selectedYear && selectedMonth) {
+      fetchMonthDetails(selectedMonth);
+    } else {
+      // Clear month details when viewing all months
+      setMonthTransactions([]);
+      setMonthExpenses([]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedMonth]);
+
+  const fetchMonthDetails = async (month: string) => {
+    if (!selectedYear || !month) return;
+
+    setLoadingMonthDetails(true);
+    try {
+      const params = new URLSearchParams({
+        year: selectedYear,
+        month: month,
+      });
+
+      // Fetch transactions
+      const transactionsResponse = await fetch(`/api/transactions?${params.toString()}`);
+      if (!transactionsResponse.ok) throw new Error("Failed to fetch transactions");
+      const transactions = await transactionsResponse.json();
+
+      // Fetch active company expenses
+      const expensesResponse = await fetch(`/api/expenses?active=true`);
+      if (!expensesResponse.ok) throw new Error("Failed to fetch expenses");
+      const expenses = await expensesResponse.json();
+
+      setMonthTransactions(transactions);
+      setMonthExpenses(expenses);
+    } catch (error) {
+      console.error("Error fetching month details:", error);
+      toast.error("Failed to load month details");
+    } finally {
+      setLoadingMonthDetails(false);
+    }
+  };
+
 
   const formatCurrency = (value: number) => {
     return `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -341,45 +437,256 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Monthly Breakdown (only if viewing full year) */}
-          {metrics.monthlyData && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Monthly Breakdown</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2">Month</th>
-                      <th className="text-right py-2">Revenue</th>
-                      <th className="text-right py-2">Project</th>
-                      <th className="text-right py-2">General</th>
-                      <th className="text-right py-2">Company</th>
-                      <th className="text-right py-2">Total</th>
-                      <th className="text-right py-2">Profit</th>
+          {/* Monthly/Yearly Breakdown */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-semibold mb-4">
+              {selectedYear ? "Monthly Breakdown" : "Yearly Breakdown"}
+            </h3>
+
+            {/* Summary Table - Always show */}
+            <div className="overflow-x-auto mb-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2">{selectedYear ? "Month" : "Year"}</th>
+                    <th className="text-right py-2">Revenue</th>
+                    <th className="text-right py-2">Project</th>
+                    <th className="text-right py-2">General</th>
+                    <th className="text-right py-2">Company</th>
+                    <th className="text-right py-2">Total</th>
+                    <th className="text-right py-2">Profit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metrics.monthlyData?.map((data) => (
+                    <tr
+                      key={data.month}
+                      className={`border-b ${
+                        selectedMonth === String(data.month)
+                          ? "bg-orange-50"
+                          : "hover:bg-gray-50"
+                      }`}
+                    >
+                      <td className="py-2 font-medium">
+                        {selectedYear
+                          ? MONTHS.find((m) => m.value === String(data.month))?.label
+                          : data.month}
+                      </td>
+                      <td className="text-right">{formatCurrency(data.revenue)}</td>
+                      <td className="text-right">{formatCurrency(data.projectExpenses)}</td>
+                      <td className="text-right">{formatCurrency(data.generalExpenses)}</td>
+                      <td className="text-right">{formatCurrency(data.companyExpenses)}</td>
+                      <td className="text-right">{formatCurrency(data.totalExpenses)}</td>
+                      <td
+                        className={`text-right font-semibold ${
+                          data.profit >= 0 ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {formatCurrency(data.profit)}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {metrics.monthlyData.map((data) => (
-                      <tr key={data.month} className="border-b hover:bg-gray-50">
-                        <td className="py-2">
-                          {MONTHS.find((m) => m.value === String(data.month))?.label}
-                        </td>
-                        <td className="text-right">{formatCurrency(data.revenue)}</td>
-                        <td className="text-right">{formatCurrency(data.projectExpenses)}</td>
-                        <td className="text-right">{formatCurrency(data.generalExpenses)}</td>
-                        <td className="text-right">{formatCurrency(data.companyExpenses)}</td>
-                        <td className="text-right">{formatCurrency(data.totalExpenses)}</td>
-                        <td
-                          className={`text-right font-semibold ${
-                            data.profit >= 0 ? "text-green-600" : "text-red-600"
-                          }`}
-                        >
-                          {formatCurrency(data.profit)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Month Details View - Show below table when month is selected */}
+            {selectedMonth && (
+              <div className="border-t pt-6">
+                {loadingMonthDetails ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-4 gap-4">
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Transactions</p>
+                        <p className="text-2xl font-bold">{monthTransactions.length}</p>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Project Expenses</p>
+                        <p className="text-2xl font-bold text-blue-700">
+                          {formatCurrency(
+                            monthTransactions
+                              .filter((t) => t.transactionType === "project")
+                              .reduce((sum, t) => sum + Number(t.cost), 0)
+                          )}
+                        </p>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-4">
+                        <p className="text-xs text-muted-foreground mb-1">General Expenses</p>
+                        <p className="text-2xl font-bold text-green-700">
+                          {formatCurrency(
+                            monthTransactions
+                              .filter((t) => t.transactionType === "general")
+                              .reduce((sum, t) => sum + Number(t.cost), 0)
+                          )}
+                        </p>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Company Expenses</p>
+                        <p className="text-2xl font-bold text-purple-700">
+                          {formatCurrency(
+                            monthExpenses.reduce((sum, e) => {
+                              const amount = Number(e.amount);
+                              // Calculate occurrences per month based on frequency
+                              let multiplier = 1;
+                              if (e.frequency === 'weekly') multiplier = 4;
+                              else if (e.frequency === 'twice_monthly') multiplier = 2;
+                              else if (e.frequency === 'monthly') multiplier = 1;
+                              else if (e.frequency === 'quarterly') multiplier = 1/3;
+                              else if (e.frequency === 'yearly') multiplier = 1/12;
+                              else if (e.frequency === 'one_time') multiplier = 0; // Don't count one-time in monthly total
+                              return sum + (amount * multiplier);
+                            }, 0)
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Transactions Section */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-base">Transactions</h4>
+                      {monthTransactions.length > 0 ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-gray-50">
+                                <th className="text-left py-3 px-4">Date</th>
+                                <th className="text-left py-3 px-4">Type</th>
+                                <th className="text-left py-3 px-4">Description</th>
+                                <th className="text-left py-3 px-4">Category/Project</th>
+                                <th className="text-right py-3 px-4">Amount</th>
+                                <th className="text-center py-3 px-4">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {monthTransactions.map((transaction) => (
+                                <tr key={transaction.id} className="border-b hover:bg-gray-50">
+                                  <td className="py-3 px-4">
+                                    {new Date(transaction.datePurchased).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                        transaction.transactionType === "project"
+                                          ? "bg-blue-100 text-blue-800"
+                                          : "bg-green-100 text-green-800"
+                                      }`}
+                                    >
+                                      {transaction.transactionType === "project" ? "Project" : "General"}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4">{transaction.itemDescription}</td>
+                                  <td className="py-3 px-4">
+                                    {transaction.transactionType === "project" ? (
+                                      <span className="text-blue-700 font-medium">
+                                        {transaction.project?.code || "N/A"}
+                                      </span>
+                                    ) : (
+                                      <span className="text-green-700 font-medium">
+                                        {transaction.category || "N/A"}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="text-right py-3 px-4 font-medium">
+                                    {formatCurrency(Number(transaction.cost))}
+                                  </td>
+                                  <td className="text-center py-3 px-4">
+                                    <span
+                                      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                        transaction.status === "completed"
+                                          ? "bg-green-100 text-green-800"
+                                          : "bg-yellow-100 text-yellow-800"
+                                      }`}
+                                    >
+                                      {transaction.status === "completed" ? "Completed" : "Pending"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8 bg-gray-50 rounded-lg">
+                          No transactions found for this month
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Company Expenses Section */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-base">Active Company Expenses</h4>
+                      {monthExpenses.length > 0 ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-gray-50">
+                                <th className="text-left py-3 px-4">Name</th>
+                                <th className="text-left py-3 px-4">Category</th>
+                                <th className="text-left py-3 px-4">Frequency</th>
+                                <th className="text-right py-3 px-4">Amount</th>
+                                <th className="text-left py-3 px-4">Notes</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {monthExpenses.map((expense) => (
+                                <tr key={expense.id} className="border-b hover:bg-gray-50">
+                                  <td className="py-3 px-4 font-medium">{expense.name}</td>
+                                  <td className="py-3 px-4">
+                                    {expense.category ? (
+                                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                                        {expense.category}
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground">N/A</span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4 capitalize">
+                                    {expense.frequency.replace(/_/g, " ")}
+                                  </td>
+                                  <td className="text-right py-3 px-4 font-medium">
+                                    {formatCurrency(Number(expense.amount))}
+                                  </td>
+                                  <td className="py-3 px-4 text-muted-foreground">
+                                    {expense.notes || "-"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8 bg-gray-50 rounded-lg">
+                          No active company expenses
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Debug Info */}
+          {metrics?.debug && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
+              <h3 className="text-sm font-semibold mb-2 text-yellow-800">Debug Information</h3>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="font-medium text-yellow-900">Date Range:</p>
+                  <p className="text-yellow-700">Start: {new Date(metrics.debug.dateRange.startDate).toLocaleDateString()}</p>
+                  <p className="text-yellow-700">End: {new Date(metrics.debug.dateRange.endDate).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <p className="font-medium text-yellow-900">Transaction Counts:</p>
+                  <p className="text-yellow-700">Project Transactions: {metrics.debug.counts.projectTransactions}</p>
+                  <p className="text-yellow-700">General Transactions: {metrics.debug.counts.generalTransactions}</p>
+                  <p className="text-yellow-700">Company Expenses: {metrics.debug.counts.companyExpenses}</p>
+                  <p className="text-yellow-700">All Projects: {metrics.debug.counts.allProjects}</p>
+                </div>
               </div>
             </div>
           )}

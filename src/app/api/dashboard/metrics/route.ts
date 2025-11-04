@@ -169,9 +169,21 @@ export async function GET(request: NextRequest) {
       startDate = new Date(parseInt(year), 0, 1);
       endDate = new Date(parseInt(year), 11, 31, 23, 59, 59, 999);
     } else {
-      // All time
-      startDate = new Date(0); // Unix epoch
-      endDate = new Date();
+      // All time - use earliest transaction date or beginning of current year as fallback
+      const earliestTransaction = await prisma.transaction.findFirst({
+        orderBy: { datePurchased: 'asc' },
+        select: { datePurchased: true },
+      });
+      const earliestProject = await prisma.project.findFirst({
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      });
+
+      const currentYear = new Date().getFullYear();
+      const earliestDate = earliestTransaction?.datePurchased || earliestProject?.createdAt || new Date(currentYear, 0, 1);
+      startDate = new Date(earliestDate);
+      startDate.setMonth(0, 1); // Start from beginning of that year
+      endDate = new Date(currentYear, 11, 31, 23, 59, 59, 999); // End of current year
     }
 
     console.log('[Dashboard API] Date range:', { startDate, endDate, year, month });
@@ -181,7 +193,7 @@ export async function GET(request: NextRequest) {
       where: {
         transactionType: 'project',
         status: 'completed',
-        createdAt: {
+        datePurchased: {
           gte: startDate,
           lte: endDate,
         },
@@ -302,7 +314,7 @@ export async function GET(request: NextRequest) {
         (expensesByCategory[categoryName] || 0) + Number(transaction.cost);
     });
 
-    // Monthly breakdown (if viewing year)
+    // Monthly/Yearly breakdown
     const monthlyData: {
       month: number;
       revenue: number;
@@ -314,14 +326,14 @@ export async function GET(request: NextRequest) {
     }[] = [];
 
     if (year && !month) {
-      // Generate monthly breakdown for the year
+      // Generate monthly breakdown for the specific year
       for (let m = 0; m < 12; m++) {
         const monthStart = new Date(parseInt(year), m, 1);
         const monthEnd = new Date(parseInt(year), m + 1, 0, 23, 59, 59, 999);
 
         // Project transactions for this month
         const monthProjectTransactions = projectTransactions.filter(
-          (t) => t.createdAt >= monthStart && t.createdAt <= monthEnd
+          (t) => t.datePurchased >= monthStart && t.datePurchased <= monthEnd
         );
         const monthProjectExpenses = monthProjectTransactions.reduce(
           (sum, t) => sum + Number(t.cost),
@@ -378,9 +390,78 @@ export async function GET(request: NextRequest) {
           profit: monthRevenue - monthTotalExpenses,
         });
       }
+    } else if (!year && !month) {
+      // All time - Generate yearly breakdown
+      const startYear = startDate.getFullYear();
+      const endYear = endDate.getFullYear();
+
+      for (let y = startYear; y <= endYear; y++) {
+        const yearStart = new Date(y, 0, 1);
+        const yearEnd = new Date(y, 11, 31, 23, 59, 59, 999);
+
+        // Project transactions for this year
+        const yearProjectTransactions = projectTransactions.filter(
+          (t) => t.datePurchased >= yearStart && t.datePurchased <= yearEnd
+        );
+        const yearProjectExpenses = yearProjectTransactions.reduce(
+          (sum, t) => sum + Number(t.cost),
+          0
+        );
+
+        // General transactions for this year
+        const yearGeneralTransactions = generalTransactions.filter(
+          (t) => t.datePurchased >= yearStart && t.datePurchased <= yearEnd
+        );
+        const yearGeneralExpenses = yearGeneralTransactions.reduce(
+          (sum, t) => sum + Number(t.cost),
+          0
+        );
+
+        // Company expenses for this year
+        const yearCompanyExpenses = companyExpenses.reduce((sum, expense) => {
+          return (
+            sum +
+            calculateExpenseOccurrences(
+              {
+                frequency: expense.frequency,
+                dayOfWeek: expense.dayOfWeek,
+                daysOfMonth: expense.daysOfMonth,
+                monthOfYear: expense.monthOfYear,
+                specificDate: expense.specificDate,
+                startOfPayment: expense.startOfPayment,
+                amount: Number(expense.amount),
+              },
+              yearStart,
+              yearEnd
+            )
+          );
+        }, 0);
+
+        // Revenue for this year
+        const yearProjects = allProjects.filter(
+          (p) => p.createdAt >= yearStart && p.createdAt <= yearEnd
+        );
+        const yearRevenue = yearProjects.reduce(
+          (sum, p) => sum + Number(p.receivable || 0),
+          0
+        );
+
+        const yearTotalExpenses = yearProjectExpenses + yearGeneralExpenses + yearCompanyExpenses;
+
+        // Use year as "month" field for yearly breakdown (will be handled differently in frontend)
+        monthlyData.push({
+          month: y, // Store year number instead of month
+          revenue: yearRevenue,
+          projectExpenses: yearProjectExpenses,
+          generalExpenses: yearGeneralExpenses,
+          companyExpenses: yearCompanyExpenses,
+          totalExpenses: yearTotalExpenses,
+          profit: yearRevenue - yearTotalExpenses,
+        });
+      }
     }
 
-    // Prepare response
+    // Prepare response with debug info
     const metrics = {
       period: {
         year: year ? parseInt(year) : null,
@@ -401,14 +482,32 @@ export async function GET(request: NextRequest) {
       monthlyData: monthlyData.length > 0 ? monthlyData : null,
       projectCount: activeProjects.length, // Only count non-encoded projects (PROJ)
       activeCompanyExpenses: companyExpenses.length,
+      // Debug info
+      debug: {
+        dateRange: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString()
+        },
+        counts: {
+          projectTransactions: projectTransactions.length,
+          generalTransactions: generalTransactions.length,
+          companyExpenses: companyExpenses.length,
+          allProjects: allProjects.length,
+        },
+      },
     };
 
     console.log('[Dashboard API] Metrics calculated:', {
+      dateRange: { startDate, endDate, year, month },
       revenue,
       projectExpenses: projectExpensesTotal,
+      projectTransactionsCount: projectTransactions.length,
       generalExpenses: generalTransactionsTotal,
+      generalTransactionsCount: generalTransactions.length,
       companyExpenses: companyExpensesTotal,
+      companyExpensesCount: companyExpenses.length,
       totalExpenses,
+      grossProfit,
     });
 
     return NextResponse.json(metrics);

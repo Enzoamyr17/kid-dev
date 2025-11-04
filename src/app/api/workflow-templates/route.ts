@@ -107,8 +107,9 @@ export async function PATCH(request: NextRequest) {
         data: { name, description },
         include: {
           workflowStages: true,
-        _count: {
-          select: { projects: true },
+          _count: {
+            select: { projects: true },
+          },
         },
       });
     });
