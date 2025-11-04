@@ -34,6 +34,10 @@ const financeItems = [
   {
     label: "Expense Management",
     href: "/expense-management",
+  },
+  {
+    label: "Transactions",
+    href: "/transactions",
   }
 ];
 

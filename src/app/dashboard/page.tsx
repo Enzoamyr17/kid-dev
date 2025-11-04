@@ -15,7 +15,8 @@ interface DashboardMetrics {
   summary: {
     revenue: number;
     projectExpenses: number;
-    fixedExpenses: number;
+    generalExpenses: number;
+    companyExpenses: number;
     totalExpenses: number;
     grossProfit: number;
     profitMargin: number;
@@ -25,12 +26,13 @@ interface DashboardMetrics {
     month: number;
     revenue: number;
     projectExpenses: number;
-    fixedExpenses: number;
+    generalExpenses: number;
+    companyExpenses: number;
     totalExpenses: number;
     profit: number;
   }[] | null;
   projectCount: number;
-  activeFixedExpenses: number;
+  activeCompanyExpenses: number;
 }
 
 const MONTHS = [
@@ -221,9 +223,9 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="flex justify-between items-center mt-4">
-                  <span className="text-sm font-medium">Fixed Expenses</span>
+                  <span className="text-sm font-medium">General Expenses</span>
                   <span className="text-sm font-bold">
-                    {formatCurrency(metrics.summary.fixedExpenses)}
+                    {formatCurrency(metrics.summary.generalExpenses)}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -232,7 +234,26 @@ export default function DashboardPage() {
                     style={{
                       width: `${
                         metrics.summary.totalExpenses > 0
-                          ? (metrics.summary.fixedExpenses / metrics.summary.totalExpenses) * 100
+                          ? (metrics.summary.generalExpenses / metrics.summary.totalExpenses) * 100
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+
+                <div className="flex justify-between items-center mt-4">
+                  <span className="text-sm font-medium">Company Expenses</span>
+                  <span className="text-sm font-bold">
+                    {formatCurrency(metrics.summary.companyExpenses)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-purple-500 h-2 rounded-full"
+                    style={{
+                      width: `${
+                        metrics.summary.totalExpenses > 0
+                          ? (metrics.summary.companyExpenses / metrics.summary.totalExpenses) * 100
                           : 0
                       }%`,
                     }}
@@ -246,8 +267,8 @@ export default function DashboardPage() {
                   <span className="font-bold">{metrics.projectCount}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm mt-2">
-                  <span className="font-medium">Active Fixed Expenses</span>
-                  <span className="font-bold">{metrics.activeFixedExpenses}</span>
+                  <span className="font-medium">Planned Company Expenses</span>
+                  <span className="font-bold">{metrics.activeCompanyExpenses}</span>
                 </div>
               </div>
             </div>
@@ -299,9 +320,10 @@ export default function DashboardPage() {
                     <tr className="border-b">
                       <th className="text-left py-2">Month</th>
                       <th className="text-right py-2">Revenue</th>
-                      <th className="text-right py-2">Project Expenses</th>
-                      <th className="text-right py-2">Fixed Expenses</th>
-                      <th className="text-right py-2">Total Expenses</th>
+                      <th className="text-right py-2">Project</th>
+                      <th className="text-right py-2">General</th>
+                      <th className="text-right py-2">Company</th>
+                      <th className="text-right py-2">Total</th>
                       <th className="text-right py-2">Profit</th>
                     </tr>
                   </thead>
@@ -313,7 +335,8 @@ export default function DashboardPage() {
                         </td>
                         <td className="text-right">{formatCurrency(data.revenue)}</td>
                         <td className="text-right">{formatCurrency(data.projectExpenses)}</td>
-                        <td className="text-right">{formatCurrency(data.fixedExpenses)}</td>
+                        <td className="text-right">{formatCurrency(data.generalExpenses)}</td>
+                        <td className="text-right">{formatCurrency(data.companyExpenses)}</td>
                         <td className="text-right">{formatCurrency(data.totalExpenses)}</td>
                         <td
                           className={`text-right font-semibold ${

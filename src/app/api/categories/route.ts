@@ -22,8 +22,11 @@ export async function GET(req: NextRequest) {
             },
             include: {
                 transactions: {
+                    where: {
+                        transactionType: "project",
+                    },
                     select: {
-                        amount: true,
+                        cost: true,
                     },
                 },
             },
@@ -40,7 +43,7 @@ export async function GET(req: NextRequest) {
         // Calculate expenses and remaining for each category
         const categoriesWithCalculations = categories.map((category) => {
             const expenses = category.transactions.reduce(
-                (sum, transaction) => sum + Number(transaction.amount),
+                (sum, transaction) => sum + Number(transaction.cost),
                 0
             );
             const remaining = Number(category.budget) - expenses;
@@ -141,15 +144,18 @@ export async function PATCH(req: NextRequest) {
             data: updateData,
             include: {
                 transactions: {
+                    where: {
+                        transactionType: "project",
+                    },
                     select: {
-                        amount: true,
+                        cost: true,
                     },
                 },
             },
         });
 
         const expenses = category.transactions.reduce(
-            (sum, transaction) => sum + Number(transaction.amount),
+            (sum, transaction) => sum + Number(transaction.cost),
             0
         );
         const remaining = Number(category.budget) - expenses;

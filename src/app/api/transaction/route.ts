@@ -28,10 +28,13 @@ export async function GET(req: NextRequest) {
             whereClause.categoryId = parseInt(categoryId);
         }
 
-        const transactions = await prisma.projectTransaction.findMany({
-            where: whereClause,
+        const transactions = await prisma.transaction.findMany({
+            where: {
+                ...whereClause,
+                transactionType: "project",
+            },
             include: {
-                category: {
+                budgetCategory: {
                     select: {
                         id: true,
                         name: true,
@@ -53,9 +56,9 @@ export async function GET(req: NextRequest) {
             id: transaction.id,
             projectId: transaction.projectId,
             categoryId: transaction.categoryId,
-            category: transaction.category,
-            description: transaction.description,
-            amount: Number(transaction.amount),
+            category: transaction.budgetCategory,
+            description: transaction.itemDescription,
+            amount: Number(transaction.cost),
             attachment: transaction.attachment,
             createdAt: transaction.createdAt,
             updatedAt: transaction.updatedAt,
@@ -84,16 +87,19 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const transaction = await prisma.projectTransaction.create({
+        const transaction = await prisma.transaction.create({
             data: {
+                transactionType: "project",
                 projectId: parseInt(projectId),
                 categoryId: parseInt(categoryId),
-                description,
-                amount: parseFloat(amount),
+                itemDescription: description,
+                cost: parseFloat(amount),
+                datePurchased: new Date(),
+                status: "completed",
                 attachment: attachment || null,
             },
             include: {
-                category: {
+                budgetCategory: {
                     select: {
                         id: true,
                         name: true,
@@ -107,9 +113,9 @@ export async function POST(req: NextRequest) {
             id: transaction.id,
             projectId: transaction.projectId,
             categoryId: transaction.categoryId,
-            category: transaction.category,
-            description: transaction.description,
-            amount: Number(transaction.amount),
+            category: transaction.budgetCategory,
+            description: transaction.itemDescription,
+            amount: Number(transaction.cost),
             attachment: transaction.attachment,
             createdAt: transaction.createdAt,
             updatedAt: transaction.updatedAt,
@@ -138,21 +144,21 @@ export async function PATCH(req: NextRequest) {
 
         const updateData: {
             categoryId?: number;
-            description?: string;
-            amount?: number;
+            itemDescription?: string;
+            cost?: number;
             attachment?: string | null;
         } = {};
 
         if (categoryId !== undefined) updateData.categoryId = parseInt(categoryId);
-        if (description !== undefined) updateData.description = description;
-        if (amount !== undefined) updateData.amount = parseFloat(amount);
+        if (description !== undefined) updateData.itemDescription = description;
+        if (amount !== undefined) updateData.cost = parseFloat(amount);
         if (attachment !== undefined) updateData.attachment = attachment || null;
 
-        const transaction = await prisma.projectTransaction.update({
+        const transaction = await prisma.transaction.update({
             where: { id: parseInt(id) },
             data: updateData,
             include: {
-                category: {
+                budgetCategory: {
                     select: {
                         id: true,
                         name: true,
@@ -166,9 +172,9 @@ export async function PATCH(req: NextRequest) {
             id: transaction.id,
             projectId: transaction.projectId,
             categoryId: transaction.categoryId,
-            category: transaction.category,
-            description: transaction.description,
-            amount: Number(transaction.amount),
+            category: transaction.budgetCategory,
+            description: transaction.itemDescription,
+            amount: Number(transaction.cost),
             attachment: transaction.attachment,
             createdAt: transaction.createdAt,
             updatedAt: transaction.updatedAt,
@@ -195,7 +201,7 @@ export async function DELETE(req: NextRequest) {
             );
         }
 
-        await prisma.projectTransaction.delete({
+        await prisma.transaction.delete({
             where: { id: parseInt(id) },
         });
 

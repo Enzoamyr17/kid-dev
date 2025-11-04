@@ -176,9 +176,10 @@ export async function GET(request: NextRequest) {
 
     console.log('[Dashboard API] Date range:', { startDate, endDate, year, month });
 
-    // Fetch ALL project transactions (project expenses) - include both PROJ and PPROJ
-    const projectTransactions = await prisma.projectTransaction.findMany({
+    // Fetch ALL project transactions (project expenses)
+    const projectTransactions = await prisma.transaction.findMany({
       where: {
+        transactionType: 'project',
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -190,7 +191,18 @@ export async function GET(request: NextRequest) {
             company: true,
           },
         },
-        category: true,
+        budgetCategory: true,
+      },
+    });
+
+    // Fetch ALL general transactions
+    const generalTransactions = await prisma.transaction.findMany({
+      where: {
+        transactionType: 'general',
+        datePurchased: {
+          gte: startDate,
+          lte: endDate,
+        },
       },
     });
 
@@ -203,12 +215,18 @@ export async function GET(request: NextRequest) {
 
     // Calculate project expenses total
     const projectExpensesTotal = projectTransactions.reduce(
-      (sum, transaction) => sum + Number(transaction.amount),
+      (sum, transaction) => sum + Number(transaction.cost),
       0
     );
 
-    // Calculate fixed expenses based on occurrences in date range
-    const fixedExpensesTotal = companyExpenses.reduce((sum, expense) => {
+    // Calculate general transactions total
+    const generalTransactionsTotal = generalTransactions.reduce(
+      (sum, transaction) => sum + Number(transaction.cost),
+      0
+    );
+
+    // Calculate company expenses based on occurrences in date range
+    const companyExpensesTotal = companyExpenses.reduce((sum, expense) => {
       const expenseAmount = calculateExpenseOccurrences(
         {
           frequency: expense.frequency,
@@ -248,14 +266,14 @@ export async function GET(request: NextRequest) {
     );
 
     // Calculate totals
-    const totalExpenses = projectExpensesTotal + fixedExpensesTotal;
+    const totalExpenses = projectExpensesTotal + generalTransactionsTotal + companyExpensesTotal;
     const grossProfit = revenue - totalExpenses;
     const profitMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
 
-    // Company Expense breakdown by category (only fixed expenses, not project expenses)
+    // Company Expense breakdown by category (planned company expenses + general transactions)
     const expensesByCategory: Record<string, number> = {};
 
-    // Fixed expenses by category only
+    // Company expenses by category
     companyExpenses.forEach((expense) => {
       const categoryName = expense.category || 'Uncategorized';
       const expenseAmount = calculateExpenseOccurrences(
@@ -275,12 +293,20 @@ export async function GET(request: NextRequest) {
         (expensesByCategory[categoryName] || 0) + expenseAmount;
     });
 
+    // Add general transactions by category
+    generalTransactions.forEach((transaction) => {
+      const categoryName = transaction.category || 'Uncategorized';
+      expensesByCategory[categoryName] =
+        (expensesByCategory[categoryName] || 0) + Number(transaction.cost);
+    });
+
     // Monthly breakdown (if viewing year)
     const monthlyData: {
       month: number;
       revenue: number;
       projectExpenses: number;
-      fixedExpenses: number;
+      generalExpenses: number;
+      companyExpenses: number;
       totalExpenses: number;
       profit: number;
     }[] = [];
@@ -296,12 +322,21 @@ export async function GET(request: NextRequest) {
           (t) => t.createdAt >= monthStart && t.createdAt <= monthEnd
         );
         const monthProjectExpenses = monthProjectTransactions.reduce(
-          (sum, t) => sum + Number(t.amount),
+          (sum, t) => sum + Number(t.cost),
           0
         );
 
-        // Fixed expenses for this month
-        const monthFixedExpenses = companyExpenses.reduce((sum, expense) => {
+        // General transactions for this month
+        const monthGeneralTransactions = generalTransactions.filter(
+          (t) => t.datePurchased >= monthStart && t.datePurchased <= monthEnd
+        );
+        const monthGeneralExpenses = monthGeneralTransactions.reduce(
+          (sum, t) => sum + Number(t.cost),
+          0
+        );
+
+        // Company expenses for this month
+        const monthCompanyExpenses = companyExpenses.reduce((sum, expense) => {
           return (
             sum +
             calculateExpenseOccurrences(
@@ -329,13 +364,14 @@ export async function GET(request: NextRequest) {
           0
         );
 
-        const monthTotalExpenses = monthProjectExpenses + monthFixedExpenses;
+        const monthTotalExpenses = monthProjectExpenses + monthGeneralExpenses + monthCompanyExpenses;
 
         monthlyData.push({
           month: m + 1,
           revenue: monthRevenue,
           projectExpenses: monthProjectExpenses,
-          fixedExpenses: monthFixedExpenses,
+          generalExpenses: monthGeneralExpenses,
+          companyExpenses: monthCompanyExpenses,
           totalExpenses: monthTotalExpenses,
           profit: monthRevenue - monthTotalExpenses,
         });
@@ -353,7 +389,8 @@ export async function GET(request: NextRequest) {
       summary: {
         revenue,
         projectExpenses: projectExpensesTotal,
-        fixedExpenses: fixedExpensesTotal,
+        generalExpenses: generalTransactionsTotal,
+        companyExpenses: companyExpensesTotal,
         totalExpenses,
         grossProfit,
         profitMargin,
@@ -361,13 +398,14 @@ export async function GET(request: NextRequest) {
       expensesByCategory,
       monthlyData: monthlyData.length > 0 ? monthlyData : null,
       projectCount: activeProjects.length, // Only count non-encoded projects (PROJ)
-      activeFixedExpenses: companyExpenses.length,
+      activeCompanyExpenses: companyExpenses.length,
     };
 
     console.log('[Dashboard API] Metrics calculated:', {
       revenue,
       projectExpenses: projectExpensesTotal,
-      fixedExpenses: fixedExpensesTotal,
+      generalExpenses: generalTransactionsTotal,
+      companyExpenses: companyExpensesTotal,
       totalExpenses,
     });
 

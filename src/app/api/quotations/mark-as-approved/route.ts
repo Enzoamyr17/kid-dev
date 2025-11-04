@@ -39,12 +39,15 @@ export async function PATCH(request: NextRequest) {
             include: { quotationItems: { include: { product: true } } },
         });
         if(budgetCategory && quotationForm?.quotationItems) {
-            await prisma.projectTransaction.createMany({
+            await prisma.transaction.createMany({
                 data: quotationForm?.quotationItems?.map((item: { product: { name: string; uom: string; }; internalPrice: Decimal; quantity?: number | null; }) => ({
+                    transactionType: 'project',
                     projectId: projectId,
                     categoryId: budgetCategory.id,
-                    description: item.product.name + ' - ' + item.quantity + ' ' + item.product.uom,
-                    amount: new Decimal(item.internalPrice).mul(item.quantity ?? 1),
+                    itemDescription: item.product.name + ' - ' + item.quantity + ' ' + item.product.uom,
+                    cost: new Decimal(item.internalPrice).mul(item.quantity ?? 1),
+                    datePurchased: new Date(),
+                    status: 'completed',
                 })),
             });
         } else {

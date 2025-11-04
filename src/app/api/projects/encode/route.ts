@@ -17,7 +17,7 @@ export async function GET() {
         workflow: true,
         workflowstage: true,
         budget: true,
-        transaction: true,
+        transactions: true,
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -209,12 +209,15 @@ export async function POST(request: NextRequest) {
     // Create project transaction for the expense if provided
     if (expense && expense > 0) {
       console.log('[API /projects/encode] Creating transaction for expense:', expense);
-      await prisma.projectTransaction.create({
+      await prisma.transaction.create({
         data: {
+          transactionType: 'project',
           projectId: project.id,
           categoryId: encodedCategory.id,
-          description: 'Encoded project expense',
-          amount: expense,
+          itemDescription: 'Encoded project expense',
+          cost: expense,
+          datePurchased: date,
+          status: 'completed',
           createdAt: date, // Use project date
         },
       });
