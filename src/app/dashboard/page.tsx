@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import { Field } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js";
+import { Pie, Bar } from "react-chartjs-2";
+
+// Register ChartJS components
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 interface DashboardMetrics {
   period: {
@@ -199,115 +204,141 @@ export default function DashboardPage() {
 
           {/* Expense Breakdown */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Expense Types */}
+            {/* Expense Types - Pie Chart */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">Expense Types</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Project Expenses</span>
-                  <span className="text-sm font-bold">
-                    {formatCurrency(metrics.summary.projectExpenses)}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-500 h-2 rounded-full"
-                    style={{
-                      width: `${
-                        metrics.summary.totalExpenses > 0
-                          ? (metrics.summary.projectExpenses / metrics.summary.totalExpenses) * 100
-                          : 0
-                      }%`,
+              <div className="flex flex-col items-center">
+                <div className="w-full max-w-xs">
+                  <Pie
+                    data={{
+                      labels: ["Project Expenses", "General Expenses", "Company Expenses"],
+                      datasets: [
+                        {
+                          data: [
+                            metrics.summary.projectExpenses,
+                            metrics.summary.generalExpenses,
+                            metrics.summary.companyExpenses,
+                          ],
+                          backgroundColor: [
+                            "rgb(59, 130, 246)", // blue-500
+                            "rgb(34, 197, 94)", // green-500
+                            "rgb(168, 85, 247)", // purple-500
+                          ],
+                          borderColor: [
+                            "rgb(59, 130, 246)",
+                            "rgb(34, 197, 94)",
+                            "rgb(168, 85, 247)",
+                          ],
+                          borderWidth: 1,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: true,
+                      plugins: {
+                        legend: {
+                          position: "bottom",
+                          labels: {
+                            padding: 15,
+                            font: {
+                              size: 12,
+                            },
+                          },
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              const label = context.label || "";
+                              const value = context.parsed || 0;
+                              return `${label}: ${formatCurrency(value)}`;
+                            },
+                          },
+                        },
+                      },
                     }}
                   />
                 </div>
-
-                <div className="flex justify-between items-center mt-4">
-                  <span className="text-sm font-medium">General Expenses</span>
-                  <span className="text-sm font-bold">
-                    {formatCurrency(metrics.summary.generalExpenses)}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-green-500 h-2 rounded-full"
-                    style={{
-                      width: `${
-                        metrics.summary.totalExpenses > 0
-                          ? (metrics.summary.generalExpenses / metrics.summary.totalExpenses) * 100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-
-                <div className="flex justify-between items-center mt-4">
-                  <span className="text-sm font-medium">Company Expenses</span>
-                  <span className="text-sm font-bold">
-                    {formatCurrency(metrics.summary.companyExpenses)}
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-purple-500 h-2 rounded-full"
-                    style={{
-                      width: `${
-                        metrics.summary.totalExpenses > 0
-                          ? (metrics.summary.companyExpenses / metrics.summary.totalExpenses) * 100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6 pt-6 border-t">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium">Active Projects</span>
-                  <span className="font-bold">{metrics.projectCount}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm mt-2">
-                  <span className="font-medium">Planned Company Expenses</span>
-                  <span className="font-bold">{metrics.activeCompanyExpenses}</span>
+                <div className="mt-6 pt-6 border-t w-full">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium">Active Projects</span>
+                    <span className="font-bold">{metrics.projectCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mt-2">
+                    <span className="font-medium">Planned Company Expenses</span>
+                    <span className="font-bold">{metrics.activeCompanyExpenses}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Company Expenses by Category */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Company Expenses by Category</h3>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {Object.entries(metrics.expensesByCategory)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([category, amount]) => (
-                    <div key={category} className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium capitalize">
-                          {category.replace(/_/g, " ")}
-                        </span>
-                        <span className="text-sm font-bold">{formatCurrency(amount)}</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-purple-500 h-2 rounded-full"
-                          style={{
-                            width: `${
-                              metrics.summary.totalExpenses > 0
-                                ? (amount / metrics.summary.totalExpenses) * 100
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                {Object.keys(metrics.expensesByCategory).length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No expense data available
-                  </p>
-                )}
+            {/* Income vs Expenses Bar Graph */}
+            {metrics.monthlyData && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold mb-4">Income vs Expenses</h3>
+                <Bar
+                  data={{
+                    labels: metrics.monthlyData.map((data) =>
+                      MONTHS.find((m) => m.value === String(data.month))?.label || ""
+                    ),
+                    datasets: [
+                      {
+                        label: "Income",
+                        data: metrics.monthlyData.map((data) => data.revenue),
+                        backgroundColor: "rgb(34, 197, 94)", // green-500
+                        borderColor: "rgb(34, 197, 94)",
+                        borderWidth: 1,
+                      },
+                      {
+                        label: "Total Expenses",
+                        data: metrics.monthlyData.map((data) => data.totalExpenses),
+                        backgroundColor: "rgb(239, 68, 68)", // red-500
+                        borderColor: "rgb(239, 68, 68)",
+                        borderWidth: 1,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                      mode: "index",
+                      intersect: false,
+                    },
+                    plugins: {
+                      legend: {
+                        position: "top",
+                        labels: {
+                          padding: 15,
+                          font: {
+                            size: 12,
+                          },
+                        },
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context: any) {
+                            const label = context.dataset.label || "";
+                            const value = context.parsed.y || 0;
+                            return `${label}: ${formatCurrency(value)}`;
+                          },
+                        },
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          callback: function (value: any) {
+                            return `₱${value.toLocaleString()}`;
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
               </div>
-            </div>
+            )}
           </div>
 
           {/* Monthly Breakdown (only if viewing full year) */}
