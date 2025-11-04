@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,24 +84,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Workflow template has no stages' }, { status: 400 });
     }
 
-    const project = await prisma.project.create({
-      data: {
-        companyId,
-        code,
-        description,
-        approvedBudget: approvedBudget ?? 0,
-        workflowId: workflowTemplateId,
-        workflowStageId: firstStage.id,
-      },
-      include: { company: true, workflow: true, workflowstage: true },
-    });
+    const userId = await getSessionUserId();
 
-    //Initialize project budget default categories
-    await prisma.budgetCategory.createMany({
-      data: [
-        { projectId: project.id, name: 'Logistics', description: '', budget: Math.round(Number(approvedBudget) / 20), color: '#3b82f6' },
-        { projectId: project.id, name: 'Procurement', description: '', budget: 0, color: '#3b82f6' },
-      ],
+    const project = await withAuditUser(userId, async (tx) => {
+      const newProject = await tx.project.create({
+        data: {
+          companyId,
+          code,
+          description,
+          approvedBudget: approvedBudget ?? 0,
+          workflowId: workflowTemplateId,
+          workflowStageId: firstStage.id,
+        },
+        include: { company: true, workflow: true, workflowstage: true },
+      });
+
+      //Initialize project budget default categories
+      await tx.budgetCategory.createMany({
+        data: [
+          { projectId: newProject.id, name: 'Logistics', description: '', budget: Math.round(Number(approvedBudget) / 20), color: '#3b82f6' },
+          { projectId: newProject.id, name: 'Procurement', description: '', budget: 0, color: '#3b82f6' },
+        ],
+      });
+
+      return newProject;
     });
 
     return NextResponse.json(project, { status: 201 });
@@ -132,10 +140,14 @@ export async function PATCH(request: NextRequest) {
     if (updateData.approvedBudget !== undefined) mappedData.approvedBudget = Number(updateData.approvedBudget);
     if (updateData.workflowStageId !== undefined) mappedData.workflowStageId = Number(updateData.workflowStageId);
 
-    const project = await prisma.project.update({
-      where: { id: Number(id) },
-      data: mappedData,
-      include: { company: true, workflow: true, workflowstage: true },
+    const userId = await getSessionUserId();
+
+    const project = await withAuditUser(userId, async (tx) => {
+      return await tx.project.update({
+        where: { id: Number(id) },
+        data: mappedData,
+        include: { company: true, workflow: true, workflowstage: true },
+      });
     });
 
     return NextResponse.json(project);
@@ -161,7 +173,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.project.delete({ where: { id: Number(id) } });
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async (tx) => {
+      await tx.project.delete({ where: { id: Number(id) } });
+    });
 
     return NextResponse.json({ message: 'Project deleted successfully' });
   } catch (error) {

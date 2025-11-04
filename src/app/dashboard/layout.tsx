@@ -1,7 +1,7 @@
 "use client";
 
 import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger, SidebarFooter, SidebarMenuSub } from "@/components/ui/sidebar";
-import { ChartBar, LogOut, MoonIcon, SunIcon, Package, ArrowLeft } from "lucide-react";
+import { ChartBar, LogOut, MoonIcon, SunIcon, Package, ArrowLeft, FolderKanban, DollarSign, Building2, FileText } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -15,13 +15,9 @@ const sidebarItems = [
   }
 ];
 
-const managementItems = [
+const projectsItems = [
   {
-    label: "User Management",
-    href: "/users",
-  },
-  {
-    label: "Project Management",
+    label: "All Projects",
     href: "/projects",
   },
   {
@@ -29,26 +25,45 @@ const managementItems = [
     href: "/project-encoding",
   },
   {
-    label: "Expense Management",
-    href: "/expense-management",
-  },
-  {
-    label: "Company Management",
-    href: "/companies",
-  },
-  {
-    label: "Supplier Management",
-    href: "/suppliers",
-  },
-  {
-    label: "Product Management",
-    href: "/products",
-  },
-  {
     label: "Workflow Templates",
     href: "/workflow-templates",
   }
 ];
+
+const financeItems = [
+  {
+    label: "Expense Management",
+    href: "/expense-management",
+  }
+];
+
+const inventoryItems = [
+  {
+    label: "Products",
+    href: "/products",
+  },
+  {
+    label: "Suppliers",
+    href: "/suppliers",
+  }
+];
+
+const organizationItems = [
+  {
+    label: "Companies",
+    href: "/companies",
+  },
+  {
+    label: "Users",
+    href: "/users",
+  }
+];
+
+const auditItem = {
+  label: "Audit Logs",
+  href: "/dashboard/audit-logs",
+  icon: FileText,
+};
 
 export default function DashboardLayout({
   children,
@@ -81,6 +96,7 @@ export default function DashboardLayout({
         </SidebarHeader>
         <SidebarContent className="flex flex-col justify-between h-full pt-2 pb-6">
           <SidebarGroup>
+            {/* Dashboard */}
             {sidebarItems.map((item) => (
               <SidebarMenuItem key={item.label} onClick={() => router.push(item.href)}>
                 <SidebarMenuButton>
@@ -89,11 +105,13 @@ export default function DashboardLayout({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
+
+            {/* Projects Section */}
             <SidebarMenuButton className="hover:bg-transparent">
-              <Package className="mr-2 h-4 w-4" /> Management
+              <FolderKanban className="mr-2 h-4 w-4" /> Projects
             </SidebarMenuButton>
             <SidebarMenuSub>
-              {managementItems.map((item) => (
+              {projectsItems.map((item) => (
                 <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
                   <SidebarMenuButton>
                     <span>{item.label}</span>
@@ -101,7 +119,58 @@ export default function DashboardLayout({
                 </SidebarMenuItem>
               ))}
             </SidebarMenuSub>
+
+            {/* Finance Section */}
+            <SidebarMenuButton className="hover:bg-transparent">
+              <DollarSign className="mr-2 h-4 w-4" /> Finance
+            </SidebarMenuButton>
+            <SidebarMenuSub>
+              {financeItems.map((item) => (
+                <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
+                  <SidebarMenuButton>
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenuSub>
+
+            {/* Inventory Section */}
+            <SidebarMenuButton className="hover:bg-transparent">
+              <Package className="mr-2 h-4 w-4" /> Inventory
+            </SidebarMenuButton>
+            <SidebarMenuSub>
+              {inventoryItems.map((item) => (
+                <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
+                  <SidebarMenuButton>
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenuSub>
+
+            {/* Organization Section */}
+            <SidebarMenuButton className="hover:bg-transparent">
+              <Building2 className="mr-2 h-4 w-4" /> Organization
+            </SidebarMenuButton>
+            <SidebarMenuSub>
+              {organizationItems.map((item) => (
+                <SidebarMenuItem onClick={() => router.push('/dashboard' + item.href)} key={item.label}>
+                  <SidebarMenuButton>
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenuSub>
+
+            {/* Audit Logs */}
+            <SidebarMenuItem onClick={() => router.push(auditItem.href)}>
+              <SidebarMenuButton>
+                <auditItem.icon className="mr-2 h-4 w-4" />
+                <span>{auditItem.label}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
           </SidebarGroup>
+
           <SidebarFooter>
               <SidebarMenuButton onClick={async () => {
                 await signOut({ redirect: false });

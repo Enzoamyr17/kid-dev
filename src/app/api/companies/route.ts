@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,26 +81,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const company = await prisma.company.create({
-      data: {
-        companyName,
-        tinNumber,
-        isClient,
-        isSupplier,
-        isVendor,
-        isInternal,
-      },
-      include: {
-        companyAddresses: true,
-        companyProponents: true,
-        _count: {
-          select: {
-            projects: true,
-            companyAddresses: true,
-            companyProponents: true,
+    const userId = await getSessionUserId();
+
+    const company = await withAuditUser(userId, async (tx) => {
+      return await tx.company.create({
+        data: {
+          companyName,
+          tinNumber,
+          isClient,
+          isSupplier,
+          isVendor,
+          isInternal,
+        },
+        include: {
+          companyAddresses: true,
+          companyProponents: true,
+          _count: {
+            select: {
+              projects: true,
+              companyAddresses: true,
+              companyProponents: true,
+            },
           },
         },
-      },
+      });
     });
 
     return NextResponse.json(company, { status: 201 });
@@ -138,20 +144,24 @@ export async function PATCH(request: NextRequest) {
     if (updateData.isInternal !== undefined) mappedData.isInternal = updateData.isInternal;
     if (updateData.is_internal !== undefined) mappedData.isInternal = updateData.is_internal;
 
-    const company = await prisma.company.update({
-      where: { id: Number(id) },
-      data: mappedData,
-      include: {
-        companyAddresses: true,
-        companyProponents: true,
-        _count: {
-          select: {
-            projects: true,
-            companyAddresses: true,
-            companyProponents: true,
+    const userId = await getSessionUserId();
+
+    const company = await withAuditUser(userId, async (tx) => {
+      return await tx.company.update({
+        where: { id: Number(id) },
+        data: mappedData,
+        include: {
+          companyAddresses: true,
+          companyProponents: true,
+          _count: {
+            select: {
+              projects: true,
+              companyAddresses: true,
+              companyProponents: true,
+            },
           },
         },
-      },
+      });
     });
 
     return NextResponse.json(company);
@@ -178,19 +188,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     const companyId = Number(id);
+    const userId = await getSessionUserId();
 
-    // Delete related records first to avoid foreign key constraint violations
-    // Delete addresses
-    await prisma.companyAddress.deleteMany({
-      where: { companyId: companyId },
-    });
-
-    // Delete proponents
-    await prisma.companyProponent.deleteMany({
-      where: { companyId: companyId },
-    });
-
-    // Check if there are related projects
+    // Check if there are related projects first (outside transaction for better error handling)
     const projectCount = await prisma.project.count({
       where: { companyId: companyId },
     });
@@ -202,8 +202,21 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete the company
-    await prisma.company.delete({ where: { id: companyId } });
+    // Delete related records and company in a transaction
+    await withAuditUser(userId, async (tx) => {
+      // Delete addresses
+      await tx.companyAddress.deleteMany({
+        where: { companyId: companyId },
+      });
+
+      // Delete proponents
+      await tx.companyProponent.deleteMany({
+        where: { companyId: companyId },
+      });
+
+      // Delete the company
+      await tx.company.delete({ where: { id: companyId } });
+    });
 
     return NextResponse.json({ message: 'Company deleted successfully' });
   } catch (error) {

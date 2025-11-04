@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const userId = await getSessionUserId();
 
-    const product = await withAuditUser(userId, async () => {
-      return await prisma.product.create({
+    const product = await withAuditUser(userId, async (tx) => {
+      return await tx.product.create({
         data: {
           sku: body.sku,
           name: body.name,
@@ -110,8 +110,8 @@ export async function PATCH(request: NextRequest) {
     if (updateData.uom !== undefined) mappedData.uom = updateData.uom;
     if (updateData.is_active !== undefined) mappedData.isActive = updateData.is_active;
 
-    const product = await withAuditUser(userId, async () => {
-      return await prisma.product.update({
+    const product = await withAuditUser(userId, async (tx) => {
+      return await tx.product.update({
         where: { id: Number(id) },
         data: mappedData,
       });
@@ -142,8 +142,8 @@ export async function DELETE(request: NextRequest) {
 
     const userId = await getSessionUserId();
 
-    await withAuditUser(userId, async () => {
-      await prisma.product.delete({ where: { id: Number(id) } });
+    await withAuditUser(userId, async (tx) => {
+      await tx.product.delete({ where: { id: Number(id) } });
     });
 
     return NextResponse.json({ message: 'Product deleted successfully' });
