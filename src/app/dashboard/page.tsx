@@ -58,7 +58,6 @@ const MONTHS = [
 
 export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth() + 1;
 
   const [selectedYear, setSelectedYear] = useState<string>(String(currentYear));
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -73,10 +72,6 @@ export default function DashboardPage() {
       return { value: String(year), label: String(year) };
     }),
   ];
-
-  useEffect(() => {
-    fetchMetrics();
-  }, [selectedYear, selectedMonth]);
 
   const fetchMetrics = async () => {
     setLoading(true);
@@ -97,6 +92,11 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchMetrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedYear, selectedMonth]);
 
   const formatCurrency = (value: number) => {
     return `₱${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -317,7 +317,7 @@ export default function DashboardPage() {
                       },
                       tooltip: {
                         callbacks: {
-                          label: function (context: any) {
+                          label: function (context) {
                             const label = context.dataset.label || "";
                             const value = context.parsed.y || 0;
                             return `${label}: ${formatCurrency(value)}`;
@@ -329,8 +329,8 @@ export default function DashboardPage() {
                       y: {
                         beginAtZero: true,
                         ticks: {
-                          callback: function (value: any) {
-                            return `₱${value.toLocaleString()}`;
+                          callback: function (value) {
+                            return `₱${Number(value).toLocaleString()}`;
                           },
                         },
                       },
