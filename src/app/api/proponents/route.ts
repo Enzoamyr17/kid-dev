@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,16 +75,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const proponent = await prisma.companyProponent.create({
-      data: {
-        companyId: Number(body.companyId ?? body.company_id),
-        contactPerson: body.contactPerson ?? body.contact_person,
-        contactNumber: body.contactNumber ?? body.contact_number ?? null,
-        email: body.email ?? null,
-      },
-      include: {
-        company: true,
-      },
+    const userId = await getSessionUserId();
+
+    const proponent = await withAuditUser(userId, async (tx) => {
+      return await tx.companyProponent.create({
+        data: {
+          companyId: Number(body.companyId ?? body.company_id),
+          contactPerson: body.contactPerson ?? body.contact_person,
+          contactNumber: body.contactNumber ?? body.contact_number ?? null,
+          email: body.email ?? null,
+        },
+        include: {
+          company: true,
+        },
+      });
     });
 
     const serializedProponent = {
@@ -126,12 +132,16 @@ export async function PATCH(request: NextRequest) {
     if (updateData.contactNumber !== undefined) mappedData.contactNumber = updateData.contactNumber;
     if (updateData.email !== undefined) mappedData.email = updateData.email;
 
-    const proponent = await prisma.companyProponent.update({
-      where: { id: Number(id) },
-      data: mappedData,
-      include: {
-        company: true,
-      },
+    const userId = await getSessionUserId();
+
+    const proponent = await withAuditUser(userId, async (tx) => {
+      return await tx.companyProponent.update({
+        where: { id: Number(id) },
+        data: mappedData,
+        include: {
+          company: true,
+        },
+      });
     });
 
     const serializedProponent = {
@@ -165,7 +175,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.companyProponent.delete({ where: { id: Number(id) } });
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async (tx) => {
+      await tx.companyProponent.delete({ where: { id: Number(id) } });
+    });
 
     return NextResponse.json({ message: 'Proponent deleted successfully' });
   } catch (error) {

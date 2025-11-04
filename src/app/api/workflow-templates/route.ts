@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,25 +47,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const template = await prisma.workflowTemplate.create({
-      data: {
-        name,
-        description: description || '',
-        workflowStages: {
-          create: stages.map((stage, index) => ({
-            name: stage.name,
-            code: stage.code,
-            order: index,
-            requiresApproval: stage.requiresApproval,
-          })),
+    const userId = await getSessionUserId();
+
+    const template = await withAuditUser(userId, async (tx) => {
+      return await tx.workflowTemplate.create({
+        data: {
+          name,
+          description: description || '',
+          workflowStages: {
+            create: stages.map((stage, index) => ({
+              name: stage.name,
+              code: stage.code,
+              order: index,
+              requiresApproval: stage.requiresApproval,
+            })),
+          },
         },
-      },
-      include: {
-        workflowStages: true,
-        _count: {
-          select: { projects: true },
+        include: {
+          workflowStages: true,
+          _count: {
+            select: { projects: true },
+          },
         },
-      },
+      });
     });
 
     return NextResponse.json(template, { status: 201 });
@@ -93,15 +99,18 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const template = await prisma.workflowTemplate.update({
-      where: { id: Number(id) },
-      data: { name, description },
-      include: {
-        workflowStages: true,
+    const userId = await getSessionUserId();
+
+    const template = await withAuditUser(userId, async (tx) => {
+      return await tx.workflowTemplate.update({
+        where: { id: Number(id) },
+        data: { name, description },
+        include: {
+          workflowStages: true,
         _count: {
           select: { projects: true },
         },
-      },
+      });
     });
 
     return NextResponse.json(template);
@@ -127,8 +136,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.workflowTemplate.delete({
-      where: { id: Number(id) },
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async (tx) => {
+      await tx.workflowTemplate.delete({
+        where: { id: Number(id) },
+      });
     });
 
     return NextResponse.json({ success: true });

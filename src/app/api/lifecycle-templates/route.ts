@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,20 +85,24 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, description, stages } = body as { name: string; description?: string; stages: Array<{ name: string; code: string; requiresApproval: boolean }>; };
 
-    const template = await prisma.workflowTemplate.create({
-      data: {
-        name,
-        description: description || '',
-        workflowStages: {
-          create: stages.map((stage, index) => ({
-            name: stage.name,
-            code: stage.code,
-            order: index,
-            requiresApproval: stage.requiresApproval,
-          })),
+    const userId = await getSessionUserId();
+
+    const template = await withAuditUser(userId, async (tx) => {
+      return await tx.workflowTemplate.create({
+        data: {
+          name,
+          description: description || '',
+          workflowStages: {
+            create: stages.map((stage, index) => ({
+              name: stage.name,
+              code: stage.code,
+              order: index,
+              requiresApproval: stage.requiresApproval,
+            })),
+          },
         },
-      },
-      include: { workflowStages: true },
+        include: { workflowStages: true },
+      });
     });
 
     const serialized = {

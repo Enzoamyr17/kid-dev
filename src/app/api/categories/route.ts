@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 // GET - Fetch all categories for a project with calculated expenses
 export async function GET(req: NextRequest) {
@@ -84,14 +84,18 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const category = await prisma.budgetCategory.create({
-            data: {
-                projectId: parseInt(projectId),
-                name,
-                description: description || null,
-                budget: parseFloat(budget),
-                color: color || "#3b82f6",
-            },
+        const userId = await getSessionUserId();
+
+        const category = await withAuditUser(userId, async (tx) => {
+            return await tx.budgetCategory.create({
+                data: {
+                    projectId: parseInt(projectId),
+                    name,
+                    description: description || null,
+                    budget: parseFloat(budget),
+                    color: color || "#3b82f6",
+                },
+            });
         });
 
         return NextResponse.json({
@@ -139,19 +143,23 @@ export async function PATCH(req: NextRequest) {
         if (budget !== undefined) updateData.budget = parseFloat(budget);
         if (color !== undefined) updateData.color = color;
 
-        const category = await prisma.budgetCategory.update({
-            where: { id: parseInt(id) },
-            data: updateData,
-            include: {
-                transactions: {
-                    where: {
-                        transactionType: "project",
-                    },
-                    select: {
-                        cost: true,
+        const userId = await getSessionUserId();
+
+        const category = await withAuditUser(userId, async (tx) => {
+            return await tx.budgetCategory.update({
+                where: { id: parseInt(id) },
+                data: updateData,
+                include: {
+                    transactions: {
+                        where: {
+                            transactionType: "project",
+                        },
+                        select: {
+                            cost: true,
+                        },
                     },
                 },
-            },
+            });
         });
 
         const expenses = category.transactions.reduce(

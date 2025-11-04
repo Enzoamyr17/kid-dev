@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +17,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: forCompanyId, projectId, items' }, { status: 400 });
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const userId = await getSessionUserId();
+
+    const result = await withAuditUser(userId, async (tx) => {
       // If creating a draft, delete any existing draft for this project
       if (isDraft) {
         await tx.quotationForm.deleteMany({
@@ -151,7 +155,9 @@ export async function PATCH(request: NextRequest) {
     if (updateData.projectId) updateData.projectId = Number(updateData.projectId);
     if (updateData.requestorId) updateData.requestorId = Number(updateData.requestorId);
 
-    const result = await prisma.$transaction(async (tx) => {
+    const userId = await getSessionUserId();
+
+    const result = await withAuditUser(userId, async (tx) => {
       // If converting draft to final quotation, generate code
       if (updateData.isDraft === false) {
         const existingQuotation = await tx.quotationForm.findUnique({

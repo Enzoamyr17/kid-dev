@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,20 +74,25 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const address = await prisma.companyAddress.create({
-      data: {
-        companyId: Number(companyId),
-        houseNo: body.houseNo ?? body.house_no,
-        street: body.street,
-        subdivision: body.subdivision || null,
-        region: body.region,
-        province: body.province,
-        cityMunicipality: body.cityMunicipality ?? body.city_municipality,
-        barangay: body.barangay,
-      },
-      include: {
-        company: true,
-      },
+
+    const userId = await getSessionUserId();
+
+    const address = await withAuditUser(userId, async (tx) => {
+      return await tx.companyAddress.create({
+        data: {
+          companyId: Number(companyId),
+          houseNo: body.houseNo ?? body.house_no,
+          street: body.street,
+          subdivision: body.subdivision || null,
+          region: body.region,
+          province: body.province,
+          cityMunicipality: body.cityMunicipality ?? body.city_municipality,
+          barangay: body.barangay,
+        },
+        include: {
+          company: true,
+        },
+      });
     });
 
     const serializedAddress = {
@@ -132,12 +139,16 @@ export async function PATCH(request: NextRequest) {
     if (updateData.city_municipality !== undefined) mappedData.cityMunicipality = updateData.city_municipality;
     if (updateData.barangay !== undefined) mappedData.barangay = updateData.barangay;
 
-    const address = await prisma.companyAddress.update({
-      where: { id: Number(id) },
-      data: mappedData,
-      include: {
-        company: true,
-      },
+    const userId = await getSessionUserId();
+
+    const address = await withAuditUser(userId, async (tx) => {
+      return await tx.companyAddress.update({
+        where: { id: Number(id) },
+        data: mappedData,
+        include: {
+          company: true,
+        },
+      });
     });
 
     const serializedAddress = {
@@ -171,7 +182,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.companyAddress.delete({ where: { id: Number(id) } });
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async (tx) => {
+      await tx.companyAddress.delete({ where: { id: Number(id) } });
+    });
 
     return NextResponse.json({ message: 'Address deleted successfully' });
   } catch (error) {

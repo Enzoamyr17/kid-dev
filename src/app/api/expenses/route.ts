@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ExpenseFrequency } from '@prisma/client';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,20 +96,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'One-time frequency requires specificDate' }, { status: 400 });
     }
 
-    const expense = await prisma.companyExpense.create({
-      data: {
-        name,
-        amount,
-        frequency: frequency as ExpenseFrequency,
-        dayOfWeek: dayOfWeek !== undefined ? dayOfWeek : null,
-        daysOfMonth: daysOfMonth || null,
-        monthOfYear: monthOfYear !== undefined ? monthOfYear : null,
-        specificDate: specificDate ? new Date(specificDate) : null,
-        startOfPayment: startOfPayment ? new Date(startOfPayment) : null,
-        category: category || null,
-        notes: notes || null,
-        isActive: true,
-      },
+    const userId = await getSessionUserId();
+
+    const expense = await withAuditUser(userId, async (tx) => {
+      return await tx.companyExpense.create({
+        data: {
+          name,
+          amount,
+          frequency: frequency as ExpenseFrequency,
+          dayOfWeek: dayOfWeek !== undefined ? dayOfWeek : null,
+          daysOfMonth: daysOfMonth || null,
+          monthOfYear: monthOfYear !== undefined ? monthOfYear : null,
+          specificDate: specificDate ? new Date(specificDate) : null,
+          startOfPayment: startOfPayment ? new Date(startOfPayment) : null,
+          category: category || null,
+          notes: notes || null,
+          isActive: true,
+        },
+      });
     });
 
     console.log('[API /expenses] Expense created successfully:', expense.id);
@@ -150,9 +156,13 @@ export async function PATCH(request: NextRequest) {
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.isActive !== undefined) data.isActive = updateData.isActive;
 
-    const expense = await prisma.companyExpense.update({
-      where: { id: Number(id) },
-      data,
+    const userId = await getSessionUserId();
+
+    const expense = await withAuditUser(userId, async (tx) => {
+      return await tx.companyExpense.update({
+        where: { id: Number(id) },
+        data,
+      });
     });
 
     console.log('[API /expenses] Expense updated successfully');
@@ -181,8 +191,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.companyExpense.delete({
-      where: { id: Number(id) },
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async (tx) => {
+      await tx.companyExpense.delete({
+        where: { id: Number(id) },
+      });
     });
 
     console.log('[API /expenses] Expense deleted successfully');

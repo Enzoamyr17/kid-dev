@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +34,13 @@ export async function PATCH(
       }
     }
 
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
+    const sessionUserId = await getSessionUserId();
+
+    const user = await withAuditUser(sessionUserId, async (tx) => {
+      return await tx.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
     });
 
     return NextResponse.json({
@@ -69,8 +73,12 @@ export async function DELETE(
     const { id } = await params;
     const userId = parseInt(id, 10);
 
-    await prisma.user.delete({
-      where: { id: userId },
+    const sessionUserId = await getSessionUserId();
+
+    await withAuditUser(sessionUserId, async (tx) => {
+      await tx.user.delete({
+        where: { id: userId },
+      });
     });
 
     return NextResponse.json({ message: "User deleted successfully" });

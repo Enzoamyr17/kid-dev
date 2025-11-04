@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 // GET /api/stock-transactions?product_id={productId}
 export async function GET(request: NextRequest) {
@@ -60,8 +60,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userId = await getSessionUserId();
+
     // Create transaction and update product stock in a single transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await withAuditUser(userId, async (tx) => {
       // Create the stock transaction
       const transaction = await tx.stockTransaction.create({
         data: {

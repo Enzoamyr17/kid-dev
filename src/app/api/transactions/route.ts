@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { ExpenseTransactionType, ExpenseTransactionStatus } from '@prisma/client';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,36 +140,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const transaction = await prisma.transaction.create({
-      data: {
-        transactionType: transactionType as ExpenseTransactionType,
-        datePurchased: new Date(datePurchased),
-        projectId: projectId || null,
-        categoryId: categoryId || null,
-        category: category || null,
-        subCategory: subCategory || null,
-        itemDescription,
-        cost,
-        status: status as ExpenseTransactionStatus,
-        remarks: remarks || null,
-        attachment: attachment || null,
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            code: true,
-            description: true,
+    const userId = await getSessionUserId();
+
+    const transaction = await withAuditUser(userId, async (tx) => {
+      return await tx.transaction.create({
+        data: {
+          transactionType: transactionType as ExpenseTransactionType,
+          datePurchased: new Date(datePurchased),
+          projectId: projectId || null,
+          categoryId: categoryId || null,
+          category: category || null,
+          subCategory: subCategory || null,
+          itemDescription,
+          cost,
+          status: status as ExpenseTransactionStatus,
+          remarks: remarks || null,
+          attachment: attachment || null,
+        },
+        include: {
+          project: {
+            select: {
+              id: true,
+              code: true,
+              description: true,
+            },
+          },
+          budgetCategory: {
+            select: {
+              id: true,
+              name: true,
+              color: true,
+            },
           },
         },
-        budgetCategory: {
-          select: {
-            id: true,
-            name: true,
-            color: true,
-          },
-        },
-      },
+      });
     });
 
     console.log('[API /transactions] Transaction created successfully:', transaction.id);
@@ -210,25 +216,29 @@ export async function PATCH(request: NextRequest) {
     if (updateData.remarks !== undefined) data.remarks = updateData.remarks || null;
     if (updateData.attachment !== undefined) data.attachment = updateData.attachment || null;
 
-    const transaction = await prisma.transaction.update({
-      where: { id: Number(id) },
-      data,
-      include: {
-        project: {
-          select: {
-            id: true,
-            code: true,
-            description: true,
+    const userId = await getSessionUserId();
+
+    const transaction = await withAuditUser(userId, async (tx) => {
+      return await tx.transaction.update({
+        where: { id: Number(id) },
+        data,
+        include: {
+          project: {
+            select: {
+              id: true,
+              code: true,
+              description: true,
+            },
+          },
+          budgetCategory: {
+            select: {
+              id: true,
+              name: true,
+              color: true,
+            },
           },
         },
-        budgetCategory: {
-          select: {
-            id: true,
-            name: true,
-            color: true,
-          },
-        },
-      },
+      });
     });
 
     console.log('[API /transactions] Transaction updated successfully');
@@ -257,8 +267,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.transaction.delete({
-      where: { id: Number(id) },
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async (tx) => {
+      await tx.transaction.delete({
+        where: { id: Number(id) },
+      });
     });
 
     console.log('[API /transactions] Transaction deleted successfully');

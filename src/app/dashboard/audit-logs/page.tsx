@@ -55,7 +55,7 @@ export default function AuditLogsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   // Fetch audit logs
-  const fetchLogs = async (resetOffset = false) => {
+  const fetchLogs = async (resetOffset = false, customOffset?: number) => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -66,7 +66,8 @@ export default function AuditLogsPage() {
       if (filters.endDate) params.append("endDate", filters.endDate);
 
       params.append("limit", pagination.limit.toString());
-      params.append("offset", (resetOffset ? 0 : pagination.offset).toString());
+      const offset = resetOffset ? 0 : (customOffset !== undefined ? customOffset : pagination.offset);
+      params.append("offset", offset.toString());
 
       const response = await fetch(`/api/audit-logs?${params.toString()}`);
       if (!response.ok) throw new Error("Failed to fetch audit logs");
@@ -116,19 +117,18 @@ export default function AuditLogsPage() {
   // Next page
   const handleNextPage = () => {
     if (pagination.hasMore) {
-      setPagination((prev) => ({ ...prev, offset: prev.offset + prev.limit }));
-      fetchLogs();
+      const newOffset = pagination.offset + pagination.limit;
+      setPagination((prev) => ({ ...prev, offset: newOffset }));
+      fetchLogs(false, newOffset);
     }
   };
 
   // Previous page
   const handlePreviousPage = () => {
     if (pagination.offset > 0) {
-      setPagination((prev) => ({
-        ...prev,
-        offset: Math.max(0, prev.offset - prev.limit),
-      }));
-      fetchLogs();
+      const newOffset = Math.max(0, pagination.offset - pagination.limit);
+      setPagination((prev) => ({ ...prev, offset: newOffset }));
+      fetchLogs(false, newOffset);
     }
   };
 

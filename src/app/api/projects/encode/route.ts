@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { withAuditUser } from '@/lib/audit-context';
+import { getSessionUserId } from '@/lib/get-session-user';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +57,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userId = await getSessionUserId();
+
     // Handle company: use existing or create new
     let finalCompanyId: number;
 
@@ -80,15 +84,17 @@ export async function POST(request: NextRequest) {
       } else {
         console.log('[API /projects/encode] Creating new company:', trimmedName);
         // Create new company with minimal data
-        const newCompany = await prisma.company.create({
-          data: {
-            companyName: trimmedName,
-            tinNumber: 'N/A',
-            isClient: true,
-            isInternal: false,
-            isSupplier: false,
-            isVendor: false,
-          },
+        const newCompany = await withAuditUser(userId, async (tx) => {
+          return await tx.company.create({
+            data: {
+              companyName: trimmedName,
+              tinNumber: 'N/A',
+              isClient: true,
+              isInternal: false,
+              isSupplier: false,
+              isVendor: false,
+            },
+          });
         });
         console.log('[API /projects/encode] Created new company with ID:', newCompany.id);
         finalCompanyId = newCompany.id;
@@ -136,22 +142,24 @@ export async function POST(request: NextRequest) {
 
     // If no workflow exists, create a default one
     if (!workflowTemplate) {
-      workflowTemplate = await prisma.workflowTemplate.create({
-        data: {
-          name: 'Default Workflow',
-          description: 'Default workflow for projects',
-          workflowStages: {
-            create: [
-              {
-                name: 'Completed',
-                code: 'completed',
-                order: 1,
-                requiresApproval: false,
-              },
-            ],
+      workflowTemplate = await withAuditUser(userId, async (tx) => {
+        return await tx.workflowTemplate.create({
+          data: {
+            name: 'Default Workflow',
+            description: 'Default workflow for projects',
+            workflowStages: {
+              create: [
+                {
+                  name: 'Completed',
+                  code: 'completed',
+                  order: 1,
+                  requiresApproval: false,
+                },
+              ],
+            },
           },
-        },
-        include: { workflowStages: true },
+          include: { workflowStages: true },
+        });
       });
     }
 
@@ -173,56 +181,60 @@ export async function POST(request: NextRequest) {
       workflowStageId: firstStage.id,
     });
 
-    // Create the project with receivable
-    const project = await prisma.project.create({
-      data: {
-        code: projectCode,
-        companyId: finalCompanyId,
-        description,
-        approvedBudget: 0,
-        receivable: receivable || 0,
-        workflowId: workflowTemplate.id,
-        workflowStageId: firstStage.id,
-        createdAt: date, // Use the project date as creation date
-      },
-      include: {
-        company: true,
-        workflow: true,
-        workflowstage: true
-      },
-    });
-    console.log('[API /projects/encode] Project created with ID:', project.id);
-
-    // Create "Encoded" budget category for this project
-    console.log('[API /projects/encode] Creating budget category');
-    const encodedCategory = await prisma.budgetCategory.create({
-      data: {
-        projectId: project.id,
-        name: 'Encoded',
-        description: 'Expenses from encoded past project',
-        budget: expense || 0,
-        color: '#6b7280', // Gray color for encoded expenses
-      },
-    });
-    console.log('[API /projects/encode] Budget category created with ID:', encodedCategory.id);
-
-    // Create project transaction for the expense if provided
-    if (expense && expense > 0) {
-      console.log('[API /projects/encode] Creating transaction for expense:', expense);
-      await prisma.transaction.create({
+    // Create the project with receivable, budget category, and transaction in a single audit context
+    const project = await withAuditUser(userId, async (tx) => {
+      const newProject = await tx.project.create({
         data: {
-          transactionType: 'project',
-          projectId: project.id,
-          categoryId: encodedCategory.id,
-          itemDescription: 'Encoded project expense',
-          cost: expense,
-          datePurchased: date,
-          status: 'completed',
-          createdAt: date, // Use project date
+          code: projectCode,
+          companyId: finalCompanyId,
+          description,
+          approvedBudget: 0,
+          receivable: receivable || 0,
+          workflowId: workflowTemplate.id,
+          workflowStageId: firstStage.id,
+          createdAt: date, // Use the project date as creation date
+        },
+        include: {
+          company: true,
+          workflow: true,
+          workflowstage: true
         },
       });
-      console.log('[API /projects/encode] Transaction created successfully');
-    }
+      console.log('[API /projects/encode] Project created with ID:', newProject.id);
+
+      // Create "Encoded" budget category for this project
+      console.log('[API /projects/encode] Creating budget category');
+      const encodedCategory = await tx.budgetCategory.create({
+        data: {
+          projectId: newProject.id,
+          name: 'Encoded',
+          description: 'Expenses from encoded past project',
+          budget: expense || 0,
+          color: '#6b7280', // Gray color for encoded expenses
+        },
+      });
+      console.log('[API /projects/encode] Budget category created with ID:', encodedCategory.id);
+
+      // Create project transaction for the expense if provided
+      if (expense && expense > 0) {
+        console.log('[API /projects/encode] Creating transaction for expense:', expense);
+        await tx.transaction.create({
+          data: {
+            transactionType: 'project',
+            projectId: newProject.id,
+            categoryId: encodedCategory.id,
+            itemDescription: 'Encoded project expense',
+            cost: expense,
+            datePurchased: date,
+            status: 'completed',
+            createdAt: date, // Use project date
+          },
+        });
+        console.log('[API /projects/encode] Transaction created successfully');
+      }
+
+      return newProject;
+    });
 
     console.log('[API /projects/encode] Successfully created encoded project:', project.code);
     return NextResponse.json(project, { status: 201 });
@@ -261,7 +273,11 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.project.delete({ where: { id: Number(id) } });
+    const userId = await getSessionUserId();
+
+    await withAuditUser(userId, async (tx) => {
+      await tx.project.delete({ where: { id: Number(id) } });
+    });
 
     return NextResponse.json({ message: 'Encoded project deleted successfully' });
   } catch (error) {
