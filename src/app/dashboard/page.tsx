@@ -670,26 +670,6 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-          {/* Debug Info */}
-          {metrics?.debug && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-6">
-              <h3 className="text-sm font-semibold mb-2 text-yellow-800">Debug Information</h3>
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <p className="font-medium text-yellow-900">Date Range:</p>
-                  <p className="text-yellow-700">Start: {new Date(metrics.debug.dateRange.startDate).toLocaleDateString()}</p>
-                  <p className="text-yellow-700">End: {new Date(metrics.debug.dateRange.endDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-yellow-900">Transaction Counts:</p>
-                  <p className="text-yellow-700">Project Transactions: {metrics.debug.counts.projectTransactions}</p>
-                  <p className="text-yellow-700">General Transactions: {metrics.debug.counts.generalTransactions}</p>
-                  <p className="text-yellow-700">Company Expenses: {metrics.debug.counts.companyExpenses}</p>
-                  <p className="text-yellow-700">All Projects: {metrics.debug.counts.allProjects}</p>
-                </div>
-              </div>
-            </div>
-          )}
         </>
       ) : (
         <div className="text-center py-12">
