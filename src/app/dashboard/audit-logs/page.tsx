@@ -36,12 +36,21 @@ interface AuditResponse {
   };
 }
 
+interface User {
+  id: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
   const [filters, setFilters] = useState({
     tableName: "",
     action: "",
+    changedBy: "",
     startDate: "",
     endDate: "",
   });
@@ -54,6 +63,23 @@ export default function AuditLogsPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
+  // Fetch users for filter
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch("/api/users");
+        if (!response.ok) throw new Error("Failed to fetch users");
+        const data: User[] = await response.json();
+        setUsers(data);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        toast.error("Failed to load users");
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
   // Fetch audit logs
   const fetchLogs = async (resetOffset = false, customOffset?: number) => {
     try {
@@ -62,6 +88,7 @@ export default function AuditLogsPage() {
 
       if (filters.tableName) params.append("tableName", filters.tableName);
       if (filters.action) params.append("action", filters.action);
+      if (filters.changedBy) params.append("changedBy", filters.changedBy);
       if (filters.startDate) params.append("startDate", filters.startDate);
       if (filters.endDate) params.append("endDate", filters.endDate);
 
@@ -207,7 +234,7 @@ export default function AuditLogsPage() {
       {/* Filters */}
       <div className="bg-card rounded-lg border p-4 mb-6">
         <h2 className="text-lg font-semibold mb-4">Filters</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Field
             label="Table Name"
             type="text"
@@ -225,6 +252,19 @@ export default function AuditLogsPage() {
               { value: "INSERT", label: "Insert" },
               { value: "UPDATE", label: "Update" },
               { value: "DELETE", label: "Delete" },
+            ]}
+          />
+          <Field
+            label="Changed By"
+            type="select"
+            value={filters.changedBy}
+            onChange={(value) => setFilters({ ...filters, changedBy: value })}
+            options={[
+              { value: "", label: "All Users" },
+              ...users.map((user) => ({
+                value: user.id.toString(),
+                label: `${user.firstName} ${user.lastName}`,
+              })),
             ]}
           />
           <div className="space-y-1.5">
