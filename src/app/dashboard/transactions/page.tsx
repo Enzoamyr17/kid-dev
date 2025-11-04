@@ -71,9 +71,24 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingCell, setEditingCell] = useState<{ transactionId: string; field: string } | null>(null);
+  const [editValue, setEditValue] = useState<string | number>("");
   const [filterType, setFilterType] = useState<string>("all");
   const [projects, setProjects] = useState<Project[]>([]);
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableSubCategories, setAvailableSubCategories] = useState<Record<string, string[]>>({});
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterSubCategory, setFilterSubCategory] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterProject, setFilterProject] = useState("");
+  const [filterBudgetCategory, setFilterBudgetCategory] = useState("");
+  const [filterMonth, setFilterMonth] = useState("");
+  const [filterYear, setFilterYear] = useState("");
+
   const [newTransaction, setNewTransaction] = useState<NewTransaction>({
     transactionType: "general",
     datePurchased: undefined,
@@ -90,15 +105,80 @@ export default function TransactionsPage() {
   useEffect(() => {
     fetchTransactions();
     fetchProjects();
+    fetchAvailableCategories();
   }, []);
 
   useEffect(() => {
-    if (filterType === "all") {
-      setFilteredTransactions(transactions);
-    } else {
-      setFilteredTransactions(transactions.filter(t => t.transactionType === filterType));
+    let filtered = transactions;
+
+    // Filter by type (all, general, project)
+    if (filterType !== "all") {
+      filtered = filtered.filter(t => t.transactionType === filterType);
     }
-  }, [filterType, transactions]);
+
+    // Filter by search query (search in description, category, subcategory)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.itemDescription.toLowerCase().includes(query) ||
+        t.category?.toLowerCase().includes(query) ||
+        t.subCategory?.toLowerCase().includes(query) ||
+        t.project?.code.toLowerCase().includes(query) ||
+        t.project?.description.toLowerCase().includes(query)
+      );
+    }
+
+    // Filter by status
+    if (filterStatus) {
+      filtered = filtered.filter(t => t.status === filterStatus);
+    }
+
+    // Filter by date (month/year)
+    if (filterYear) {
+      filtered = filtered.filter(t => {
+        const transactionDate = new Date(t.datePurchased);
+        return transactionDate.getFullYear() === Number(filterYear);
+      });
+    }
+    if (filterMonth) {
+      filtered = filtered.filter(t => {
+        const transactionDate = new Date(t.datePurchased);
+        return transactionDate.getMonth() + 1 === Number(filterMonth);
+      });
+    }
+
+    // Type-specific filters
+    if (filterType === "general") {
+      // General transaction filters
+      if (filterCategory) {
+        filtered = filtered.filter(t => t.category === filterCategory);
+      }
+      if (filterSubCategory) {
+        filtered = filtered.filter(t => t.subCategory === filterSubCategory);
+      }
+    } else if (filterType === "project") {
+      // Project transaction filters
+      if (filterProject) {
+        filtered = filtered.filter(t => String(t.projectId) === filterProject);
+      }
+      if (filterBudgetCategory) {
+        filtered = filtered.filter(t => String(t.categoryId) === filterBudgetCategory);
+      }
+    }
+
+    setFilteredTransactions(filtered);
+  }, [
+    filterType,
+    transactions,
+    searchQuery,
+    filterCategory,
+    filterSubCategory,
+    filterStatus,
+    filterProject,
+    filterBudgetCategory,
+    filterMonth,
+    filterYear
+  ]);
 
   useEffect(() => {
     if (newTransaction.projectId) {
@@ -143,6 +223,18 @@ export default function TransactionsPage() {
     } catch (error) {
       console.error("Failed to fetch budget categories:", error);
       setBudgetCategories([]);
+    }
+  };
+
+  const fetchAvailableCategories = async () => {
+    try {
+      const response = await fetch("/api/transactions/categories");
+      const data = await response.json();
+      if (!response.ok) throw new Error("Failed to fetch categories");
+      setAvailableCategories(data.categories || []);
+      setAvailableSubCategories(data.subCategories || {});
+    } catch (error) {
+      console.error("Failed to fetch available categories:", error);
     }
   };
 
@@ -206,6 +298,11 @@ export default function TransactionsPage() {
 
       console.log('[Transactions] Transaction created successfully');
       await fetchTransactions();
+
+      // Refresh categories if it was a general transaction
+      if (newTransaction.transactionType === "general") {
+        await fetchAvailableCategories();
+      }
 
       setIsAddingRow(false);
       setNewTransaction({
@@ -287,6 +384,66 @@ export default function TransactionsPage() {
     }
   };
 
+  // Inline editing handlers
+  const handleCellClick = (transactionId: string, field: string, currentValue: string | number) => {
+    setEditingCell({ transactionId, field });
+    setEditValue(currentValue);
+  };
+
+  const saveEdit = async (transactionId: string, field: string, oldValue: string | number) => {
+    if (String(editValue) === String(oldValue)) {
+      setEditingCell(null);
+      return;
+    }
+
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    // Prepare update value based on field type
+    let updateValue: string | number = editValue;
+    if (field === 'cost') {
+      updateValue = Number(editValue);
+    }
+
+    // Optimistic update
+    setTransactions(prev => prev.map(t =>
+      t.id === transactionId ? { ...t, [field]: updateValue } : t
+    ));
+    setEditingCell(null);
+
+    try {
+      const response = await fetch("/api/transactions", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: Number(transactionId), [field]: updateValue }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update transaction");
+
+      toast.success("Transaction updated successfully");
+
+      // Refresh categories if it was a general transaction
+      if (transaction.transactionType === "general" && (field === "category" || field === "subCategory")) {
+        await fetchAvailableCategories();
+      }
+    } catch (error) {
+      // Revert on error
+      setTransactions(prev => prev.map(t =>
+        t.id === transactionId ? { ...t, [field]: oldValue } : t
+      ));
+      toast.error("Failed to update transaction");
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent, transactionId: string, field: string, oldValue: string | number) => {
+    if (e.key === 'Enter') {
+      saveEdit(transactionId, field, oldValue);
+    } else if (e.key === 'Escape') {
+      setEditingCell(null);
+      setEditValue("");
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return `₱${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -300,6 +457,77 @@ export default function TransactionsPage() {
     value: String(c.id),
     label: c.name,
   }));
+
+  // Generate year options (current year and past 5 years)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = [
+    { value: "", label: "All Years" },
+    ...Array.from({ length: 6 }, (_, i) => {
+      const year = currentYear - i;
+      return { value: String(year), label: String(year) };
+    }),
+  ];
+
+  // Month options
+  const monthOptions = [
+    { value: "", label: "All Months" },
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
+
+  // Category filter options for general transactions
+  const categoryFilterOptions = [
+    { value: "", label: "All Categories" },
+    ...availableCategories.map(cat => ({ value: cat, label: cat })),
+  ];
+
+  // Subcategory filter options (filtered by selected category)
+  const subCategoryFilterOptions = [
+    { value: "", label: "All Sub-categories" },
+    ...(filterCategory && availableSubCategories[filterCategory]
+      ? availableSubCategories[filterCategory].map(sub => ({ value: sub, label: sub }))
+      : []),
+  ];
+
+  // Budget category filter options for project transactions
+  const budgetCategoryFilterOptions = [
+    { value: "", label: "All Categories" },
+    ...budgetCategories.map(c => ({ value: String(c.id), label: c.name })),
+  ];
+
+  // Project filter options
+  const projectFilterOptions = [
+    { value: "", label: "All Projects" },
+    ...projects.map(p => ({ value: String(p.id), label: `${p.code} - ${p.description}` })),
+  ];
+
+  // Status filter options
+  const statusFilterOptions = [
+    { value: "", label: "All Statuses" },
+    ...STATUS_OPTIONS,
+  ];
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery("");
+    setFilterCategory("");
+    setFilterSubCategory("");
+    setFilterStatus("");
+    setFilterProject("");
+    setFilterBudgetCategory("");
+    setFilterMonth("");
+    setFilterYear("");
+  };
 
   return (
     <div className="p-6">
@@ -318,13 +546,118 @@ export default function TransactionsPage() {
 
       {/* Filter Tabs */}
       <div className="mb-4">
-        <Tabs value={filterType} onValueChange={setFilterType}>
+        <Tabs value={filterType} onValueChange={(value) => { setFilterType(value); clearFilters(); }}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="project">Project</TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+
+      {/* Advanced Filters */}
+      <div className="mb-4 p-4 bg-muted/30 rounded-lg border">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Search Bar */}
+          <div className="lg:col-span-2">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Search</label>
+            <Input
+              placeholder="Search transactions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-9"
+            />
+          </div>
+
+          {/* Year Filter */}
+          <Field
+            type="select"
+            label="Year"
+            value={filterYear}
+            onChange={setFilterYear}
+            options={yearOptions}
+            className="h-9"
+          />
+
+          {/* Month Filter */}
+          <Field
+            type="select"
+            label="Month"
+            value={filterMonth}
+            onChange={setFilterMonth}
+            options={monthOptions}
+            disabled={!filterYear}
+            className="h-9"
+          />
+
+          {/* Status Filter */}
+          <Field
+            type="select"
+            label="Status"
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={statusFilterOptions}
+            className="h-9"
+          />
+
+          {/* Type-specific filters */}
+          {filterType === "general" && (
+            <>
+              <Field
+                type="select"
+                label="Category"
+                value={filterCategory}
+                onChange={(value) => { setFilterCategory(value); setFilterSubCategory(""); }}
+                options={categoryFilterOptions}
+                className="h-9"
+              />
+              <Field
+                type="select"
+                label="Sub-Category"
+                value={filterSubCategory}
+                onChange={setFilterSubCategory}
+                options={subCategoryFilterOptions}
+                disabled={!filterCategory}
+                className="h-9"
+              />
+            </>
+          )}
+
+          {filterType === "project" && (
+            <>
+              <Field
+                type="select"
+                label="Project"
+                value={filterProject}
+                onChange={(value) => {
+                  setFilterProject(value);
+                  setFilterBudgetCategory("");
+                  if (value) {
+                    fetchBudgetCategories(Number(value));
+                  }
+                }}
+                options={projectFilterOptions}
+                className="h-9"
+              />
+              <Field
+                type="select"
+                label="Budget Category"
+                value={filterBudgetCategory}
+                onChange={setFilterBudgetCategory}
+                options={budgetCategoryFilterOptions}
+                disabled={!filterProject}
+                className="h-9"
+              />
+            </>
+          )}
+
+          {/* Clear Filters Button */}
+          <div className="flex flex-col justify-end">
+            <Button variant="outline" size="sm" onClick={clearFilters} className="h-9">
+              Clear Filters
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -399,18 +732,36 @@ export default function TransactionsPage() {
                     <div className="space-y-2">
                       <Input
                         value={newTransaction.category}
-                        onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                        onChange={(e) => setNewTransaction({ ...newTransaction, category: e.target.value, subCategory: "" })}
                         disabled={isSubmitting}
                         className="h-8"
                         placeholder="Category"
+                        list="category-suggestions"
                       />
+                      <datalist id="category-suggestions">
+                        {availableCategories.map((cat) => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
                       <Input
                         value={newTransaction.subCategory}
                         onChange={(e) => setNewTransaction({ ...newTransaction, subCategory: e.target.value })}
                         disabled={isSubmitting}
                         className="h-8"
                         placeholder="Sub-category (optional)"
+                        list="subcategory-suggestions"
                       />
+                      <datalist id="subcategory-suggestions">
+                        {newTransaction.category && availableSubCategories[newTransaction.category]?.map((subCat) => (
+                          <option key={subCat} value={subCat} />
+                        ))}
+                      </datalist>
+                      {/* Datalist for editing */}
+                      <datalist id="edit-category-suggestions">
+                        {availableCategories.map((cat) => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
                     </div>
                   )}
                 </TableCell>
@@ -486,7 +837,14 @@ export default function TransactionsPage() {
                   <TableCell>
                     <span className="capitalize">{transaction.transactionType}</span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell
+                    onClick={() => {
+                      if (transaction.transactionType === "general") {
+                        handleCellClick(transaction.id, 'category', transaction.category || "");
+                      }
+                    }}
+                    className={transaction.transactionType === "general" ? "cursor-pointer hover:bg-muted/50" : ""}
+                  >
                     {transaction.transactionType === "project" ? (
                       <div>
                         <div className="font-medium">{transaction.project?.code}</div>
@@ -495,19 +853,60 @@ export default function TransactionsPage() {
                         </div>
                       </div>
                     ) : (
-                      <div>
-                        <div className="font-medium">{transaction.category}</div>
-                        {transaction.subCategory && (
-                          <div className="text-sm text-muted-foreground">
-                            {transaction.subCategory}
-                          </div>
-                        )}
-                      </div>
+                      editingCell?.transactionId === transaction.id && editingCell?.field === 'category' ? (
+                        <Input
+                          value={editValue as string}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => saveEdit(transaction.id, 'category', transaction.category || "")}
+                          onKeyDown={(e) => handleKeyPress(e, transaction.id, 'category', transaction.category || "")}
+                          className="h-8"
+                          placeholder="Category"
+                          list="edit-category-suggestions"
+                          autoFocus
+                        />
+                      ) : (
+                        <div>
+                          <div className="font-medium">{transaction.category}</div>
+                          {transaction.subCategory && (
+                            <div className="text-sm text-muted-foreground">
+                              {transaction.subCategory}
+                            </div>
+                          )}
+                        </div>
+                      )
                     )}
                   </TableCell>
-                  <TableCell>{transaction.itemDescription}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(transaction.cost)}
+                  <TableCell
+                    onClick={() => handleCellClick(transaction.id, 'itemDescription', transaction.itemDescription)}
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
+                    {editingCell?.transactionId === transaction.id && editingCell?.field === 'itemDescription' ? (
+                      <Input
+                        value={editValue as string}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => saveEdit(transaction.id, 'itemDescription', transaction.itemDescription)}
+                        onKeyDown={(e) => handleKeyPress(e, transaction.id, 'itemDescription', transaction.itemDescription)}
+                        className="h-8"
+                        autoFocus
+                      />
+                    ) : transaction.itemDescription}
+                  </TableCell>
+                  <TableCell
+                    onClick={() => handleCellClick(transaction.id, 'cost', transaction.cost)}
+                    className="text-right font-medium cursor-pointer hover:bg-muted/50"
+                  >
+                    {editingCell?.transactionId === transaction.id && editingCell?.field === 'cost' ? (
+                      <Input
+                        type="number"
+                        value={editValue as number}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => saveEdit(transaction.id, 'cost', transaction.cost)}
+                        onKeyDown={(e) => handleKeyPress(e, transaction.id, 'cost', transaction.cost)}
+                        className="h-8 text-right"
+                        step="0.01"
+                        autoFocus
+                      />
+                    ) : formatCurrency(transaction.cost)}
                   </TableCell>
                   <TableCell>
                     <button

@@ -46,7 +46,10 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { datePurchased: 'desc' },
+      orderBy: [
+        { datePurchased: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
 
     return NextResponse.json(transactions);

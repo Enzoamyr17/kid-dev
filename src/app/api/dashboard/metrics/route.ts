@@ -176,10 +176,11 @@ export async function GET(request: NextRequest) {
 
     console.log('[Dashboard API] Date range:', { startDate, endDate, year, month });
 
-    // Fetch ALL project transactions (project expenses)
+    // Fetch ALL project transactions (project expenses) - only completed
     const projectTransactions = await prisma.transaction.findMany({
       where: {
         transactionType: 'project',
+        status: 'completed',
         createdAt: {
           gte: startDate,
           lte: endDate,
@@ -195,10 +196,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch ALL general transactions
+    // Fetch ALL general transactions - only completed
     const generalTransactions = await prisma.transaction.findMany({
       where: {
         transactionType: 'general',
+        status: 'completed',
         datePurchased: {
           gte: startDate,
           lte: endDate,
