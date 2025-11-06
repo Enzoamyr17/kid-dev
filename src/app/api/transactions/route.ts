@@ -108,7 +108,6 @@ export async function POST(request: NextRequest) {
       status,
       note,
       link,
-      attachment,
     } = body as {
       transactionType: string;
       datePurchased: string;
@@ -121,7 +120,6 @@ export async function POST(request: NextRequest) {
       status: string;
       note?: string;
       link?: string;
-      attachment?: string;
     };
 
     // Validation
@@ -184,7 +182,6 @@ export async function POST(request: NextRequest) {
           status: status as ExpenseTransactionStatus,
           note: note || null,
           link: link || null,
-          attachment: attachment || null,
         },
         include: {
           project: {
@@ -242,8 +239,8 @@ export async function PATCH(request: NextRequest) {
     if (updateData.itemDescription !== undefined) data.itemDescription = updateData.itemDescription;
     if (updateData.cost !== undefined) data.cost = Number(updateData.cost);
     if (updateData.status !== undefined) data.status = updateData.status as ExpenseTransactionStatus;
-    if (updateData.remarks !== undefined) data.remarks = updateData.remarks || null;
-    if (updateData.attachment !== undefined) data.attachment = updateData.attachment || null;
+    if (updateData.note !== undefined) data.note = updateData.note || null;
+    if (updateData.link !== undefined) data.link = updateData.link || null;
 
     const userId = await getSessionUserId();
 

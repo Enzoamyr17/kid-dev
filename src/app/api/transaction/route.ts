@@ -59,7 +59,8 @@ export async function GET(req: NextRequest) {
             category: transaction.budgetCategory,
             description: transaction.itemDescription,
             amount: Number(transaction.cost),
-            attachment: transaction.attachment,
+            note: transaction.note,
+            link: transaction.link,
             createdAt: transaction.createdAt,
             updatedAt: transaction.updatedAt,
         }));
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { projectId, categoryId, description, amount, attachment, note, link } = body;
+        const { projectId, categoryId, description, amount, note, link } = body;
 
         if (!projectId || !categoryId || !description || amount === undefined) {
             return NextResponse.json(
@@ -99,7 +100,6 @@ export async function POST(req: NextRequest) {
                     cost: parseFloat(amount),
                     datePurchased: new Date(),
                     status: "completed",
-                    attachment: attachment || null,
                     note: note || null,
                     link: link || null,
                 },
@@ -122,7 +122,8 @@ export async function POST(req: NextRequest) {
             category: transaction.budgetCategory,
             description: transaction.itemDescription,
             amount: Number(transaction.cost),
-            attachment: transaction.attachment,
+            note: transaction.note,
+            link: transaction.link,
             createdAt: transaction.createdAt,
             updatedAt: transaction.updatedAt,
         });
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     try {
         const body = await req.json();
-        const { id, categoryId, description, amount, attachment, note, link } = body;
+        const { id, categoryId, description, amount, note, link } = body;
 
         if (!id) {
             return NextResponse.json(
@@ -152,7 +153,6 @@ export async function PATCH(req: NextRequest) {
             categoryId?: number;
             itemDescription?: string;
             cost?: number;
-            attachment?: string | null;
             note?: string | null;
             link?: string | null;
         } = {};
@@ -160,7 +160,6 @@ export async function PATCH(req: NextRequest) {
         if (categoryId !== undefined) updateData.categoryId = parseInt(categoryId);
         if (description !== undefined) updateData.itemDescription = description;
         if (amount !== undefined) updateData.cost = parseFloat(amount);
-        if (attachment !== undefined) updateData.attachment = attachment || null;
         if (note !== undefined) updateData.note = note || null;
         if (link !== undefined) updateData.link = link || null;
 
@@ -189,7 +188,6 @@ export async function PATCH(req: NextRequest) {
             category: transaction.budgetCategory,
             description: transaction.itemDescription,
             amount: Number(transaction.cost),
-            attachment: transaction.attachment,
             note: transaction.note,
             link: transaction.link,
             createdAt: transaction.createdAt,
