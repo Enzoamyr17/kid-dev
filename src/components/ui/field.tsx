@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
 import { CalendarIcon, ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -82,6 +81,42 @@ export function Field(props: FieldProps) {
   const [isFocused, setIsFocused] = React.useState(false)
   const [selectOpen, setSelectOpen] = React.useState(false)
 
+  // Date field state
+  const [dateInputValue, setDateInputValue] = React.useState("")
+  const [popoverOpen, setPopoverOpen] = React.useState(false)
+
+  // Format date to MM-DD-YYYY (using UTC to avoid timezone issues)
+  const formatDateToInput = React.useCallback((date: Date | undefined) => {
+    if (!date) return ""
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const year = date.getUTCFullYear()
+    return `${month}-${day}-${year}`
+  }, [])
+
+  // Parse MM-DD-YYYY input to Date (at noon UTC to avoid timezone issues)
+  const parseInputToDate = React.useCallback((input: string): Date | undefined => {
+    const cleaned = input.replace(/[^\d-]/g, '')
+    const parts = cleaned.split('-')
+
+    if (parts.length === 3) {
+      const month = parseInt(parts[0], 10)
+      const day = parseInt(parts[1], 10)
+      const year = parseInt(parts[2], 10)
+
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
+        // Create date at noon UTC to avoid timezone shifting
+        const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+        // Validate the date is real (e.g., not Feb 30)
+        const testDate = new Date(year, month - 1, day)
+        if (testDate.getMonth() === month - 1 && testDate.getDate() === day) {
+          return date
+        }
+      }
+    }
+    return undefined
+  }, [])
+
   // Sync external value to internal state when not focused (for number fields)
   React.useEffect(() => {
     if (props.type === "number" && !isFocused) {
@@ -92,6 +127,13 @@ export function Field(props: FieldProps) {
       setInternalValue(valueStr)
     }
   }, [props.type, props.value, isFocused])
+
+  // Sync external date value to input (for date fields)
+  React.useEffect(() => {
+    if (props.type === "date") {
+      setDateInputValue(formatDateToInput(props.value))
+    }
+  }, [props.type, props.value, formatDateToInput])
 
   const renderField = () => {
     if (props.type === "text") {
@@ -245,46 +287,6 @@ export function Field(props: FieldProps) {
     }
 
     if (props.type === "date") {
-      const [dateInputValue, setDateInputValue] = React.useState("")
-      const [popoverOpen, setPopoverOpen] = React.useState(false)
-
-      // Format date to MM-DD-YYYY (using UTC to avoid timezone issues)
-      const formatDateToInput = (date: Date | undefined) => {
-        if (!date) return ""
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0')
-        const day = String(date.getUTCDate()).padStart(2, '0')
-        const year = date.getUTCFullYear()
-        return `${month}-${day}-${year}`
-      }
-
-      // Parse MM-DD-YYYY input to Date (at noon UTC to avoid timezone issues)
-      const parseInputToDate = (input: string): Date | undefined => {
-        const cleaned = input.replace(/[^\d-]/g, '')
-        const parts = cleaned.split('-')
-
-        if (parts.length === 3) {
-          const month = parseInt(parts[0], 10)
-          const day = parseInt(parts[1], 10)
-          const year = parseInt(parts[2], 10)
-
-          if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
-            // Create date at noon UTC to avoid timezone shifting
-            const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
-            // Validate the date is real (e.g., not Feb 30)
-            const testDate = new Date(year, month - 1, day)
-            if (testDate.getMonth() === month - 1 && testDate.getDate() === day) {
-              return date
-            }
-          }
-        }
-        return undefined
-      }
-
-      // Sync external value to input
-      React.useEffect(() => {
-        setDateInputValue(formatDateToInput(props.value))
-      }, [props.value])
-
       const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value
         setDateInputValue(value)

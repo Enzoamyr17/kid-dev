@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
 import { Decimal } from '@prisma/client/runtime/library';
 import { withAuditUser } from '@/lib/audit-context';
 import { getSessionUserId } from '@/lib/get-session-user';
