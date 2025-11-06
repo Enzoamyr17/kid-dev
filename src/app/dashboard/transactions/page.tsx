@@ -533,7 +533,7 @@ export default function TransactionsPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
           <p className="text-muted-foreground">Log and track completed expense transactions</p>
         </div>
         {!isAddingRow && (
@@ -670,6 +670,7 @@ export default function TransactionsPage() {
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Cost</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Remarks</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -684,6 +685,8 @@ export default function TransactionsPage() {
                     onChange={(d) => setNewTransaction({ ...newTransaction, datePurchased: d })}
                     className="h-8"
                     disabled={isSubmitting}
+                    fromYear={2000}
+                    toYear={new Date().getFullYear()}
                   />
                 </TableCell>
                 <TableCell>
@@ -792,6 +795,22 @@ export default function TransactionsPage() {
                     options={STATUS_OPTIONS}
                     disabled={isSubmitting}
                     className="h-8"
+                  />
+                </TableCell>
+                <TableCell>
+                  <Input
+                    value={newTransaction.remarks}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, remarks: e.target.value })}
+                    disabled={isSubmitting}
+                    className="h-8"
+                    placeholder="Note"
+                  />
+                  <Input
+                    value={newTransaction.remarks}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, remarks: e.target.value })}
+                    disabled={isSubmitting}
+                    className="h-8"
+                    placeholder="OneDrive Link"
                   />
                 </TableCell>
                 <TableCell>

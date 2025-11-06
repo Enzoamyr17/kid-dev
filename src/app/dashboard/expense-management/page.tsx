@@ -531,6 +531,8 @@ export default function ExpenseManagementPage() {
                     onChange={(d) => setNewExpense({ ...newExpense, startOfPayment: d })}
                     className="h-8"
                     disabled={isSubmitting}
+                    fromYear={2000}
+                    toYear={new Date().getFullYear()}
                   />
                 </TableCell>
                 <TableCell>
