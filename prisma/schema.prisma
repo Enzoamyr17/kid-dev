@@ -194,6 +194,7 @@ model Transaction {
   id              Int                     @id @default(autoincrement())
   transactionType ExpenseTransactionType
   datePurchased   DateTime                @db.Date
+  type            String?                 @default("Expense")
   projectId       Int?
   categoryId      Int?
   category        String?                 @db.VarChar(255)
