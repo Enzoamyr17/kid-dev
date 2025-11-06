@@ -204,7 +204,6 @@ model Transaction {
   status          ExpenseTransactionStatus
   note            String?
   link            String?
-  attachment      String?                 @db.VarChar(255)
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   budgetCategory  BudgetCategory?         @relation(fields: [categoryId], references: [id], onDelete: Cascade)

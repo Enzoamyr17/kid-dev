@@ -245,28 +245,119 @@ export function Field(props: FieldProps) {
     }
 
     if (props.type === "date") {
+      const [dateInputValue, setDateInputValue] = React.useState("")
+      const [popoverOpen, setPopoverOpen] = React.useState(false)
+
+      // Format date to MM-DD-YYYY (using UTC to avoid timezone issues)
+      const formatDateToInput = (date: Date | undefined) => {
+        if (!date) return ""
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(date.getUTCDate()).padStart(2, '0')
+        const year = date.getUTCFullYear()
+        return `${month}-${day}-${year}`
+      }
+
+      // Parse MM-DD-YYYY input to Date (at noon UTC to avoid timezone issues)
+      const parseInputToDate = (input: string): Date | undefined => {
+        const cleaned = input.replace(/[^\d-]/g, '')
+        const parts = cleaned.split('-')
+
+        if (parts.length === 3) {
+          const month = parseInt(parts[0], 10)
+          const day = parseInt(parts[1], 10)
+          const year = parseInt(parts[2], 10)
+
+          if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
+            // Create date at noon UTC to avoid timezone shifting
+            const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0))
+            // Validate the date is real (e.g., not Feb 30)
+            const testDate = new Date(year, month - 1, day)
+            if (testDate.getMonth() === month - 1 && testDate.getDate() === day) {
+              return date
+            }
+          }
+        }
+        return undefined
+      }
+
+      // Sync external value to input
+      React.useEffect(() => {
+        setDateInputValue(formatDateToInput(props.value))
+      }, [props.value])
+
+      const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value
+        setDateInputValue(value)
+
+        // Try to parse and update if valid
+        const parsedDate = parseInputToDate(value)
+        if (parsedDate) {
+          props.onChange?.(parsedDate)
+        }
+      }
+
+      const handleInputBlur = () => {
+        // If input is empty, set to current date at noon UTC
+        if (!dateInputValue.trim()) {
+          const now = new Date()
+          const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0))
+          props.onChange?.(today)
+          setDateInputValue(formatDateToInput(today))
+        } else {
+          // Reformat to ensure consistency
+          const parsedDate = parseInputToDate(dateInputValue)
+          if (parsedDate) {
+            setDateInputValue(formatDateToInput(parsedDate))
+          } else {
+            // Invalid date, revert to previous value or current date
+            if (props.value) {
+              setDateInputValue(formatDateToInput(props.value))
+            } else {
+              const now = new Date()
+              const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0))
+              props.onChange?.(today)
+              setDateInputValue(formatDateToInput(today))
+            }
+          }
+        }
+      }
+
       return (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <div className="relative">
+            <input
+              type="text"
+              value={dateInputValue}
+              onChange={handleInputChange}
+              onBlur={handleInputBlur}
+              placeholder={placeholder || formatDateToInput(new Date())}
+              disabled={disabled}
               className={cn(
-                "w-full justify-start text-left font-normal h-9",
-                !props.value && "text-muted-foreground",
-                error && "border-destructive",
+                "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent pl-3 pr-9 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+                "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+                error && "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive border-destructive",
                 className
               )}
-              disabled={disabled}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {props.value ? format(props.value, "PPP") : <span>{placeholder || "Pick a date"}</span>}
-            </Button>
-          </PopoverTrigger>
+              aria-invalid={!!error}
+            />
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                disabled={disabled}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50"
+              >
+                <CalendarIcon className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+          </div>
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
               selected={props.value}
-              onSelect={props.onChange}
+              onSelect={(date) => {
+                props.onChange?.(date)
+                setPopoverOpen(false)
+              }}
               captionLayout={props.captionLayout || "label"}
               fromYear={props.fromYear}
               toYear={props.toYear}

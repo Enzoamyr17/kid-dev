@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { withAuditUser } from "@/lib/audit-context";
+import { getSessionUserId } from "@/lib/get-session-user";
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -20,9 +22,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             updateData.workflowstage = { connect: { id: Number(body.workflowStageId) } };
         }
 
-        const updatedProject = await prisma.project.update({
-            where: { id: Number(id) },
-            data: updateData,
+        const userId = await getSessionUserId();
+
+        const updatedProject = await withAuditUser(userId, async (tx) => {
+            return await tx.project.update({
+                where: { id: Number(id) },
+                data: updateData,
+            });
         });
 
         return NextResponse.json({

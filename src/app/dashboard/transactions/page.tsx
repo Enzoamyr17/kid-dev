@@ -21,7 +21,8 @@ interface Transaction {
   itemDescription: string;
   cost: number;
   status: string;
-  remarks?: string | null;
+  note?: string | null;
+  link?: string | null;
   createdAt: string;
   project?: {
     id: number;
@@ -45,7 +46,8 @@ interface NewTransaction {
   itemDescription: string;
   cost: string;
   status: string;
-  remarks: string;
+  note: string;
+  link: string;
 }
 
 interface Project {
@@ -99,7 +101,8 @@ export default function TransactionsPage() {
     itemDescription: "",
     cost: "",
     status: "completed",
-    remarks: "",
+    note: "",
+    link: "",
   });
 
   useEffect(() => {
@@ -269,7 +272,8 @@ export default function TransactionsPage() {
         itemDescription: newTransaction.itemDescription,
         cost: Number(newTransaction.cost),
         status: newTransaction.status,
-        remarks: newTransaction.remarks || null,
+        note: newTransaction.note || null,
+        link: newTransaction.link || null,
       };
 
       if (newTransaction.transactionType === "project") {
@@ -315,7 +319,8 @@ export default function TransactionsPage() {
         itemDescription: "",
         cost: "",
         status: "completed",
-        remarks: "",
+        note: "",
+        link: "",
       });
       toast.success("Transaction created successfully");
     } catch (error) {
@@ -339,7 +344,8 @@ export default function TransactionsPage() {
       itemDescription: "",
       cost: "",
       status: "completed",
-      remarks: "",
+      note: "",
+      link: "",
     });
   };
 
@@ -670,7 +676,8 @@ export default function TransactionsPage() {
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Cost</TableHead>
               <TableHead>Status</TableHead>
-              {/* <TableHead>Remarks</TableHead> */}
+              <TableHead>Note</TableHead>
+              <TableHead>Link</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -684,6 +691,7 @@ export default function TransactionsPage() {
                     value={newTransaction.datePurchased}
                     onChange={(d) => setNewTransaction({ ...newTransaction, datePurchased: d })}
                     className="h-8"
+                    captionLayout="dropdown"
                     disabled={isSubmitting}
                     fromYear={2000}
                     toYear={new Date().getFullYear()}
@@ -798,20 +806,22 @@ export default function TransactionsPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  {/* <Input
-                    value={newTransaction.remarks}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, remarks: e.target.value })}
+                  <Input
+                    value={newTransaction.note}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, note: e.target.value })}
                     disabled={isSubmitting}
                     className="h-8"
                     placeholder="Note"
                   />
+                </TableCell>
+                <TableCell>
                   <Input
-                    value={newTransaction.remarks}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, remarks: e.target.value })}
+                    value={newTransaction.link}
+                    onChange={(e) => setNewTransaction({ ...newTransaction, link: e.target.value })}
                     disabled={isSubmitting}
                     className="h-8"
                     placeholder="OneDrive Link"
-                  /> */}
+                  />
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
@@ -938,6 +948,12 @@ export default function TransactionsPage() {
                     >
                       {transaction.status === "completed" ? "Completed" : "Pending"}
                     </button>
+                  </TableCell>
+                  <TableCell>
+                    {transaction.note}
+                  </TableCell>
+                  <TableCell>
+                    {transaction.link}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button

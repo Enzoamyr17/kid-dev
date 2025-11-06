@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/db";
+import { withAuditUser } from "@/lib/audit-context";
+import { getSessionUserId } from "@/lib/get-session-user";
 
 // GET - Fetch all transactions for a project (optionally filtered by category)
 export async function GET(req: NextRequest) {
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { projectId, categoryId, description, amount, attachment } = body;
+        const { projectId, categoryId, description, amount, attachment, note, link } = body;
 
         if (!projectId || !categoryId || !description || amount === undefined) {
             return NextResponse.json(
@@ -87,26 +87,32 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const transaction = await prisma.transaction.create({
-            data: {
-                transactionType: "project",
-                projectId: parseInt(projectId),
-                categoryId: parseInt(categoryId),
-                itemDescription: description,
-                cost: parseFloat(amount),
-                datePurchased: new Date(),
-                status: "completed",
-                attachment: attachment || null,
-            },
-            include: {
-                budgetCategory: {
-                    select: {
-                        id: true,
-                        name: true,
-                        color: true,
+        const userId = await getSessionUserId();
+
+        const transaction = await withAuditUser(userId, async (tx) => {
+            return await tx.transaction.create({
+                data: {
+                    transactionType: "project",
+                    projectId: parseInt(projectId),
+                    categoryId: parseInt(categoryId),
+                    itemDescription: description,
+                    cost: parseFloat(amount),
+                    datePurchased: new Date(),
+                    status: "completed",
+                    attachment: attachment || null,
+                    note: note || null,
+                    link: link || null,
+                },
+                include: {
+                    budgetCategory: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                        },
                     },
                 },
-            },
+            });
         });
 
         return NextResponse.json({
@@ -133,7 +139,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     try {
         const body = await req.json();
-        const { id, categoryId, description, amount, attachment } = body;
+        const { id, categoryId, description, amount, attachment, note, link } = body;
 
         if (!id) {
             return NextResponse.json(
@@ -147,25 +153,33 @@ export async function PATCH(req: NextRequest) {
             itemDescription?: string;
             cost?: number;
             attachment?: string | null;
+            note?: string | null;
+            link?: string | null;
         } = {};
 
         if (categoryId !== undefined) updateData.categoryId = parseInt(categoryId);
         if (description !== undefined) updateData.itemDescription = description;
         if (amount !== undefined) updateData.cost = parseFloat(amount);
         if (attachment !== undefined) updateData.attachment = attachment || null;
+        if (note !== undefined) updateData.note = note || null;
+        if (link !== undefined) updateData.link = link || null;
 
-        const transaction = await prisma.transaction.update({
-            where: { id: parseInt(id) },
-            data: updateData,
-            include: {
-                budgetCategory: {
-                    select: {
-                        id: true,
-                        name: true,
-                        color: true,
+        const userId = await getSessionUserId();
+
+        const transaction = await withAuditUser(userId, async (tx) => {
+            return await tx.transaction.update({
+                where: { id: parseInt(id) },
+                data: updateData,
+                include: {
+                    budgetCategory: {
+                        select: {
+                            id: true,
+                            name: true,
+                            color: true,
+                        },
                     },
                 },
-            },
+            });
         });
 
         return NextResponse.json({
@@ -176,6 +190,8 @@ export async function PATCH(req: NextRequest) {
             description: transaction.itemDescription,
             amount: Number(transaction.cost),
             attachment: transaction.attachment,
+            note: transaction.note,
+            link: transaction.link,
             createdAt: transaction.createdAt,
             updatedAt: transaction.updatedAt,
         });
@@ -201,8 +217,12 @@ export async function DELETE(req: NextRequest) {
             );
         }
 
-        await prisma.transaction.delete({
-            where: { id: parseInt(id) },
+        const userId = await getSessionUserId();
+
+        await withAuditUser(userId, async (tx) => {
+            await tx.transaction.delete({
+                where: { id: parseInt(id) },
+            });
         });
 
         return NextResponse.json({ success: true });

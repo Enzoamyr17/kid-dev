@@ -530,6 +530,7 @@ export default function ExpenseManagementPage() {
                     value={newExpense.startOfPayment}
                     onChange={(d) => setNewExpense({ ...newExpense, startOfPayment: d })}
                     className="h-8"
+                    captionLayout="dropdown"
                     disabled={isSubmitting}
                     fromYear={2000}
                     toYear={new Date().getFullYear()}

@@ -23,9 +23,11 @@ interface EncodedProject {
     name: string;
     budget: number;
   }>;
-  transaction?: Array<{
+  transactions?: Array<{
     id: number;
-    amount: number;
+    cost: number;
+    type: string;
+    transactionType: string;
   }>;
 }
 
@@ -211,8 +213,10 @@ export default function ProjectEncodingPage() {
 
   // Calculate total expense from transactions
   const getTotalExpense = (project: EncodedProject) => {
-    if (!project.transaction || project.transaction.length === 0) return 0;
-    return project.transaction.reduce((sum, t) => sum + Number(t.amount), 0);
+    if (!project.transactions || project.transactions.length === 0) return 0;
+    return project.transactions
+      .filter((t) => t.type === 'Expense')
+      .reduce((sum, t) => sum + Number(t.cost), 0);
   };
 
   return (

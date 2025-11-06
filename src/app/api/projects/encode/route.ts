@@ -228,6 +228,7 @@ export async function POST(request: NextRequest) {
             datePurchased: date,
             status: 'completed',
             createdAt: date, // Use project date
+            updatedAt: date, // Use project date
           },
         });
         console.log('[API /projects/encode] Transaction created successfully');
