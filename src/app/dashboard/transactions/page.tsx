@@ -670,7 +670,7 @@ export default function TransactionsPage() {
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Cost</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Remarks</TableHead>
+              {/* <TableHead>Remarks</TableHead> */}
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -798,7 +798,7 @@ export default function TransactionsPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  <Input
+                  {/* <Input
                     value={newTransaction.remarks}
                     onChange={(e) => setNewTransaction({ ...newTransaction, remarks: e.target.value })}
                     disabled={isSubmitting}
@@ -811,7 +811,7 @@ export default function TransactionsPage() {
                     disabled={isSubmitting}
                     className="h-8"
                     placeholder="OneDrive Link"
-                  />
+                  /> */}
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">
