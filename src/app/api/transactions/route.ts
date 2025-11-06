@@ -106,7 +106,8 @@ export async function POST(request: NextRequest) {
       itemDescription,
       cost,
       status,
-      remarks,
+      note,
+      link,
       attachment,
     } = body as {
       transactionType: string;
@@ -118,7 +119,8 @@ export async function POST(request: NextRequest) {
       itemDescription: string;
       cost: number;
       status: string;
-      remarks?: string;
+      note?: string;
+      link?: string;
       attachment?: string;
     };
 
@@ -180,7 +182,8 @@ export async function POST(request: NextRequest) {
           itemDescription,
           cost,
           status: status as ExpenseTransactionStatus,
-          remarks: remarks || null,
+          note: note || null,
+          link: link || null,
           attachment: attachment || null,
         },
         include: {

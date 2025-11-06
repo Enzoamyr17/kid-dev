@@ -544,7 +544,7 @@ export default function TransactionsPage() {
         )}
       </div>
 
-      {/* Filter Tabs */}
+      {/* Filter Tab */}
       <div className="mb-4">
         <Tabs value={filterType} onValueChange={(value) => { setFilterType(value); clearFilters(); }}>
           <TabsList>
