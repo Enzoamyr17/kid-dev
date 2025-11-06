@@ -315,6 +315,8 @@ export default function ProjectEncodingPage() {
                     className="h-8 text-right"
                     placeholder="0.00"
                     type="number"
+                    min="0"
+                    step="0.01"
                   />
                 </TableCell>
                 <TableCell>
@@ -327,6 +329,8 @@ export default function ProjectEncodingPage() {
                     className="h-8 text-right"
                     placeholder="0.00"
                     type="number"
+                    min="0"
+                    step="0.01"
                   />
                 </TableCell>
                 <TableCell>

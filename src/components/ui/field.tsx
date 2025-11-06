@@ -205,8 +205,12 @@ export function Field(props: FieldProps) {
           return
         }
 
-        // Only allow numbers, decimal point, and minus sign
-        if (!/^-?\d*\.?\d*$/.test(inputValue)) {
+        // Only allow numbers and decimal point (no minus sign for non-negative values)
+        // If min is set and is negative, allow minus sign, otherwise don't
+        const allowNegative = props.min !== undefined && props.min < 0
+        const pattern = allowNegative ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/
+
+        if (!pattern.test(inputValue)) {
           return
         }
 

@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface Transaction {
   id: string;
   transactionType: string;
+  type?: string | null;
   datePurchased: string;
   projectId?: number | null;
   categoryId?: number | null;
@@ -75,6 +76,7 @@ export default function TransactionsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCell, setEditingCell] = useState<{ transactionId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string | number>("");
+  const [transactionTab, setTransactionTab] = useState<"expense" | "income">("expense");
   const [filterType, setFilterType] = useState<string>("all");
   const [projects, setProjects] = useState<Project[]>([]);
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
@@ -112,7 +114,18 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
+    console.log('[Filter Debug] Starting filter - Tab:', transactionTab, 'Total transactions:', transactions.length);
     let filtered = transactions;
+
+    // Filter by Income/Expense tab
+    filtered = filtered.filter(t => {
+      const type = t.type || "Expense"; // Default to Expense if not set
+      const match = transactionTab === "expense" ? type === "Expense" : type === "Income";
+      console.log('[Filter Debug] ID:', t.id, 'Raw type:', t.type, 'Computed type:', type, 'Match:', match);
+      return match;
+    });
+
+    console.log('[Filter Debug] After income/expense filter:', filtered.length);
 
     // Filter by type (all, general, project)
     if (filterType !== "all") {
@@ -171,6 +184,7 @@ export default function TransactionsPage() {
 
     setFilteredTransactions(filtered);
   }, [
+    transactionTab,
     filterType,
     transactions,
     searchQuery,
@@ -197,6 +211,8 @@ export default function TransactionsPage() {
       const response = await fetch("/api/transactions");
       const data = await response.json();
       if (!response.ok) throw new Error("Failed to fetch transactions");
+      console.log('[Fetch Debug] Received transactions:', data.length);
+      console.log('[Fetch Debug] First transaction:', data[0]);
       setTransactions(data);
     } catch (error) {
       toast.error("Failed to fetch transactions");
@@ -268,6 +284,7 @@ export default function TransactionsPage() {
     try {
       const payload: Record<string, unknown> = {
         transactionType: newTransaction.transactionType,
+        type: transactionTab === "expense" ? "Expense" : "Income",
         datePurchased: newTransaction.datePurchased.toISOString(),
         itemDescription: newTransaction.itemDescription,
         cost: Number(newTransaction.cost),
@@ -539,8 +556,8 @@ export default function TransactionsPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
-          <p className="text-muted-foreground">Log and track completed expense transactions</p>
+          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+          <p className="text-muted-foreground">Log and track income and expense transactions</p>
         </div>
         {!isAddingRow && (
           <Button onClick={() => setIsAddingRow(true)}>
@@ -548,6 +565,16 @@ export default function TransactionsPage() {
             Add Transaction
           </Button>
         )}
+      </div>
+
+      {/* Income/Expense Tab */}
+      <div className="mb-4">
+        <Tabs value={transactionTab} onValueChange={(value) => { setTransactionTab(value as "expense" | "income"); clearFilters(); }}>
+          <TabsList>
+            <TabsTrigger value="expense">Expense</TabsTrigger>
+            <TabsTrigger value="income">Income</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Filter Tab */}
@@ -793,6 +820,8 @@ export default function TransactionsPage() {
                     disabled={isSubmitting}
                     className="h-8"
                     placeholder="0.00"
+                    min="0"
+                    step="0.01"
                   />
                 </TableCell>
                 <TableCell>
@@ -932,6 +961,7 @@ export default function TransactionsPage() {
                         onBlur={() => saveEdit(transaction.id, 'cost', transaction.cost)}
                         onKeyDown={(e) => handleKeyPress(e, transaction.id, 'cost', transaction.cost)}
                         className="h-8 text-right"
+                        min="0"
                         step="0.01"
                         autoFocus
                       />

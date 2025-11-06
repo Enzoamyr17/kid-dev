@@ -20,11 +20,19 @@ export async function GET(request: NextRequest) {
       transactionType?: ExpenseTransactionType;
       status?: ExpenseTransactionStatus;
       projectId?: number;
+      itemDescription?: {
+        not?: string;
+      };
       datePurchased?: {
         gte?: Date;
         lt?: Date;
       };
     } = {};
+
+    // Filter out automatically encoded project expenses
+    where.itemDescription = {
+      not: "Encoded project expense",
+    };
 
     if (type) {
       where.transactionType = type as ExpenseTransactionType;
@@ -98,6 +106,7 @@ export async function POST(request: NextRequest) {
 
     const {
       transactionType,
+      type,
       datePurchased,
       projectId,
       categoryId,
@@ -110,6 +119,7 @@ export async function POST(request: NextRequest) {
       link,
     } = body as {
       transactionType: string;
+      type?: string;
       datePurchased: string;
       projectId?: number;
       categoryId?: number;
@@ -172,6 +182,7 @@ export async function POST(request: NextRequest) {
       return await tx.transaction.create({
         data: {
           transactionType: transactionType as ExpenseTransactionType,
+          type: type || "Expense",
           datePurchased: new Date(datePurchased),
           projectId: projectId || null,
           categoryId: categoryId || null,
@@ -231,6 +242,7 @@ export async function PATCH(request: NextRequest) {
     // Build update object
     const data: Record<string, unknown> = {};
     if (updateData.transactionType !== undefined) data.transactionType = updateData.transactionType as ExpenseTransactionType;
+    if (updateData.type !== undefined) data.type = updateData.type || "Expense";
     if (updateData.datePurchased !== undefined) data.datePurchased = new Date(updateData.datePurchased);
     if (updateData.projectId !== undefined) data.projectId = updateData.projectId || null;
     if (updateData.categoryId !== undefined) data.categoryId = updateData.categoryId || null;

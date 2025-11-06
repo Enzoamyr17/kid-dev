@@ -18,6 +18,8 @@ interface DashboardMetrics {
     endDate: string;
   };
   summary: {
+    projectIncome: number;
+    transactionIncome: number;
     revenue: number;
     projectExpenses: number;
     generalExpenses: number;
@@ -29,6 +31,8 @@ interface DashboardMetrics {
   expensesByCategory: Record<string, number>;
   monthlyData: {
     month: number;
+    projectIncome: number;
+    transactionIncome: number;
     revenue: number;
     projectExpenses: number;
     generalExpenses: number;
@@ -56,6 +60,7 @@ interface Transaction {
   id: number;
   transactionType: 'general' | 'project';
   datePurchased: string;
+  type: 'Income' | 'Expense';
   projectId: number | null;
   categoryId: number | null;
   category: string | null;
@@ -115,20 +120,42 @@ export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [earliestYear, setEarliestYear] = useState<number>(currentYear);
 
   // Monthly breakdown data (uses the main selectedMonth state)
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [monthExpenses, setMonthExpenses] = useState<CompanyExpense[]>([]);
   const [loadingMonthDetails, setLoadingMonthDetails] = useState(false);
 
-  // Generate year options (current year and past 10 years)
+  // Generate year options dynamically based on earliest year
   const yearOptions = [
     { value: "", label: "All Time" },
-    ...Array.from({ length: 11 }, (_, i) => {
+    ...Array.from({ length: currentYear - earliestYear + 1 }, (_, i) => {
       const year = currentYear - i;
       return { value: String(year), label: String(year) };
     }),
   ];
+
+  // Fetch earliest year on mount to populate year dropdown
+  useEffect(() => {
+    const fetchEarliestYear = async () => {
+      try {
+        const response = await fetch("/api/dashboard/metrics");
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (data.monthlyData && data.monthlyData.length > 0) {
+          const years = data.monthlyData.map((d: { month: number }) => d.month);
+          const minYear = Math.min(...years);
+          setEarliestYear(minYear);
+        }
+      } catch (error) {
+        console.error("Error fetching earliest year:", error);
+      }
+    };
+
+    fetchEarliestYear();
+  }, []);
 
   const fetchMetrics = async () => {
     setLoading(true);
@@ -273,9 +300,25 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Revenue */}
+            {/* Project Income */}
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-muted-foreground">Revenue</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Project Income</h3>
+              <p className="text-2xl font-bold mt-2">
+                {formatCurrency(metrics.summary.projectIncome)}
+              </p>
+            </div>
+
+            {/* Transaction Income */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-muted-foreground">Transaction Income</h3>
+              <p className="text-2xl font-bold mt-2">
+                {formatCurrency(metrics.summary.transactionIncome)}
+              </p>
+            </div>
+
+            {/* Total Revenue */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-muted-foreground">Total Revenue</h3>
               <p className="text-2xl font-bold mt-2">
                 {formatCurrency(metrics.summary.revenue)}
               </p>
@@ -449,12 +492,14 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-2">{selectedYear ? "Month" : "Year"}</th>
-                    <th className="text-right py-2">Revenue</th>
-                    <th className="text-right py-2">Project</th>
-                    <th className="text-right py-2">General</th>
-                    <th className="text-right py-2">Company</th>
-                    <th className="text-right py-2">Total</th>
-                    <th className="text-right py-2">Profit</th>
+                    <th className="text-right py-2 bg-green-50 px-1">Project</th>
+                    <th className="text-right py-2 bg-green-50 px-1">Transaction</th>
+                    <th className="text-right py-2 bg-green-50 px-1 font-semibold">Total Revenue</th>
+                    <th className="text-right py-2 bg-red-50 px-1">Project</th>
+                    <th className="text-right py-2 bg-red-50 px-1">General</th>
+                    <th className="text-right py-2 bg-red-50 px-1">Company</th>
+                    <th className="text-right py-2 bg-red-50 px-1 font-semibold">Total</th>
+                    <th className="text-right py-2 font-semibold">Profit</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -472,11 +517,13 @@ export default function DashboardPage() {
                           ? MONTHS.find((m) => m.value === String(data.month))?.label
                           : data.month}
                       </td>
-                      <td className="text-right">{formatCurrency(data.revenue)}</td>
-                      <td className="text-right">{formatCurrency(data.projectExpenses)}</td>
-                      <td className="text-right">{formatCurrency(data.generalExpenses)}</td>
-                      <td className="text-right">{formatCurrency(data.companyExpenses)}</td>
-                      <td className="text-right">{formatCurrency(data.totalExpenses)}</td>
+                      <td className="text-right bg-green-50 px-1">{formatCurrency(data.projectIncome)}</td>
+                      <td className="text-right bg-green-50 px-1">{formatCurrency(data.transactionIncome)}</td>
+                      <td className="text-right bg-green-50 px-1 font-semibold">{formatCurrency(data.revenue)}</td>
+                      <td className="text-right bg-red-50 px-1">{formatCurrency(data.projectExpenses)}</td>
+                      <td className="text-right bg-red-50 px-1">{formatCurrency(data.generalExpenses)}</td>
+                      <td className="text-right bg-red-50 px-1">{formatCurrency(data.companyExpenses)}</td>
+                      <td className="text-right bg-red-50 px-1 font-semibold">{formatCurrency(data.totalExpenses)}</td>
                       <td
                         className={`text-right font-semibold ${
                           data.profit >= 0 ? "text-green-600" : "text-red-600"
@@ -500,27 +547,37 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-6">
                   {/* Summary Cards */}
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-5 gap-4">
                       <div className="bg-gray-50 rounded-lg p-4">
-                        <p className="text-xs text-muted-foreground mb-1">Transactions</p>
+                        <p className="text-xs text-muted-foreground mb-1">Total Transactions</p>
                         <p className="text-2xl font-bold">{monthTransactions.length}</p>
+                      </div>
+                      <div className="bg-emerald-50 rounded-lg p-4">
+                        <p className="text-xs text-muted-foreground mb-1">Income</p>
+                        <p className="text-2xl font-bold text-emerald-700">
+                          {formatCurrency(
+                            monthTransactions
+                              .filter((t) => (t as Transaction).type === "Income")
+                              .reduce((sum, t) => sum + Number(t.cost), 0)
+                          )}
+                        </p>
                       </div>
                       <div className="bg-blue-50 rounded-lg p-4">
                         <p className="text-xs text-muted-foreground mb-1">Project Expenses</p>
                         <p className="text-2xl font-bold text-blue-700">
                           {formatCurrency(
                             monthTransactions
-                              .filter((t) => t.transactionType === "project")
+                              .filter((t) => t.transactionType === "project" && (t as Transaction).type === "Expense")
                               .reduce((sum, t) => sum + Number(t.cost), 0)
                           )}
                         </p>
                       </div>
                       <div className="bg-green-50 rounded-lg p-4">
                         <p className="text-xs text-muted-foreground mb-1">General Expenses</p>
-                        <p className="text-2xl font-bold text-green-700">
+                        <p className="text-2xl font-bold bg-green-50 px-1">
                           {formatCurrency(
                             monthTransactions
-                              .filter((t) => t.transactionType === "general")
+                              .filter((t) => t.transactionType === "general" && (t as Transaction).type === "Expense")
                               .reduce((sum, t) => sum + Number(t.cost), 0)
                           )}
                         </p>
@@ -546,14 +603,14 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Transactions Section */}
+                    {/* Income Transactions Section */}
                     <div>
-                      <h4 className="font-semibold mb-3 text-base">Transactions</h4>
-                      {monthTransactions.length > 0 ? (
+                      <h4 className="font-semibold mb-3 text-base text-emerald-700">Income Transactions</h4>
+                      {monthTransactions.filter((t) => (t as Transaction).type === "Income").length > 0 ? (
                         <div className="border rounded-lg overflow-hidden">
                           <table className="w-full text-sm">
                             <thead>
-                              <tr className="border-b bg-gray-50">
+                              <tr className="border-b bg-emerald-50">
                                 <th className="text-left py-3 px-4">Date</th>
                                 <th className="text-left py-3 px-4">Type</th>
                                 <th className="text-left py-3 px-4">Description</th>
@@ -563,56 +620,131 @@ export default function DashboardPage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {monthTransactions.map((transaction) => (
-                                <tr key={transaction.id} className="border-b hover:bg-gray-50">
-                                  <td className="py-3 px-4">
-                                    {new Date(transaction.datePurchased).toLocaleDateString()}
-                                  </td>
-                                  <td className="py-3 px-4">
-                                    <span
-                                      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                                        transaction.transactionType === "project"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : "bg-green-100 text-green-800"
-                                      }`}
-                                    >
-                                      {transaction.transactionType === "project" ? "Project" : "General"}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-4">{transaction.itemDescription}</td>
-                                  <td className="py-3 px-4">
-                                    {transaction.transactionType === "project" ? (
-                                      <span className="text-blue-700 font-medium">
-                                        {transaction.project?.code || "N/A"}
+                              {monthTransactions
+                                .filter((t) => (t as Transaction).type === "Income")
+                                .map((transaction) => (
+                                  <tr key={transaction.id} className="border-b hover:bg-emerald-50">
+                                    <td className="py-3 px-4">
+                                      {new Date(transaction.datePurchased).toLocaleDateString()}
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <span
+                                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                          transaction.transactionType === "project"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-green-50 px-1 text-green-800"
+                                        }`}
+                                      >
+                                        {transaction.transactionType === "project" ? "Project" : "General"}
                                       </span>
-                                    ) : (
-                                      <span className="text-green-700 font-medium">
-                                        {transaction.category || "N/A"}
+                                    </td>
+                                    <td className="py-3 px-4">{transaction.itemDescription}</td>
+                                    <td className="py-3 px-4">
+                                      {transaction.transactionType === "project" ? (
+                                        <span className="text-blue-700 font-medium">
+                                          {transaction.project?.code || "N/A"}
+                                        </span>
+                                      ) : (
+                                        <span className="bg-green-50 px-1 font-medium">
+                                          {transaction.category || "N/A"}
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="text-right py-3 px-4 font-medium text-emerald-700">
+                                      {formatCurrency(Number(transaction.cost))}
+                                    </td>
+                                    <td className="text-center py-3 px-4">
+                                      <span
+                                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                          transaction.status === "completed"
+                                            ? "bg-green-50 px-1 text-green-800"
+                                            : "bg-yellow-100 text-yellow-800"
+                                        }`}
+                                      >
+                                        {transaction.status === "completed" ? "Completed" : "Pending"}
                                       </span>
-                                    )}
-                                  </td>
-                                  <td className="text-right py-3 px-4 font-medium">
-                                    {formatCurrency(Number(transaction.cost))}
-                                  </td>
-                                  <td className="text-center py-3 px-4">
-                                    <span
-                                      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                                        transaction.status === "completed"
-                                          ? "bg-green-100 text-green-800"
-                                          : "bg-yellow-100 text-yellow-800"
-                                      }`}
-                                    >
-                                      {transaction.status === "completed" ? "Completed" : "Pending"}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
+                                    </td>
+                                  </tr>
+                                ))}
                             </tbody>
                           </table>
                         </div>
                       ) : (
                         <p className="text-center text-muted-foreground py-8 bg-gray-50 rounded-lg">
-                          No transactions found for this month
+                          No income transactions found for this month
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Expense Transactions Section */}
+                    <div>
+                      <h4 className="font-semibold mb-3 text-base bg-red-50 px-1">Expense Transactions</h4>
+                      {monthTransactions.filter((t) => (t as Transaction).type === "Expense").length > 0 ? (
+                        <div className="border rounded-lg overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b bg-red-50">
+                                <th className="text-left py-3 px-4">Date</th>
+                                <th className="text-left py-3 px-4">Type</th>
+                                <th className="text-left py-3 px-4">Description</th>
+                                <th className="text-left py-3 px-4">Category/Project</th>
+                                <th className="text-right py-3 px-4">Amount</th>
+                                <th className="text-center py-3 px-4">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {monthTransactions
+                                .filter((t) => (t as Transaction).type === "Expense")
+                                .map((transaction) => (
+                                  <tr key={transaction.id} className="border-b hover:bg-red-50">
+                                    <td className="py-3 px-4">
+                                      {new Date(transaction.datePurchased).toLocaleDateString()}
+                                    </td>
+                                    <td className="py-3 px-4">
+                                      <span
+                                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                          transaction.transactionType === "project"
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-green-50 px-1 text-green-800"
+                                        }`}
+                                      >
+                                        {transaction.transactionType === "project" ? "Project" : "General"}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-4">{transaction.itemDescription}</td>
+                                    <td className="py-3 px-4">
+                                      {transaction.transactionType === "project" ? (
+                                        <span className="text-blue-700 font-medium">
+                                          {transaction.project?.code || "N/A"}
+                                        </span>
+                                      ) : (
+                                        <span className="bg-green-50 px-1 font-medium">
+                                          {transaction.category || "N/A"}
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="text-right py-3 px-4 font-medium bg-red-50 px-1">
+                                      {formatCurrency(Number(transaction.cost))}
+                                    </td>
+                                    <td className="text-center py-3 px-4">
+                                      <span
+                                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                          transaction.status === "completed"
+                                            ? "bg-green-50 px-1 text-green-800"
+                                            : "bg-yellow-100 text-yellow-800"
+                                        }`}
+                                      >
+                                        {transaction.status === "completed" ? "Completed" : "Pending"}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground py-8 bg-gray-50 rounded-lg">
+                          No expense transactions found for this month
                         </p>
                       )}
                     </div>

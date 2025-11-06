@@ -273,11 +273,30 @@ export async function GET(request: NextRequest) {
     // Count only active (non-encoded) projects
     const activeProjects = allProjects.filter(p => p.code.startsWith('PROJ'));
 
-    // Calculate revenue (sum of receivable from ALL projects including encoded)
-    const revenue = allProjects.reduce(
+    // Calculate project income (sum of receivable from ALL projects including encoded)
+    const projectIncome = allProjects.reduce(
       (sum, project) => sum + Number(project.receivable || 0),
       0
     );
+
+    // Calculate transaction income (sum of income transactions)
+    const incomeTransactions = await prisma.transaction.findMany({
+      where: {
+        type: 'Income',
+        datePurchased: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+    });
+
+    const transactionIncome = incomeTransactions.reduce(
+      (sum, transaction) => sum + Number(transaction.cost),
+      0
+    );
+
+    // Calculate total revenue
+    const revenue = projectIncome + transactionIncome;
 
     // Calculate totals
     const totalExpenses = projectExpensesTotal + generalTransactionsTotal + companyExpensesTotal;
@@ -317,6 +336,8 @@ export async function GET(request: NextRequest) {
     // Monthly/Yearly breakdown
     const monthlyData: {
       month: number;
+      projectIncome: number;
+      transactionIncome: number;
       revenue: number;
       projectExpenses: number;
       generalExpenses: number;
@@ -369,19 +390,31 @@ export async function GET(request: NextRequest) {
           );
         }, 0);
 
-        // Revenue for this month (include all projects)
+        // Project income for this month (include all projects)
         const monthProjects = allProjects.filter(
           (p) => p.createdAt >= monthStart && p.createdAt <= monthEnd
         );
-        const monthRevenue = monthProjects.reduce(
+        const monthProjectIncome = monthProjects.reduce(
           (sum, p) => sum + Number(p.receivable || 0),
           0
         );
 
+        // Transaction income for this month
+        const monthIncomeTransactions = incomeTransactions.filter(
+          (t) => t.datePurchased >= monthStart && t.datePurchased <= monthEnd
+        );
+        const monthTransactionIncome = monthIncomeTransactions.reduce(
+          (sum, t) => sum + Number(t.cost),
+          0
+        );
+
+        const monthRevenue = monthProjectIncome + monthTransactionIncome;
         const monthTotalExpenses = monthProjectExpenses + monthGeneralExpenses + monthCompanyExpenses;
 
         monthlyData.push({
           month: m + 1,
+          projectIncome: monthProjectIncome,
+          transactionIncome: monthTransactionIncome,
           revenue: monthRevenue,
           projectExpenses: monthProjectExpenses,
           generalExpenses: monthGeneralExpenses,
@@ -391,11 +424,11 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (!year && !month) {
-      // All time - Generate yearly breakdown
+      // All time - Generate yearly breakdown in reverse chronological order
       const startYear = startDate.getFullYear();
       const endYear = endDate.getFullYear();
 
-      for (let y = startYear; y <= endYear; y++) {
+      for (let y = endYear; y >= startYear; y--) {
         const yearStart = new Date(y, 0, 1);
         const yearEnd = new Date(y, 11, 31, 23, 59, 59, 999);
 
@@ -437,20 +470,32 @@ export async function GET(request: NextRequest) {
           );
         }, 0);
 
-        // Revenue for this year
+        // Project income for this year
         const yearProjects = allProjects.filter(
           (p) => p.createdAt >= yearStart && p.createdAt <= yearEnd
         );
-        const yearRevenue = yearProjects.reduce(
+        const yearProjectIncome = yearProjects.reduce(
           (sum, p) => sum + Number(p.receivable || 0),
           0
         );
 
+        // Transaction income for this year
+        const yearIncomeTransactions = incomeTransactions.filter(
+          (t) => t.datePurchased >= yearStart && t.datePurchased <= yearEnd
+        );
+        const yearTransactionIncome = yearIncomeTransactions.reduce(
+          (sum, t) => sum + Number(t.cost),
+          0
+        );
+
+        const yearRevenue = yearProjectIncome + yearTransactionIncome;
         const yearTotalExpenses = yearProjectExpenses + yearGeneralExpenses + yearCompanyExpenses;
 
         // Use year as "month" field for yearly breakdown (will be handled differently in frontend)
         monthlyData.push({
           month: y, // Store year number instead of month
+          projectIncome: yearProjectIncome,
+          transactionIncome: yearTransactionIncome,
           revenue: yearRevenue,
           projectExpenses: yearProjectExpenses,
           generalExpenses: yearGeneralExpenses,
@@ -470,6 +515,8 @@ export async function GET(request: NextRequest) {
         endDate,
       },
       summary: {
+        projectIncome,
+        transactionIncome,
         revenue,
         projectExpenses: projectExpensesTotal,
         generalExpenses: generalTransactionsTotal,
