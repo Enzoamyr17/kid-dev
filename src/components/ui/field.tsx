@@ -361,7 +361,18 @@ export function Field(props: FieldProps) {
               mode="single"
               selected={props.value}
               onSelect={(date) => {
-                props.onChange?.(date)
+                if (date) {
+                  // Normalize to noon UTC to avoid timezone issues
+                  const normalizedDate = new Date(Date.UTC(
+                    date.getFullYear(),
+                    date.getMonth(),
+                    date.getDate(),
+                    12, 0, 0
+                  ))
+                  props.onChange?.(normalizedDate)
+                } else {
+                  props.onChange?.(date)
+                }
                 setPopoverOpen(false)
               }}
               captionLayout={props.captionLayout || "label"}

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 /**
- * Calculate occurrences of a recurring expense within a date range
+ * Calculate occurrences of a recurring expense within a date range (ACTUAL - only up to today)
  */
 function calculateExpenseOccurrences(
   expense: {
@@ -14,6 +14,7 @@ function calculateExpenseOccurrences(
     monthOfYear?: number | null;
     specificDate?: Date | null;
     startOfPayment?: Date | null;
+    endOfPayment?: Date | null;
     amount: number;
   },
   startDate: Date,
@@ -27,10 +28,20 @@ function calculateExpenseOccurrences(
     ? new Date(Math.max(new Date(expense.startOfPayment).getTime(), startDate.getTime()))
     : startDate;
 
+  // Only count expenses that have actually occurred (up to today)
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // Include all of today
+
+  // If endOfPayment is set, use the earlier of: endOfPayment, today, or query endDate
+  // If not set, use the earlier of: today or query endDate
+  const effectiveEndDate = expense.endOfPayment
+    ? new Date(Math.min(new Date(expense.endOfPayment).getTime(), today.getTime(), endDate.getTime()))
+    : new Date(Math.min(today.getTime(), endDate.getTime()));
+
   if (expense.frequency === 'one_time') {
     if (expense.specificDate) {
       const expenseDate = new Date(expense.specificDate);
-      if (expenseDate >= effectiveStartDate && expenseDate <= endDate) {
+      if (expenseDate >= effectiveStartDate && expenseDate <= effectiveEndDate) {
         return amount;
       }
     }
@@ -42,7 +53,7 @@ function calculateExpenseOccurrences(
   const current = new Date(effectiveStartDate);
   current.setDate(1); // Start from first day of month
 
-  while (current <= endDate) {
+  while (current <= effectiveEndDate) {
     monthsInRange.push(new Date(current));
     current.setMonth(current.getMonth() + 1);
   }
@@ -61,7 +72,7 @@ function calculateExpenseOccurrences(
             if (
               date.getDay() === expense.dayOfWeek &&
               date >= effectiveStartDate &&
-              date <= endDate
+              date <= effectiveEndDate
             ) {
               occurrences++;
             }
@@ -79,7 +90,7 @@ function calculateExpenseOccurrences(
             // If day exceeds month's max (e.g., 30 in Feb), use last day of month
             const actualDay = Math.min(day, daysInMonth);
             const date = new Date(year, month, actualDay);
-            if (date >= effectiveStartDate && date <= endDate) {
+            if (date >= effectiveStartDate && date <= effectiveEndDate) {
               occurrences++;
             }
           }
@@ -95,7 +106,7 @@ function calculateExpenseOccurrences(
           // If day exceeds month's max (e.g., 30 in Feb), use last day of month
           const actualDay = Math.min(day, daysInMonth);
           const date = new Date(year, month, actualDay);
-          if (date >= effectiveStartDate && date <= endDate) {
+          if (date >= effectiveStartDate && date <= effectiveEndDate) {
             occurrences++;
           }
         }
@@ -116,7 +127,7 @@ function calculateExpenseOccurrences(
             // If day exceeds month's max (e.g., 30 in Feb), use last day of month
             const actualDay = Math.min(day, daysInMonth);
             const date = new Date(year, month, actualDay);
-            if (date >= effectiveStartDate && date <= endDate) {
+            if (date >= effectiveStartDate && date <= effectiveEndDate) {
               occurrences++;
             }
           }
@@ -136,7 +147,150 @@ function calculateExpenseOccurrences(
             // If day exceeds month's max (e.g., 30 in Feb), use last day of month
             const actualDay = Math.min(day, daysInMonth);
             const date = new Date(year, month, actualDay);
-            if (date >= effectiveStartDate && date <= endDate) {
+            if (date >= effectiveStartDate && date <= effectiveEndDate) {
+              occurrences++;
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  return occurrences * amount;
+}
+
+/**
+ * Calculate occurrences of a recurring expense within a date range (PROJECTED - full period, no today limit)
+ */
+function calculateExpenseOccurrencesProjected(
+  expense: {
+    frequency: string;
+    dayOfWeek?: number | null;
+    daysOfMonth?: string | null;
+    monthOfYear?: number | null;
+    specificDate?: Date | null;
+    startOfPayment?: Date | null;
+    endOfPayment?: Date | null;
+    amount: number;
+  },
+  startDate: Date,
+  endDate: Date
+): number {
+  let occurrences = 0;
+  const amount = Number(expense.amount);
+
+  // If startOfPayment is set, use it as the effective start date
+  const effectiveStartDate = expense.startOfPayment
+    ? new Date(Math.max(new Date(expense.startOfPayment).getTime(), startDate.getTime()))
+    : startDate;
+
+  // For projected: use endOfPayment if set, otherwise use query endDate (no today limit)
+  const effectiveEndDate = expense.endOfPayment
+    ? new Date(Math.min(new Date(expense.endOfPayment).getTime(), endDate.getTime()))
+    : endDate;
+
+  if (expense.frequency === 'one_time') {
+    if (expense.specificDate) {
+      const expenseDate = new Date(expense.specificDate);
+      if (expenseDate >= effectiveStartDate && expenseDate <= effectiveEndDate) {
+        return amount;
+      }
+    }
+    return 0;
+  }
+
+  // Calculate months in range
+  const monthsInRange: Date[] = [];
+  const current = new Date(effectiveStartDate);
+  current.setDate(1); // Start from first day of month
+
+  while (current <= effectiveEndDate) {
+    monthsInRange.push(new Date(current));
+    current.setMonth(current.getMonth() + 1);
+  }
+
+  for (const monthStart of monthsInRange) {
+    const year = monthStart.getFullYear();
+    const month = monthStart.getMonth();
+
+    switch (expense.frequency) {
+      case 'weekly': {
+        if (expense.dayOfWeek !== null && expense.dayOfWeek !== undefined) {
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            if (
+              date.getDay() === expense.dayOfWeek &&
+              date >= effectiveStartDate &&
+              date <= effectiveEndDate
+            ) {
+              occurrences++;
+            }
+          }
+        }
+        break;
+      }
+
+      case 'twice_monthly': {
+        if (expense.daysOfMonth) {
+          const days = expense.daysOfMonth.split(',').map((d) => parseInt(d.trim()));
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+          for (const day of days) {
+            const actualDay = Math.min(day, daysInMonth);
+            const date = new Date(year, month, actualDay);
+            if (date >= effectiveStartDate && date <= effectiveEndDate) {
+              occurrences++;
+            }
+          }
+        }
+        break;
+      }
+
+      case 'monthly': {
+        if (expense.daysOfMonth) {
+          const day = parseInt(expense.daysOfMonth);
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+          const actualDay = Math.min(day, daysInMonth);
+          const date = new Date(year, month, actualDay);
+          if (date >= effectiveStartDate && date <= effectiveEndDate) {
+            occurrences++;
+          }
+        }
+        break;
+      }
+
+      case 'quarterly': {
+        if (expense.monthOfYear !== null && expense.monthOfYear !== undefined && expense.daysOfMonth) {
+          const expenseMonth = expense.monthOfYear;
+          const startMonth = expenseMonth - 1;
+          const currentMonth = month;
+          if ((currentMonth - startMonth) % 3 === 0 && currentMonth >= startMonth) {
+            const day = parseInt(expense.daysOfMonth);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const actualDay = Math.min(day, daysInMonth);
+            const date = new Date(year, month, actualDay);
+            if (date >= effectiveStartDate && date <= effectiveEndDate) {
+              occurrences++;
+            }
+          }
+        }
+        break;
+      }
+
+      case 'yearly': {
+        if (expense.monthOfYear !== null && expense.monthOfYear !== undefined && expense.daysOfMonth) {
+          const expenseMonth = expense.monthOfYear;
+          if (month === expenseMonth - 1) {
+            const day = parseInt(expense.daysOfMonth);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const actualDay = Math.min(day, daysInMonth);
+            const date = new Date(year, month, actualDay);
+            if (date >= effectiveStartDate && date <= effectiveEndDate) {
               occurrences++;
             }
           }
@@ -249,6 +403,26 @@ export async function GET(request: NextRequest) {
           monthOfYear: expense.monthOfYear,
           specificDate: expense.specificDate,
           startOfPayment: expense.startOfPayment,
+          endOfPayment: expense.endOfPayment,
+          amount: Number(expense.amount),
+        },
+        startDate,
+        endDate
+      );
+      return sum + expenseAmount;
+    }, 0);
+
+    // Calculate PROJECTED company expenses (full period, no today limit)
+    const companyExpensesProjected = companyExpenses.reduce((sum, expense) => {
+      const expenseAmount = calculateExpenseOccurrencesProjected(
+        {
+          frequency: expense.frequency,
+          dayOfWeek: expense.dayOfWeek,
+          daysOfMonth: expense.daysOfMonth,
+          monthOfYear: expense.monthOfYear,
+          specificDate: expense.specificDate,
+          startOfPayment: expense.startOfPayment,
+          endOfPayment: expense.endOfPayment,
           amount: Number(expense.amount),
         },
         startDate,
@@ -298,10 +472,15 @@ export async function GET(request: NextRequest) {
     // Calculate total revenue
     const revenue = projectIncome + transactionIncome;
 
-    // Calculate totals
+    // Calculate totals (actual)
     const totalExpenses = projectExpensesTotal + generalTransactionsTotal + companyExpensesTotal;
     const grossProfit = revenue - totalExpenses;
     const profitMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+
+    // Calculate projected totals
+    const totalExpensesProjected = projectExpensesTotal + generalTransactionsTotal + companyExpensesProjected;
+    const grossProfitProjected = revenue - totalExpensesProjected;
+    const profitMarginProjected = revenue > 0 ? (grossProfitProjected / revenue) * 100 : 0;
 
     // Calculate Current Funds (all-time cumulative balance)
     // Fetch ALL income and expenses regardless of date filter
@@ -360,6 +539,7 @@ export async function GET(request: NextRequest) {
           monthOfYear: expense.monthOfYear,
           specificDate: expense.specificDate,
           startOfPayment: expense.startOfPayment,
+          endOfPayment: expense.endOfPayment,
           amount: Number(expense.amount),
         },
         allTimeStartDate,
@@ -386,6 +566,7 @@ export async function GET(request: NextRequest) {
           monthOfYear: expense.monthOfYear,
           specificDate: expense.specificDate,
           startOfPayment: expense.startOfPayment,
+          endOfPayment: expense.endOfPayment,
           amount: Number(expense.amount),
         },
         startDate,
@@ -411,8 +592,11 @@ export async function GET(request: NextRequest) {
       projectExpenses: number;
       generalExpenses: number;
       companyExpenses: number;
+      companyExpensesProjected: number;
       totalExpenses: number;
+      totalExpensesProjected: number;
       profit: number;
+      profitProjected: number;
     }[] = [];
 
     if (year && !month) {
@@ -439,7 +623,7 @@ export async function GET(request: NextRequest) {
           0
         );
 
-        // Company expenses for this month
+        // Company expenses for this month (ACTUAL - only occurred)
         const monthCompanyExpenses = companyExpenses.reduce((sum, expense) => {
           return (
             sum +
@@ -451,6 +635,28 @@ export async function GET(request: NextRequest) {
                 monthOfYear: expense.monthOfYear,
                 specificDate: expense.specificDate,
                 startOfPayment: expense.startOfPayment,
+                endOfPayment: expense.endOfPayment,
+                amount: Number(expense.amount),
+              },
+              monthStart,
+              monthEnd
+            )
+          );
+        }, 0);
+
+        // Company expenses for this month (PROJECTED - full month)
+        const monthCompanyExpensesProjected = companyExpenses.reduce((sum, expense) => {
+          return (
+            sum +
+            calculateExpenseOccurrencesProjected(
+              {
+                frequency: expense.frequency,
+                dayOfWeek: expense.dayOfWeek,
+                daysOfMonth: expense.daysOfMonth,
+                monthOfYear: expense.monthOfYear,
+                specificDate: expense.specificDate,
+                startOfPayment: expense.startOfPayment,
+                endOfPayment: expense.endOfPayment,
                 amount: Number(expense.amount),
               },
               monthStart,
@@ -479,6 +685,7 @@ export async function GET(request: NextRequest) {
 
         const monthRevenue = monthProjectIncome + monthTransactionIncome;
         const monthTotalExpenses = monthProjectExpenses + monthGeneralExpenses + monthCompanyExpenses;
+        const monthTotalExpensesProjected = monthProjectExpenses + monthGeneralExpenses + monthCompanyExpensesProjected;
 
         monthlyData.push({
           month: m + 1,
@@ -488,8 +695,11 @@ export async function GET(request: NextRequest) {
           projectExpenses: monthProjectExpenses,
           generalExpenses: monthGeneralExpenses,
           companyExpenses: monthCompanyExpenses,
+          companyExpensesProjected: monthCompanyExpensesProjected,
           totalExpenses: monthTotalExpenses,
+          totalExpensesProjected: monthTotalExpensesProjected,
           profit: monthRevenue - monthTotalExpenses,
+          profitProjected: monthRevenue - monthTotalExpensesProjected,
         });
       }
     } else if (!year && !month) {
@@ -519,7 +729,7 @@ export async function GET(request: NextRequest) {
           0
         );
 
-        // Company expenses for this year
+        // Company expenses for this year (ACTUAL)
         const yearCompanyExpenses = companyExpenses.reduce((sum, expense) => {
           return (
             sum +
@@ -531,6 +741,28 @@ export async function GET(request: NextRequest) {
                 monthOfYear: expense.monthOfYear,
                 specificDate: expense.specificDate,
                 startOfPayment: expense.startOfPayment,
+                endOfPayment: expense.endOfPayment,
+                amount: Number(expense.amount),
+              },
+              yearStart,
+              yearEnd
+            )
+          );
+        }, 0);
+
+        // Company expenses for this year (PROJECTED)
+        const yearCompanyExpensesProjected = companyExpenses.reduce((sum, expense) => {
+          return (
+            sum +
+            calculateExpenseOccurrencesProjected(
+              {
+                frequency: expense.frequency,
+                dayOfWeek: expense.dayOfWeek,
+                daysOfMonth: expense.daysOfMonth,
+                monthOfYear: expense.monthOfYear,
+                specificDate: expense.specificDate,
+                startOfPayment: expense.startOfPayment,
+                endOfPayment: expense.endOfPayment,
                 amount: Number(expense.amount),
               },
               yearStart,
@@ -559,6 +791,7 @@ export async function GET(request: NextRequest) {
 
         const yearRevenue = yearProjectIncome + yearTransactionIncome;
         const yearTotalExpenses = yearProjectExpenses + yearGeneralExpenses + yearCompanyExpenses;
+        const yearTotalExpensesProjected = yearProjectExpenses + yearGeneralExpenses + yearCompanyExpensesProjected;
 
         // Use year as "month" field for yearly breakdown (will be handled differently in frontend)
         monthlyData.push({
@@ -569,8 +802,11 @@ export async function GET(request: NextRequest) {
           projectExpenses: yearProjectExpenses,
           generalExpenses: yearGeneralExpenses,
           companyExpenses: yearCompanyExpenses,
+          companyExpensesProjected: yearCompanyExpensesProjected,
           totalExpenses: yearTotalExpenses,
+          totalExpensesProjected: yearTotalExpensesProjected,
           profit: yearRevenue - yearTotalExpenses,
+          profitProjected: yearRevenue - yearTotalExpensesProjected,
         });
       }
     }
@@ -590,9 +826,13 @@ export async function GET(request: NextRequest) {
         projectExpenses: projectExpensesTotal,
         generalExpenses: generalTransactionsTotal,
         companyExpenses: companyExpensesTotal,
+        companyExpensesProjected,
         totalExpenses,
+        totalExpensesProjected,
         grossProfit,
+        grossProfitProjected,
         profitMargin,
+        profitMarginProjected,
         currentFunds,
       },
       expensesByCategory,

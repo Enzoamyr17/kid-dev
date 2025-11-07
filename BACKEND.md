@@ -661,6 +661,105 @@ Array<{
 
 ---
 
+## Company Expenses
+
+### GET `/api/expenses`
+
+Fetch all company expenses (recurring and one-time).
+
+**Response:**
+```typescript
+Array<{
+  id: string;
+  name: string;
+  amount: number;
+  frequency: "weekly" | "twice_monthly" | "monthly" | "quarterly" | "yearly" | "one_time";
+  dayOfWeek?: number | null; // 0-6 (Sunday-Saturday) for weekly
+  daysOfMonth?: string | null; // e.g., "15" for monthly, "15,30" for twice_monthly
+  monthOfYear?: number | null; // 1-12 for yearly/quarterly
+  specificDate?: string | null; // ISO date for one_time
+  startOfPayment?: string | null; // ISO date - when payments started
+  endOfPayment?: string | null; // ISO date - when payments end (null = ongoing)
+  category?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}>
+```
+
+### POST `/api/expenses`
+
+Create a new company expense.
+
+**Request:**
+```typescript
+{
+  name: string;
+  amount: number;
+  frequency: "weekly" | "twice_monthly" | "monthly" | "quarterly" | "yearly" | "one_time";
+  dayOfWeek?: number; // Required for weekly
+  daysOfMonth?: string; // Required for monthly/quarterly/yearly (e.g., "15" or "15,30")
+  monthOfYear?: number; // Required for yearly/quarterly (1-12)
+  specificDate?: string; // Required for one_time (ISO date)
+  startOfPayment?: string | null; // Optional ISO date
+  endOfPayment?: string | null; // Optional ISO date - null means ongoing
+  category?: string;
+  notes?: string;
+  isActive?: boolean; // Defaults to true
+}
+```
+
+**Notes:**
+- **Frequency-specific fields:**
+  - `weekly`: requires `dayOfWeek` (0-6)
+  - `twice_monthly`: uses `daysOfMonth` with comma-separated values (e.g., "15,30")
+  - `monthly`: requires `daysOfMonth` (single day, e.g., "15")
+  - `quarterly`: requires `daysOfMonth` and `monthOfYear` (starting month of quarter cycle)
+  - `yearly`: requires `daysOfMonth` and `monthOfYear`
+  - `one_time`: requires `specificDate`
+- **Date fields:**
+  - `startOfPayment`: Optional start date for when payments began
+  - `endOfPayment`: Optional end date for when payments stop
+    - `null` = ongoing recurring expense (no end date)
+    - Set date = last payment date (expense ends on this date)
+  - Used for calculating expense status (Ongoing, Active, Ended)
+- **Status calculation:**
+  - If `endOfPayment` is null → "Ongoing" (continues indefinitely)
+  - If `endOfPayment` is in the future → "Active" (will end on specified date)
+  - If `endOfPayment` is in the past → "Ended" (no longer active)
+
+### PATCH `/api/expenses`
+
+Update an existing expense.
+
+**Request:**
+```typescript
+{
+  id: number;
+  name?: string;
+  amount?: number;
+  frequency?: string;
+  dayOfWeek?: number;
+  daysOfMonth?: string;
+  monthOfYear?: number;
+  specificDate?: string;
+  startOfPayment?: string | null;
+  endOfPayment?: string | null;
+  category?: string;
+  notes?: string;
+  isActive?: boolean;
+}
+```
+
+**Validation:**
+- If both `startOfPayment` and `endOfPayment` are set, validate that `endOfPayment` is after `startOfPayment`
+
+### DELETE `/api/expenses?id={id}`
+
+Delete a company expense.
+
+---
+
 ## Migration Notes
 
 - **IDs:** All IDs changed from BigInt to Int (number)

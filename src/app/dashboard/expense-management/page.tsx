@@ -19,6 +19,7 @@ interface CompanyExpense {
   monthOfYear?: number | null;
   specificDate?: string | null;
   startOfPayment?: string | null;
+  endOfPayment?: string | null;
   category?: string | null;
   notes?: string | null;
   isActive: boolean;
@@ -36,6 +37,7 @@ interface NewExpense {
   monthOfYear: string;
   specificDate: Date | undefined;
   startOfPayment: Date | undefined;
+  endOfPayment: Date | undefined;
   category: string;
   notes: string;
 }
@@ -98,6 +100,7 @@ export default function ExpenseManagementPage() {
     monthOfYear: "",
     specificDate: undefined,
     startOfPayment: undefined,
+    endOfPayment: undefined,
     category: "",
     notes: "",
   });
@@ -126,6 +129,22 @@ export default function ExpenseManagementPage() {
     }
   };
 
+  const formatDateForAPI = (date: Date | undefined) => {
+    if (!date) return null;
+    // Format as YYYY-MM-DD in local timezone to avoid timezone shifts
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}T00:00:00.000Z`;
+  };
+
+  const formatDateFromAPI = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    // Parse the UTC date and display it without timezone conversion
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { timeZone: 'UTC' });
+  };
+
   const handleSubmit = async () => {
     console.log('[Expense Management] Starting submission with data:', newExpense);
 
@@ -142,7 +161,8 @@ export default function ExpenseManagementPage() {
         name: newExpense.name,
         amount: Number(newExpense.amount),
         frequency: newExpense.frequency,
-        startOfPayment: newExpense.startOfPayment ? newExpense.startOfPayment.toISOString() : null,
+        startOfPayment: formatDateForAPI(newExpense.startOfPayment),
+        endOfPayment: formatDateForAPI(newExpense.endOfPayment),
         category: newExpense.category || null,
         notes: newExpense.notes || null,
         isActive: true,
@@ -200,7 +220,7 @@ export default function ExpenseManagementPage() {
             setIsSubmitting(false);
             return;
           }
-          payload.specificDate = newExpense.specificDate.toISOString();
+          payload.specificDate = formatDateForAPI(newExpense.specificDate);
           break;
       }
 
@@ -235,6 +255,7 @@ export default function ExpenseManagementPage() {
         monthOfYear: "",
         specificDate: undefined,
         startOfPayment: undefined,
+        endOfPayment: undefined,
         category: "",
         notes: "",
       });
@@ -261,27 +282,10 @@ export default function ExpenseManagementPage() {
       monthOfYear: "",
       specificDate: undefined,
       startOfPayment: undefined,
+      endOfPayment: undefined,
       category: "",
       notes: "",
     });
-  };
-
-  const toggleActive = async (expenseId: string, currentStatus: boolean) => {
-    const newStatus = !currentStatus;
-    setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, isActive: newStatus } : e));
-
-    try {
-      const response = await fetch("/api/expenses", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: Number(expenseId), isActive: newStatus }),
-      });
-      if (!response.ok) throw new Error("Failed");
-      toast.success(`Expense ${newStatus ? 'activated' : 'deactivated'}`);
-    } catch (error) {
-      setExpenses(prev => prev.map(e => e.id === expenseId ? { ...e, isActive: currentStatus } : e));
-      toast.error("Failed to update status");
-    }
   };
 
   const handleDelete = async (expenseId: string) => {
@@ -326,11 +330,27 @@ export default function ExpenseManagementPage() {
         return `${month} ${expense.daysOfMonth}`;
 
       case 'one_time':
-        return expense.specificDate ? new Date(expense.specificDate).toLocaleDateString() : '-';
+        return formatDateFromAPI(expense.specificDate) || '-';
 
       default:
         return '-';
     }
+  };
+
+  const getExpenseStatus = (expense: CompanyExpense) => {
+    if (!expense.endOfPayment) {
+      return { label: 'Ongoing', color: 'bg-green-100 text-green-700' };
+    }
+
+    const endDate = new Date(expense.endOfPayment);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (endDate < today) {
+      return { label: 'Ended', color: 'bg-gray-100 text-gray-700' };
+    }
+
+    return { label: 'Active', color: 'bg-blue-100 text-blue-700' };
   };
 
   const renderRecurrenceInput = () => {
@@ -481,6 +501,7 @@ export default function ExpenseManagementPage() {
               <TableHead>Frequency</TableHead>
               <TableHead>Recurrence Details</TableHead>
               <TableHead>Start of Payment</TableHead>
+              <TableHead>End of Payment</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
@@ -536,6 +557,18 @@ export default function ExpenseManagementPage() {
                   />
                 </TableCell>
                 <TableCell>
+                  <Field
+                    type="date"
+                    value={newExpense.endOfPayment}
+                    onChange={(d) => setNewExpense({ ...newExpense, endOfPayment: d })}
+                    className="h-8"
+                    captionLayout="dropdown"
+                    disabled={isSubmitting}
+                    fromYear={2000}
+                    toYear={new Date().getFullYear() + 50}
+                  />
+                </TableCell>
+                <TableCell>
                   <Input
                     value={newExpense.category}
                     onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
@@ -572,7 +605,7 @@ export default function ExpenseManagementPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: 9 }).map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -581,49 +614,48 @@ export default function ExpenseManagementPage() {
               ))
             ) : expenses.length === 0 && !isAddingRow ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                   No expenses found. Click &quot;Add Expense&quot; to create one.
                 </TableCell>
               </TableRow>
             ) : (
-              expenses.map((expense) => (
-                <TableRow key={expense.id}>
-                  <TableCell className="font-medium">{expense.name}</TableCell>
-                  <TableCell className="text-right">₱{Number(expense.amount).toLocaleString()}</TableCell>
-                  <TableCell>{formatFrequency(expense.frequency)}</TableCell>
-                  <TableCell>{formatRecurrence(expense)}</TableCell>
-                  <TableCell>
-                    {expense.startOfPayment
-                      ? new Date(expense.startOfPayment).toLocaleDateString()
-                      : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <span className="capitalize">{expense.category?.replace('_', ' ') || "-"}</span>
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => toggleActive(expense.id, expense.isActive)}
-                      className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                        expense.isActive
-                          ? "bg-green-100 text-green-700 hover:bg-green-200"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      {expense.isActive ? "Active" : "Inactive"}
-                    </button>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(expense.id)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+              expenses.map((expense) => {
+                const status = getExpenseStatus(expense);
+                return (
+                  <TableRow key={expense.id}>
+                    <TableCell className="font-medium">{expense.name}</TableCell>
+                    <TableCell className="text-right">₱{Number(expense.amount).toLocaleString()}</TableCell>
+                    <TableCell>{formatFrequency(expense.frequency)}</TableCell>
+                    <TableCell>{formatRecurrence(expense)}</TableCell>
+                    <TableCell>
+                      {formatDateFromAPI(expense.startOfPayment) || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {expense.endOfPayment
+                        ? formatDateFromAPI(expense.endOfPayment)
+                        : <span className="text-muted-foreground">Ongoing</span>}
+                    </TableCell>
+                    <TableCell>
+                      <span className="capitalize">{expense.category?.replace('_', ' ') || "-"}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
+                        {status.label}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(expense.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

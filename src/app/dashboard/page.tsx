@@ -24,9 +24,13 @@ interface DashboardMetrics {
     projectExpenses: number;
     generalExpenses: number;
     companyExpenses: number;
+    companyExpensesProjected: number;
     totalExpenses: number;
+    totalExpensesProjected: number;
     grossProfit: number;
+    grossProfitProjected: number;
     profitMargin: number;
+    profitMarginProjected: number;
     currentFunds: number;
   };
   expensesByCategory: Record<string, number>;
@@ -38,8 +42,11 @@ interface DashboardMetrics {
     projectExpenses: number;
     generalExpenses: number;
     companyExpenses: number;
+    companyExpensesProjected: number;
     totalExpenses: number;
+    totalExpensesProjected: number;
     profit: number;
+    profitProjected: number;
   }[] | null;
   projectCount: number;
   activeCompanyExpenses: number;
@@ -312,6 +319,11 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold mt-1">
                 {formatCurrency(metrics?.summary?.grossProfit || 0)}
               </p>
+              {metrics?.summary?.grossProfit !== metrics?.summary?.grossProfitProjected && (
+                <p className="text-xs opacity-70 mt-2">
+                  Projected: {formatCurrency(metrics?.summary?.grossProfitProjected || 0)}
+                </p>
+              )}
             </div>
 
             {/* Total Income */}
@@ -330,6 +342,11 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold mt-1">
                 {formatCurrency(metrics?.summary?.totalExpenses || 0)}
               </p>
+              {metrics?.summary?.totalExpenses !== metrics?.summary?.totalExpensesProjected && (
+                <p className="text-xs opacity-70 mt-2">
+                  Projected: {formatCurrency(metrics?.summary?.totalExpensesProjected || 0)}
+                </p>
+              )}
             </div>
 
             {/* Profit Margin */}
@@ -339,6 +356,11 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold mt-1">
                 {formatPercent(metrics?.summary?.profitMargin || 0)}
               </p>
+              {metrics?.summary?.profitMargin !== metrics?.summary?.profitMarginProjected && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Projected: {formatPercent(metrics?.summary?.profitMarginProjected || 0)}
+                </p>
+              )}
             </div>
 
             {/* Current Funds */}
@@ -400,6 +422,11 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold">
                 {formatCurrency(metrics?.summary?.companyExpenses || 0)}
               </p>
+              {metrics?.summary?.companyExpenses !== metrics?.summary?.companyExpensesProjected && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Projected: {formatCurrency(metrics?.summary?.companyExpensesProjected || 0)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -625,8 +652,8 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="border-b">
                     <th className="text-left py-2 px-2">{selectedYear ? "Month" : "Year"}</th>
-                    <th colSpan={3} className="text-center py-2 bg-emerald-50 font-semibold border-l border-r border-emerald-200">Income</th>
-                    <th colSpan={4} className="text-center py-2 bg-red-50 font-semibold border-l border-r border-red-200">Expenses</th>
+                    <th colSpan={3} className="text-center py-2 bg-emerald-50 font-semibold border-l border-r border-emerald-200">Income(Projected)</th>
+                    <th colSpan={4} className="text-center py-2 bg-red-50 font-semibold border-l border-r border-red-200">Expenses(Projected)</th>
                     <th className="text-center py-2 font-semibold border-l border-orange-200">Summary</th>
                   </tr>
                   <tr className="border-b">
@@ -661,14 +688,25 @@ export default function DashboardPage() {
                       <td className="text-right bg-emerald-50 px-2 font-semibold border-r border-emerald-200">{formatCurrency(data.revenue)}</td>
                       <td className="text-right bg-red-50 px-2 border-l border-red-200">{formatCurrency(data.projectExpenses)}</td>
                       <td className="text-right bg-red-50 px-2">{formatCurrency(data.generalExpenses)}</td>
-                      <td className="text-right bg-red-50 px-2">{formatCurrency(data.companyExpenses)}</td>
-                      <td className="text-right bg-red-50 px-2 font-semibold border-r border-red-200">{formatCurrency(data.totalExpenses)}</td>
-                      <td
-                        className={`text-right px-2 font-semibold border-l border-orange-200 ${
-                          data.profit >= 0 ? "text-emerald-600" : "text-red-600"
-                        }`}
-                      >
-                        {formatCurrency(data.profit)}
+                      <td className="text-right bg-red-50 px-2">
+                        <div>{formatCurrency(data.companyExpenses)}</div>
+                        {data.companyExpenses !== data.companyExpensesProjected && (
+                          <div className="text-xs text-muted-foreground">({formatCurrency(data.companyExpensesProjected)})</div>
+                        )}
+                      </td>
+                      <td className="text-right bg-red-50 px-2 font-semibold border-r border-red-200">
+                        <div>{formatCurrency(data.totalExpenses)}</div>
+                        {data.totalExpenses !== data.totalExpensesProjected && (
+                          <div className="text-xs text-muted-foreground">({formatCurrency(data.totalExpensesProjected)})</div>
+                        )}
+                      </td>
+                      <td className={`text-right px-2 font-semibold border-l border-orange-200 ${data.profit >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                        <div>{formatCurrency(data.profit)}</div>
+                        {data.profit !== data.profitProjected && (
+                          <div className={`text-xs ${data.profitProjected >= 0 ? "text-emerald-600/70" : "text-red-600/70"}`}>
+                            ({formatCurrency(data.profitProjected)})
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}

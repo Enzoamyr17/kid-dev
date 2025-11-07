@@ -478,6 +478,7 @@ model CompanyExpense {
   monthOfYear     Int?
   specificDate    DateTime?        @db.Date
   startOfPayment  DateTime?        @db.Date
+  endOfPayment    DateTime?        @db.Date
   isActive        Boolean          @default(true)
   category        String?          @db.VarChar(255)
   notes           String?          @db.Text

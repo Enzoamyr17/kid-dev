@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('[API /expenses] Creating expense with data:', body);
 
-    const { name, amount, frequency, dayOfWeek, daysOfMonth, monthOfYear, specificDate, startOfPayment, category, notes } = body as {
+    const { name, amount, frequency, dayOfWeek, daysOfMonth, monthOfYear, specificDate, startOfPayment, endOfPayment, category, notes } = body as {
       name: string;
       amount: number;
       frequency: string;
@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       monthOfYear?: number;
       specificDate?: string;
       startOfPayment?: string;
+      endOfPayment?: string;
       category?: string;
       notes?: string;
     };
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
           monthOfYear: monthOfYear !== undefined ? monthOfYear : null,
           specificDate: specificDate ? new Date(specificDate) : null,
           startOfPayment: startOfPayment ? new Date(startOfPayment) : null,
+          endOfPayment: endOfPayment ? new Date(endOfPayment) : null,
           category: category || null,
           notes: notes || null,
           isActive: true,
@@ -152,6 +154,7 @@ export async function PATCH(request: NextRequest) {
     if (updateData.monthOfYear !== undefined) data.monthOfYear = updateData.monthOfYear;
     if (updateData.specificDate !== undefined) data.specificDate = updateData.specificDate ? new Date(updateData.specificDate) : null;
     if (updateData.startOfPayment !== undefined) data.startOfPayment = updateData.startOfPayment ? new Date(updateData.startOfPayment) : null;
+    if (updateData.endOfPayment !== undefined) data.endOfPayment = updateData.endOfPayment ? new Date(updateData.endOfPayment) : null;
     if (updateData.category !== undefined) data.category = updateData.category;
     if (updateData.notes !== undefined) data.notes = updateData.notes;
     if (updateData.isActive !== undefined) data.isActive = updateData.isActive;
