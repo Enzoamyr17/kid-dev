@@ -290,43 +290,27 @@ export default function DashboardPage() {
         </div>
       ) : metrics ? (
         <>
-          {/* Summary Cards */}
+          {/* Summary Cards - Row 1: Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Gross Profit */}
+            {/* Gross Profit / Loss */}
             <div className="bg-gradient-to-br from-orange-400 to-orange-600 text-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium opacity-90">Gross Profit</h3>
+              <h3 className="text-sm font-medium opacity-90">Gross Profit / Loss</h3>
               <p className="text-2xl font-bold mt-2">
                 {formatCurrency(metrics.summary.grossProfit)}
               </p>
             </div>
 
-            {/* Project Income */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-muted-foreground">Project Income</h3>
-              <p className="text-2xl font-bold mt-2">
-                {formatCurrency(metrics.summary.projectIncome)}
-              </p>
-            </div>
-
-            {/* Transaction Income */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-muted-foreground">Transaction Income</h3>
-              <p className="text-2xl font-bold mt-2">
-                {formatCurrency(metrics.summary.transactionIncome)}
-              </p>
-            </div>
-
-            {/* Total Revenue */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Revenue</h3>
+            {/* Total Income */}
+            <div className="bg-gradient-to-br from-emerald-400 to-emerald-600 text-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium opacity-90">Total Income</h3>
               <p className="text-2xl font-bold mt-2">
                 {formatCurrency(metrics.summary.revenue)}
               </p>
             </div>
 
             {/* Total Expenses */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Expenses</h3>
+            <div className="bg-gradient-to-br from-red-400 to-red-600 text-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium opacity-90">Total Expenses</h3>
               <p className="text-2xl font-bold mt-2">
                 {formatCurrency(metrics.summary.totalExpenses)}
               </p>
@@ -341,8 +325,119 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Expense Breakdown */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Summary Cards - Row 2: Income & Expense Breakdown */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Revenue (from Projects) */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-emerald-600">Revenue</h3>
+              <p className="text-xs text-muted-foreground mb-1">Income from Projects</p>
+              <p className="text-2xl font-bold">
+                {formatCurrency(metrics.summary.projectIncome)}
+              </p>
+            </div>
+
+            {/* Other Income (from Transactions) */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-emerald-600">Other Income</h3>
+              <p className="text-xs text-muted-foreground mb-1">Income from Transactions</p>
+              <p className="text-2xl font-bold">
+                {formatCurrency(metrics.summary.transactionIncome)}
+              </p>
+            </div>
+
+            {/* Project Expenses */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-red-600">Project Expenses</h3>
+              <p className="text-xs text-muted-foreground mb-1">Expenses from Projects</p>
+              <p className="text-2xl font-bold">
+                {formatCurrency(metrics.summary.projectExpenses)}
+              </p>
+            </div>
+
+            {/* General Expenses */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-red-600">General Expenses</h3>
+              <p className="text-xs text-muted-foreground mb-1">Transaction Expenses</p>
+              <p className="text-2xl font-bold">
+                {formatCurrency(metrics.summary.generalExpenses)}
+              </p>
+            </div>
+
+            {/* Company Expenses */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-sm font-medium text-red-600">Company Expenses</h3>
+              <p className="text-xs text-muted-foreground mb-1">From Expense Management</p>
+              <p className="text-2xl font-bold">
+                {formatCurrency(metrics.summary.companyExpenses)}
+              </p>
+            </div>
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Income Types - Pie Chart */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-4">Income Types</h3>
+              <div className="flex flex-col items-center">
+                <div className="w-full max-w-xs">
+                  <Pie
+                    data={{
+                      labels: ["Revenue", "Other Income"],
+                      datasets: [
+                        {
+                          data: [
+                            metrics.summary.projectIncome,
+                            metrics.summary.transactionIncome,
+                          ],
+                          backgroundColor: [
+                            "rgb(16, 185, 129)", // emerald-500
+                            "rgb(52, 211, 153)", // emerald-400
+                          ],
+                          borderColor: [
+                            "rgb(16, 185, 129)",
+                            "rgb(52, 211, 153)",
+                          ],
+                          borderWidth: 1,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: true,
+                      plugins: {
+                        legend: {
+                          position: "bottom",
+                          labels: {
+                            padding: 15,
+                            font: {
+                              size: 12,
+                            },
+                          },
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              const label = context.label || "";
+                              const value = context.parsed || 0;
+                              const total = metrics.summary.revenue;
+                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                              return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+                <div className="mt-6 pt-6 border-t w-full">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium">Total Income</span>
+                    <span className="font-bold text-emerald-600">{formatCurrency(metrics.summary.revenue)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Expense Types - Pie Chart */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">Expense Types</h3>
@@ -359,13 +454,13 @@ export default function DashboardPage() {
                             metrics.summary.companyExpenses,
                           ],
                           backgroundColor: [
-                            "rgb(59, 130, 246)", // blue-500
-                            "rgb(34, 197, 94)", // green-500
+                            "rgb(239, 68, 68)", // red-500
+                            "rgb(251, 146, 60)", // orange-400
                             "rgb(168, 85, 247)", // purple-500
                           ],
                           borderColor: [
-                            "rgb(59, 130, 246)",
-                            "rgb(34, 197, 94)",
+                            "rgb(239, 68, 68)",
+                            "rgb(251, 146, 60)",
                             "rgb(168, 85, 247)",
                           ],
                           borderWidth: 1,
@@ -390,7 +485,9 @@ export default function DashboardPage() {
                             label: function (context) {
                               const label = context.label || "";
                               const value = context.parsed || 0;
-                              return `${label}: ${formatCurrency(value)}`;
+                              const total = metrics.summary.totalExpenses;
+                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                              return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                             },
                           },
                         },
@@ -400,12 +497,8 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-6 pt-6 border-t w-full">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium">Active Projects</span>
-                    <span className="font-bold">{metrics.projectCount}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm mt-2">
-                    <span className="font-medium">Planned Company Expenses</span>
-                    <span className="font-bold">{metrics.activeCompanyExpenses}</span>
+                    <span className="font-medium">Total Expenses</span>
+                    <span className="font-bold text-red-600">{formatCurrency(metrics.summary.totalExpenses)}</span>
                   </div>
                 </div>
               </div>
@@ -424,12 +517,12 @@ export default function DashboardPage() {
                       {
                         label: "Income",
                         data: metrics.monthlyData.map((data) => data.revenue),
-                        backgroundColor: "rgb(34, 197, 94)", // green-500
-                        borderColor: "rgb(34, 197, 94)",
+                        backgroundColor: "rgb(16, 185, 129)", // emerald-500
+                        borderColor: "rgb(16, 185, 129)",
                         borderWidth: 1,
                       },
                       {
-                        label: "Total Expenses",
+                        label: "Expenses",
                         data: metrics.monthlyData.map((data) => data.totalExpenses),
                         backgroundColor: "rgb(239, 68, 68)", // red-500
                         borderColor: "rgb(239, 68, 68)",
@@ -476,6 +569,16 @@ export default function DashboardPage() {
                     },
                   }}
                 />
+                <div className="mt-6 pt-6 border-t">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium">Active Projects</span>
+                    <span className="font-bold">{metrics.projectCount}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mt-2">
+                    <span className="font-medium">Company Expense Items</span>
+                    <span className="font-bold">{metrics.activeCompanyExpenses}</span>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -491,15 +594,21 @@ export default function DashboardPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2">{selectedYear ? "Month" : "Year"}</th>
-                    <th className="text-right py-2 bg-green-50 px-1">Project</th>
-                    <th className="text-right py-2 bg-green-50 px-1">Transaction</th>
-                    <th className="text-right py-2 bg-green-50 px-1 font-semibold">Total Revenue</th>
-                    <th className="text-right py-2 bg-red-50 px-1">Project</th>
-                    <th className="text-right py-2 bg-red-50 px-1">General</th>
-                    <th className="text-right py-2 bg-red-50 px-1">Company</th>
-                    <th className="text-right py-2 bg-red-50 px-1 font-semibold">Total</th>
-                    <th className="text-right py-2 font-semibold">Profit</th>
+                    <th className="text-left py-2 px-2">{selectedYear ? "Month" : "Year"}</th>
+                    <th colSpan={3} className="text-center py-2 bg-emerald-50 font-semibold border-l border-r border-emerald-200">Income</th>
+                    <th colSpan={4} className="text-center py-2 bg-red-50 font-semibold border-l border-r border-red-200">Expenses</th>
+                    <th className="text-center py-2 font-semibold border-l border-orange-200">Summary</th>
+                  </tr>
+                  <tr className="border-b">
+                    <th className="text-left py-2 px-2"></th>
+                    <th className="text-right py-2 bg-emerald-50 px-2 border-l border-emerald-200">Revenue</th>
+                    <th className="text-right py-2 bg-emerald-50 px-2">Other Income</th>
+                    <th className="text-right py-2 bg-emerald-50 px-2 font-semibold border-r border-emerald-200">Total Income</th>
+                    <th className="text-right py-2 bg-red-50 px-2 border-l border-red-200">Project</th>
+                    <th className="text-right py-2 bg-red-50 px-2">General</th>
+                    <th className="text-right py-2 bg-red-50 px-2">Company</th>
+                    <th className="text-right py-2 bg-red-50 px-2 font-semibold border-r border-red-200">Total Expenses</th>
+                    <th className="text-right py-2 px-2 font-semibold border-l border-orange-200">Gross Profit</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -512,21 +621,21 @@ export default function DashboardPage() {
                           : "hover:bg-gray-50"
                       }`}
                     >
-                      <td className="py-2 font-medium">
+                      <td className="py-2 px-2 font-medium">
                         {selectedYear
                           ? MONTHS.find((m) => m.value === String(data.month))?.label
                           : data.month}
                       </td>
-                      <td className="text-right bg-green-50 px-1">{formatCurrency(data.projectIncome)}</td>
-                      <td className="text-right bg-green-50 px-1">{formatCurrency(data.transactionIncome)}</td>
-                      <td className="text-right bg-green-50 px-1 font-semibold">{formatCurrency(data.revenue)}</td>
-                      <td className="text-right bg-red-50 px-1">{formatCurrency(data.projectExpenses)}</td>
-                      <td className="text-right bg-red-50 px-1">{formatCurrency(data.generalExpenses)}</td>
-                      <td className="text-right bg-red-50 px-1">{formatCurrency(data.companyExpenses)}</td>
-                      <td className="text-right bg-red-50 px-1 font-semibold">{formatCurrency(data.totalExpenses)}</td>
+                      <td className="text-right bg-emerald-50 px-2 border-l border-emerald-200">{formatCurrency(data.projectIncome)}</td>
+                      <td className="text-right bg-emerald-50 px-2">{formatCurrency(data.transactionIncome)}</td>
+                      <td className="text-right bg-emerald-50 px-2 font-semibold border-r border-emerald-200">{formatCurrency(data.revenue)}</td>
+                      <td className="text-right bg-red-50 px-2 border-l border-red-200">{formatCurrency(data.projectExpenses)}</td>
+                      <td className="text-right bg-red-50 px-2">{formatCurrency(data.generalExpenses)}</td>
+                      <td className="text-right bg-red-50 px-2">{formatCurrency(data.companyExpenses)}</td>
+                      <td className="text-right bg-red-50 px-2 font-semibold border-r border-red-200">{formatCurrency(data.totalExpenses)}</td>
                       <td
-                        className={`text-right font-semibold ${
-                          data.profit >= 0 ? "text-green-600" : "text-red-600"
+                        className={`text-right px-2 font-semibold border-l border-orange-200 ${
+                          data.profit >= 0 ? "text-emerald-600" : "text-red-600"
                         }`}
                       >
                         {formatCurrency(data.profit)}

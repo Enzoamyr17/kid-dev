@@ -93,6 +93,21 @@ export default function ProjectEncodingPage() {
     return `PPROJ${year}-#####`;
   };
 
+  // Handle numeric input - allow only valid decimal numbers
+  const handleNumericInput = (value: string) => {
+    // Allow empty string
+    if (value === "") return "";
+
+    // Allow numbers with optional decimal point and up to 2 decimal places
+    const regex = /^\d*\.?\d{0,2}$/;
+    if (regex.test(value)) {
+      return value;
+    }
+
+    // If invalid, return the previous valid value (handled by not updating state)
+    return null;
+  };
+
   const handleSubmit = async () => {
     console.log('[Project Encoding] Starting submission with data:', newProject);
 
@@ -110,6 +125,20 @@ export default function ProjectEncodingPage() {
       return;
     }
 
+    // Validate numeric fields
+    const receivableNum = newProject.receivable ? parseFloat(newProject.receivable) : 0;
+    const expenseNum = newProject.expense ? parseFloat(newProject.expense) : 0;
+
+    if (newProject.receivable && (isNaN(receivableNum) || receivableNum < 0)) {
+      toast.error("Please enter a valid receivable amount");
+      return;
+    }
+
+    if (newProject.expense && (isNaN(expenseNum) || expenseNum < 0)) {
+      toast.error("Please enter a valid expense amount");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -124,8 +153,8 @@ export default function ProjectEncodingPage() {
       } = {
         description: newProject.description,
         projectDate: newProject.projectDate.toISOString(),
-        receivable: newProject.receivable ? Number(newProject.receivable) : 0,
-        expense: newProject.expense ? Number(newProject.expense) : 0,
+        receivable: receivableNum,
+        expense: expenseNum,
       };
 
       if (newProject.companyId) {
@@ -308,29 +337,33 @@ export default function ProjectEncodingPage() {
                 <TableCell>
                   <Input
                     value={newProject.receivable}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, receivable: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const validValue = handleNumericInput(e.target.value);
+                      if (validValue !== null) {
+                        setNewProject({ ...newProject, receivable: validValue });
+                      }
+                    }}
                     disabled={isSubmitting}
                     className="h-8 text-right"
                     placeholder="0.00"
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                   />
                 </TableCell>
                 <TableCell>
                   <Input
                     value={newProject.expense}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, expense: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const validValue = handleNumericInput(e.target.value);
+                      if (validValue !== null) {
+                        setNewProject({ ...newProject, expense: validValue });
+                      }
+                    }}
                     disabled={isSubmitting}
                     className="h-8 text-right"
                     placeholder="0.00"
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                   />
                 </TableCell>
                 <TableCell>
