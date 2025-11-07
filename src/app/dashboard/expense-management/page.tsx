@@ -49,14 +49,6 @@ const FREQUENCY_OPTIONS = [
   { value: "one_time", label: "One-Time" },
 ];
 
-const CATEGORY_OPTIONS = [
-  { value: "utilities", label: "Utilities(Electricity, Water, Internet, etc.)" },
-  { value: "payroll", label: "Payroll(Salaries, Benefits, etc.)" },
-  { value: "rent", label: "Rent(Office, Warehouse, etc.)" },
-  { value: "operational", label: "Operational(Marketing, Advertising, etc.)" },
-  { value: "other", label: "Other(Insurance, Taxes, etc.)" },
-];
-
 const DAYS_OF_WEEK = [
   { value: "0", label: "Sunday" },
   { value: "1", label: "Monday" },
@@ -94,6 +86,7 @@ export default function ExpenseManagementPage() {
   const [loading, setLoading] = useState(true);
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [newExpense, setNewExpense] = useState<NewExpense>({
     name: "",
     amount: "",
@@ -119,6 +112,12 @@ export default function ExpenseManagementPage() {
       const data = await response.json();
       if (!response.ok) throw new Error("Failed to fetch expenses");
       setExpenses(data);
+
+      // Extract unique categories from expenses
+      const uniqueCategories = Array.from(
+        new Set(data.filter((e: CompanyExpense) => e.category).map((e: CompanyExpense) => e.category))
+      ) as string[];
+      setAvailableCategories(uniqueCategories);
     } catch (error) {
       toast.error("Failed to fetch expenses");
       console.error(error);
@@ -537,15 +536,19 @@ export default function ExpenseManagementPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  <Field
-                    type="select"
+                  <Input
                     value={newExpense.category}
-                    onChange={(value) => setNewExpense({ ...newExpense, category: value })}
-                    options={CATEGORY_OPTIONS}
+                    onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
                     disabled={isSubmitting}
-                    placeholder="Category"
                     className="h-8"
+                    placeholder="Category"
+                    list="expense-category-suggestions"
                   />
+                  <datalist id="expense-category-suggestions">
+                    {availableCategories.map((cat) => (
+                      <option key={cat} value={cat} />
+                    ))}
+                  </datalist>
                 </TableCell>
                 <TableCell>-</TableCell>
                 <TableCell>
