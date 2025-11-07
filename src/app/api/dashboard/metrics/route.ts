@@ -552,6 +552,29 @@ export async function GET(request: NextRequest) {
     const allTimeTotalExpenses = allTimeProjectExpenses + allTimeGeneralExpenses + allTimeCompanyExpenses;
     const currentFunds = allTimeTotalIncome - allTimeTotalExpenses;
 
+    // Calculate projected current funds (all-time income - projected expenses up to end of year)
+    const currentYear = new Date().getFullYear();
+    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999);
+    const allTimeCompanyExpensesProjected = companyExpenses.reduce((sum, expense) => {
+      const expenseAmount = calculateExpenseOccurrencesProjected(
+        {
+          frequency: expense.frequency,
+          dayOfWeek: expense.dayOfWeek,
+          daysOfMonth: expense.daysOfMonth,
+          monthOfYear: expense.monthOfYear,
+          specificDate: expense.specificDate,
+          startOfPayment: expense.startOfPayment,
+          endOfPayment: expense.endOfPayment,
+          amount: Number(expense.amount),
+        },
+        allTimeStartDate,
+        endOfYear
+      );
+      return sum + expenseAmount;
+    }, 0);
+    const allTimeTotalExpensesProjected = allTimeProjectExpenses + allTimeGeneralExpenses + allTimeCompanyExpensesProjected;
+    const currentFundsProjected = allTimeTotalIncome - allTimeTotalExpensesProjected;
+
     // Company Expense breakdown by category (planned company expenses + general transactions)
     const expensesByCategory: Record<string, number> = {};
 
@@ -834,6 +857,7 @@ export async function GET(request: NextRequest) {
         profitMargin,
         profitMarginProjected,
         currentFunds,
+        currentFundsProjected,
       },
       expensesByCategory,
       monthlyData: monthlyData.length > 0 ? monthlyData : null,

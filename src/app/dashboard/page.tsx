@@ -32,6 +32,7 @@ interface DashboardMetrics {
     profitMargin: number;
     profitMarginProjected: number;
     currentFunds: number;
+    currentFundsProjected: number;
   };
   expensesByCategory: Record<string, number>;
   monthlyData: {
@@ -374,6 +375,11 @@ export default function DashboardPage() {
               <p className="text-2xl font-bold mt-1">
                 {formatCurrency(metrics?.summary?.currentFunds || 0)}
               </p>
+              {metrics?.summary?.currentFunds !== metrics?.summary?.currentFundsProjected && (
+                <p className="text-xs opacity-70 mt-2">
+                  Projected (EOY): {formatCurrency(metrics?.summary?.currentFundsProjected || 0)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -448,7 +454,7 @@ export default function DashboardPage() {
                           ],
                           backgroundColor: [
                             "rgb(16, 185, 129)", // emerald-500
-                            "rgb(52, 211, 153)", // emerald-400
+                            "rgb(52, 123, 211)", // emerald-400
                           ],
                           borderColor: [
                             "rgb(16, 185, 129)",
