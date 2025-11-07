@@ -27,6 +27,7 @@ interface DashboardMetrics {
     totalExpenses: number;
     grossProfit: number;
     profitMargin: number;
+    currentFunds: number;
   };
   expensesByCategory: Record<string, number>;
   monthlyData: {
@@ -280,47 +281,76 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-lg shadow p-6">
-              <Skeleton className="h-4 w-32 mb-2" />
-              <Skeleton className="h-8 w-24" />
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-lg shadow p-6">
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-3 w-24 mb-2" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-lg shadow p-6">
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-3 w-24 mb-2" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+            ))}
+          </div>
+        </>
       ) : metrics ? (
         <>
           {/* Summary Cards - Row 1: Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Gross Profit / Loss */}
             <div className="bg-gradient-to-br from-orange-400 to-orange-600 text-white rounded-lg shadow p-6">
               <h3 className="text-sm font-medium opacity-90">Gross Profit / Loss</h3>
-              <p className="text-2xl font-bold mt-2">
-                {formatCurrency(metrics.summary.grossProfit)}
+              <p className="text-xs opacity-80 mb-1">{getPeriodLabel()}</p>
+              <p className="text-2xl font-bold mt-1">
+                {formatCurrency(metrics?.summary?.grossProfit || 0)}
               </p>
             </div>
 
             {/* Total Income */}
             <div className="bg-gradient-to-br from-emerald-400 to-emerald-600 text-white rounded-lg shadow p-6">
               <h3 className="text-sm font-medium opacity-90">Total Income</h3>
-              <p className="text-2xl font-bold mt-2">
-                {formatCurrency(metrics.summary.revenue)}
+              <p className="text-xs opacity-80 mb-1">{getPeriodLabel()}</p>
+              <p className="text-2xl font-bold mt-1">
+                {formatCurrency(metrics?.summary?.revenue || 0)}
               </p>
             </div>
 
             {/* Total Expenses */}
             <div className="bg-gradient-to-br from-red-400 to-red-600 text-white rounded-lg shadow p-6">
               <h3 className="text-sm font-medium opacity-90">Total Expenses</h3>
-              <p className="text-2xl font-bold mt-2">
-                {formatCurrency(metrics.summary.totalExpenses)}
+              <p className="text-xs opacity-80 mb-1">{getPeriodLabel()}</p>
+              <p className="text-2xl font-bold mt-1">
+                {formatCurrency(metrics?.summary?.totalExpenses || 0)}
               </p>
             </div>
 
             {/* Profit Margin */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-sm font-medium text-muted-foreground">Profit Margin</h3>
-              <p className="text-2xl font-bold mt-2">
-                {formatPercent(metrics.summary.profitMargin)}
+              <p className="text-xs text-muted-foreground mb-1">{getPeriodLabel()}</p>
+              <p className="text-2xl font-bold mt-1">
+                {formatPercent(metrics?.summary?.profitMargin || 0)}
+              </p>
+            </div>
+
+            {/* Current Funds */}
+            <div className={`rounded-lg shadow p-6 ${
+              (metrics?.summary?.currentFunds || 0) >= 0
+                ? 'bg-gradient-to-br from-blue-400 to-blue-600'
+                : 'bg-gradient-to-br from-gray-500 to-gray-700'
+            } text-white`}>
+              <h3 className="text-sm font-medium opacity-90">Current Funds</h3>
+              <p className="text-xs opacity-80 mb-1">All Time Balance</p>
+              <p className="text-2xl font-bold mt-1">
+                {formatCurrency(metrics?.summary?.currentFunds || 0)}
               </p>
             </div>
           </div>
@@ -332,7 +362,7 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-emerald-600">Revenue</h3>
               <p className="text-xs text-muted-foreground mb-1">Income from Projects</p>
               <p className="text-2xl font-bold">
-                {formatCurrency(metrics.summary.projectIncome)}
+                {formatCurrency(metrics?.summary?.projectIncome || 0)}
               </p>
             </div>
 
@@ -341,7 +371,7 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-emerald-600">Other Income</h3>
               <p className="text-xs text-muted-foreground mb-1">Income from Transactions</p>
               <p className="text-2xl font-bold">
-                {formatCurrency(metrics.summary.transactionIncome)}
+                {formatCurrency(metrics?.summary?.transactionIncome || 0)}
               </p>
             </div>
 
@@ -350,7 +380,7 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-red-600">Project Expenses</h3>
               <p className="text-xs text-muted-foreground mb-1">Expenses from Projects</p>
               <p className="text-2xl font-bold">
-                {formatCurrency(metrics.summary.projectExpenses)}
+                {formatCurrency(metrics?.summary?.projectExpenses || 0)}
               </p>
             </div>
 
@@ -359,7 +389,7 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-red-600">General Expenses</h3>
               <p className="text-xs text-muted-foreground mb-1">Transaction Expenses</p>
               <p className="text-2xl font-bold">
-                {formatCurrency(metrics.summary.generalExpenses)}
+                {formatCurrency(metrics?.summary?.generalExpenses || 0)}
               </p>
             </div>
 
@@ -368,7 +398,7 @@ export default function DashboardPage() {
               <h3 className="text-sm font-medium text-red-600">Company Expenses</h3>
               <p className="text-xs text-muted-foreground mb-1">From Expense Management</p>
               <p className="text-2xl font-bold">
-                {formatCurrency(metrics.summary.companyExpenses)}
+                {formatCurrency(metrics?.summary?.companyExpenses || 0)}
               </p>
             </div>
           </div>
@@ -386,8 +416,8 @@ export default function DashboardPage() {
                       datasets: [
                         {
                           data: [
-                            metrics.summary.projectIncome,
-                            metrics.summary.transactionIncome,
+                            metrics?.summary?.projectIncome || 0,
+                            metrics?.summary?.transactionIncome || 0,
                           ],
                           backgroundColor: [
                             "rgb(16, 185, 129)", // emerald-500
@@ -419,7 +449,7 @@ export default function DashboardPage() {
                             label: function (context) {
                               const label = context.label || "";
                               const value = context.parsed || 0;
-                              const total = metrics.summary.revenue;
+                              const total = metrics?.summary?.revenue || 0;
                               const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                               return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                             },
@@ -432,7 +462,7 @@ export default function DashboardPage() {
                 <div className="mt-6 pt-6 border-t w-full">
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-medium">Total Income</span>
-                    <span className="font-bold text-emerald-600">{formatCurrency(metrics.summary.revenue)}</span>
+                    <span className="font-bold text-emerald-600">{formatCurrency(metrics?.summary?.revenue || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -449,9 +479,9 @@ export default function DashboardPage() {
                       datasets: [
                         {
                           data: [
-                            metrics.summary.projectExpenses,
-                            metrics.summary.generalExpenses,
-                            metrics.summary.companyExpenses,
+                            metrics?.summary?.projectExpenses || 0,
+                            metrics?.summary?.generalExpenses || 0,
+                            metrics?.summary?.companyExpenses || 0,
                           ],
                           backgroundColor: [
                             "rgb(239, 68, 68)", // red-500
@@ -485,7 +515,7 @@ export default function DashboardPage() {
                             label: function (context) {
                               const label = context.label || "";
                               const value = context.parsed || 0;
-                              const total = metrics.summary.totalExpenses;
+                              const total = metrics?.summary?.totalExpenses || 0;
                               const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                               return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                             },
@@ -498,32 +528,32 @@ export default function DashboardPage() {
                 <div className="mt-6 pt-6 border-t w-full">
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-medium">Total Expenses</span>
-                    <span className="font-bold text-red-600">{formatCurrency(metrics.summary.totalExpenses)}</span>
+                    <span className="font-bold text-red-600">{formatCurrency(metrics?.summary?.totalExpenses || 0)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Income vs Expenses Bar Graph */}
-            {metrics.monthlyData && (
+            {metrics?.monthlyData && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-semibold mb-4">Income vs Expenses</h3>
                 <Bar
                   data={{
-                    labels: metrics.monthlyData.map((data) =>
+                    labels: metrics?.monthlyData?.map((data) =>
                       MONTHS.find((m) => m.value === String(data.month))?.label || ""
                     ),
                     datasets: [
                       {
                         label: "Income",
-                        data: metrics.monthlyData.map((data) => data.revenue),
+                        data: metrics?.monthlyData?.map((data) => data.revenue) || [],
                         backgroundColor: "rgb(16, 185, 129)", // emerald-500
                         borderColor: "rgb(16, 185, 129)",
                         borderWidth: 1,
                       },
                       {
                         label: "Expenses",
-                        data: metrics.monthlyData.map((data) => data.totalExpenses),
+                        data: metrics?.monthlyData?.map((data) => data.totalExpenses) || [],
                         backgroundColor: "rgb(239, 68, 68)", // red-500
                         borderColor: "rgb(239, 68, 68)",
                         borderWidth: 1,
@@ -572,11 +602,11 @@ export default function DashboardPage() {
                 <div className="mt-6 pt-6 border-t">
                   <div className="flex justify-between items-center text-sm">
                     <span className="font-medium">Active Projects</span>
-                    <span className="font-bold">{metrics.projectCount}</span>
+                    <span className="font-bold">{metrics?.projectCount || 0}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm mt-2">
                     <span className="font-medium">Company Expense Items</span>
-                    <span className="font-bold">{metrics.activeCompanyExpenses}</span>
+                    <span className="font-bold">{metrics?.activeCompanyExpenses || 0}</span>
                   </div>
                 </div>
               </div>
@@ -612,7 +642,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {metrics.monthlyData?.map((data) => (
+                  {metrics?.monthlyData?.map((data) => (
                     <tr
                       key={data.month}
                       className={`border-b ${

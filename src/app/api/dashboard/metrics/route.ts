@@ -303,6 +303,75 @@ export async function GET(request: NextRequest) {
     const grossProfit = revenue - totalExpenses;
     const profitMargin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
 
+    // Calculate Current Funds (all-time cumulative balance)
+    // Fetch ALL income and expenses regardless of date filter
+    const allTimeProjects = await prisma.project.findMany({
+      select: { receivable: true },
+    });
+    const allTimeProjectIncome = allTimeProjects.reduce(
+      (sum, project) => sum + Number(project.receivable || 0),
+      0
+    );
+
+    const allTimeIncomeTransactions = await prisma.transaction.findMany({
+      where: { type: 'Income' },
+      select: { cost: true },
+    });
+    const allTimeTransactionIncome = allTimeIncomeTransactions.reduce(
+      (sum, transaction) => sum + Number(transaction.cost),
+      0
+    );
+
+    const allTimeProjectTransactions = await prisma.transaction.findMany({
+      where: {
+        transactionType: 'project',
+        type: 'Expense',
+        status: 'completed',
+      },
+      select: { cost: true },
+    });
+    const allTimeProjectExpenses = allTimeProjectTransactions.reduce(
+      (sum, transaction) => sum + Number(transaction.cost),
+      0
+    );
+
+    const allTimeGeneralTransactions = await prisma.transaction.findMany({
+      where: {
+        transactionType: 'general',
+        type: 'Expense',
+        status: 'completed',
+      },
+      select: { cost: true },
+    });
+    const allTimeGeneralExpenses = allTimeGeneralTransactions.reduce(
+      (sum, transaction) => sum + Number(transaction.cost),
+      0
+    );
+
+    // Calculate all-time company expenses (from beginning of time to now)
+    const allTimeStartDate = new Date(2000, 0, 1); // Arbitrary early date
+    const now = new Date();
+    const allTimeCompanyExpenses = companyExpenses.reduce((sum, expense) => {
+      const expenseAmount = calculateExpenseOccurrences(
+        {
+          frequency: expense.frequency,
+          dayOfWeek: expense.dayOfWeek,
+          daysOfMonth: expense.daysOfMonth,
+          monthOfYear: expense.monthOfYear,
+          specificDate: expense.specificDate,
+          startOfPayment: expense.startOfPayment,
+          amount: Number(expense.amount),
+        },
+        allTimeStartDate,
+        now
+      );
+      return sum + expenseAmount;
+    }, 0);
+
+    const allTimeTotalIncome = allTimeProjectIncome + allTimeTransactionIncome;
+    const allTimeTotalExpenses = allTimeProjectExpenses + allTimeGeneralExpenses + allTimeCompanyExpenses;
+    const currentFunds = allTimeTotalIncome - allTimeTotalExpenses;
+
     // Company Expense breakdown by category (planned company expenses + general transactions)
     const expensesByCategory: Record<string, number> = {};
 
@@ -524,6 +593,7 @@ export async function GET(request: NextRequest) {
         totalExpenses,
         grossProfit,
         profitMargin,
+        currentFunds,
       },
       expensesByCategory,
       monthlyData: monthlyData.length > 0 ? monthlyData : null,
