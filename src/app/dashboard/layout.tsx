@@ -54,7 +54,7 @@ const inventoryItems = [
 
 const organizationItems = [
   {
-    label: "Companies",
+    label: "Company Network",
     href: "/companies",
   },
   {

@@ -177,6 +177,11 @@ export default function ProjectPage() {
     }
 
     const constructAddress = (address: { houseNo: string; street: string; subdivision?: string; cityMunicipality: string; province: string; region: string; barangay: string }) => {
+
+        if (!address) {
+            return "Unavailable";
+        }
+
         return `${address.houseNo} ${address.street} ${address.subdivision} ${address.cityMunicipality} ${address.province} ${address.region} ${address.barangay}`;
     }
 
@@ -217,8 +222,8 @@ export default function ProjectPage() {
                                 <div className="flex justify-between items-start gap-2">
                                     <h1 className="text-sm text-muted-foreground">Contact Person:</h1>
                                     <div>
-                                        <h1 className="text-md font-medium">{project.company.companyProponents[0].contactPerson}</h1>
-                                        <p className="text-sm text-muted-foreground text-right">{project.company.companyProponents[0].contactNumber}</p>
+                                        <h1 className="text-md font-medium">{project.company.companyProponents[0]?.contactPerson || "Unavailable"}</h1>
+                                        <p className="text-sm text-muted-foreground text-right">{project.company.companyProponents[0]?.contactNumber || "Unavailable"}</p>
                                     </div>
                                 </div>
                             </div>

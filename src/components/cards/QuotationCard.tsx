@@ -1167,7 +1167,7 @@ function QuotationCard({ projectId, bidPercentage, clientDetails, companyAddress
               </div>
             ) : (
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">Client details are missing. Please check the project configuration.</p>
+                <p className="text-sm text-red-600">Client details are missing. Please update details in the Company management.</p>
               </div>
             )}
             {/* Basic Information Grid */}
