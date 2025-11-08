@@ -333,11 +333,29 @@ export async function GET(request: NextRequest) {
         select: { createdAt: true },
       });
 
+      // Also check for latest transaction and future company expenses
+      const latestTransaction = await prisma.transaction.findFirst({
+        orderBy: { datePurchased: 'desc' },
+        select: { datePurchased: true },
+      });
+      const latestCompanyExpense = await prisma.companyExpense.findFirst({
+        where: { isActive: true },
+        orderBy: { startOfPayment: 'desc' },
+        select: { startOfPayment: true },
+      });
+
       const currentYear = new Date().getFullYear();
       const earliestDate = earliestTransaction?.datePurchased || earliestProject?.createdAt || new Date(currentYear, 0, 1);
       startDate = new Date(earliestDate);
       startDate.setMonth(0, 1); // Start from beginning of that year
-      endDate = new Date(currentYear, 11, 31, 23, 59, 59, 999); // End of current year
+
+      // Set end date to the later of: current year, latest transaction year, or latest company expense start year
+      const latestTransactionYear = latestTransaction ? new Date(latestTransaction.datePurchased).getFullYear() : currentYear;
+      const latestExpenseYear = latestCompanyExpense && latestCompanyExpense.startOfPayment
+        ? new Date(latestCompanyExpense.startOfPayment).getFullYear()
+        : currentYear;
+      const maxYear = Math.max(currentYear, latestTransactionYear, latestExpenseYear);
+      endDate = new Date(maxYear, 11, 31, 23, 59, 59, 999);
     }
 
     console.log('[Dashboard API] Date range:', { startDate, endDate, year, month });
