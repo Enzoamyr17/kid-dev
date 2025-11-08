@@ -48,6 +48,7 @@ export default function UsersManagementPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [currentUserDepartment, setCurrentUserDepartment] = useState<string | null>(null);
   const [formData, setFormData] = useState<UserFormData>({
     firstName: "",
     secondName: "",
@@ -63,7 +64,21 @@ export default function UsersManagementPage() {
 
   useEffect(() => {
     fetchUsers();
+    fetchCurrentUserDepartment();
   }, []);
+
+  const fetchCurrentUserDepartment = async () => {
+    try {
+      const response = await fetch("/api/auth/session");
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentUserDepartment(data.user.department);
+        console.log({data: data.user.department, name: data.user.name})
+      }
+    } catch (error) {
+      console.error("Error fetching current user department:", error);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -117,6 +132,10 @@ export default function UsersManagementPage() {
     setIsModalOpen(true);
   };
 
+  const canEditPassword =
+    currentUserDepartment === "Executive" ||
+    currentUserDepartment === "ICT (Information and Communications Technology)";
+
   const handleSubmit = async () => {
     // Validate required fields
     if (!formData.firstName || !formData.lastName || !formData.email) {
@@ -130,23 +149,36 @@ export default function UsersManagementPage() {
       return;
     }
 
+    // Validate password if provided for existing users
+    if (editingUser && formData.password && formData.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       if (editingUser) {
         // Update existing user
+        const updatePayload: Record<string, unknown> = {
+          firstName: formData.firstName,
+          secondName: formData.secondName || null,
+          middleName: formData.middleName || null,
+          lastName: formData.lastName,
+          department: formData.department || null,
+          position: formData.position || null,
+          contact: formData.contact || null,
+        };
+
+        // Include password if provided and user has permission
+        if (formData.password && canEditPassword) {
+          updatePayload.password = formData.password;
+        }
+
         const response = await fetch(`/api/users/${editingUser.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            firstName: formData.firstName,
-            secondName: formData.secondName || null,
-            middleName: formData.middleName || null,
-            lastName: formData.lastName,
-            department: formData.department || null,
-            position: formData.position || null,
-            contact: formData.contact || null,
-          }),
+          body: JSON.stringify(updatePayload),
         });
 
         if (!response.ok) {
@@ -339,14 +371,14 @@ export default function UsersManagementPage() {
               placeholder="Email address"
             />
 
-            {!editingUser && (
+            {(!editingUser || canEditPassword) && (
               <Field
-                label="Password"
+                label={editingUser ? 'Reset Password (Optional)' : 'Password'}
                 type="password"
                 value={formData.password}
                 onChange={(value) => setFormData({ ...formData, password: value })}
                 disabled={isSubmitting}
-                placeholder="At least 6 characters"
+                placeholder={editingUser ? "Leave blank to keep current password" : "At least 6 characters"}
               />
             )}
 

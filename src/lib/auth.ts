@@ -81,6 +81,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             secondName: user.secondName || undefined,
             middleName: user.middleName || undefined,
             lastName: user.lastName,
+            department: user.department || undefined,
             emailVerified: user.emailVerified || undefined,
           };
         } catch (error) {
@@ -101,6 +102,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.secondName = user.secondName;
         token.middleName = user.middleName;
         token.lastName = user.lastName;
+        token.department = user.department;
         token.emailVerified = user.emailVerified;
       }
 
@@ -120,6 +122,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.secondName = token.secondName as string | undefined;
         session.user.middleName = token.middleName as string | undefined;
         session.user.lastName = token.lastName as string;
+        session.user.department = token.department as string | undefined;
         if (token.emailVerified) {
           session.user.emailVerified = token.emailVerified as Date;
         }

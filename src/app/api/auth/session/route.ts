@@ -16,6 +16,7 @@ export async function GET() {
         name: session.user.name,
         firstName: session.user.firstName,
         lastName: session.user.lastName,
+        department: session.user.department,
       }
     });
   } catch (error) {

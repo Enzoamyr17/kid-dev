@@ -5,7 +5,7 @@ import { ChartBar, LogOut, MoonIcon, SunIcon, Package, ArrowLeft, FolderKanban, 
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
-import { signOut } from "next-auth/react";
+import { logout } from "@/app/actions/auth";
 
 const sidebarItems = [
   {
@@ -176,10 +176,7 @@ export default function DashboardLayout({
           </SidebarGroup>
 
           <SidebarFooter>
-              <SidebarMenuButton onClick={async () => {
-                await signOut({ redirect: false });
-                window.location.href = "/login";
-              }}>
+              <SidebarMenuButton onClick={() => logout()}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </SidebarMenuButton>

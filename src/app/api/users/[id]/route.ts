@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from '@/lib/db';
 import { withAuditUser } from '@/lib/audit-context';
-import { getSessionUserId } from '@/lib/get-session-user';
+import { getSessionUserId, getSessionUser } from '@/lib/get-session-user';
+import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,20 @@ export async function PATCH(
     const { id } = await params;
     const userId = parseInt(id, 10);
     const body = await request.json();
+
+    // Get current user's session to check permissions
+    const currentUser = await getSessionUser();
+    if (!currentUser) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Check if user can edit passwords
+    const canEditPassword =
+      currentUser.department === "Executive" ||
+      currentUser.department === "ICT (Information and Communications Technology)";
 
     // Only allow updating certain fields
     const allowedFields = [
@@ -32,6 +47,23 @@ export async function PATCH(
       if (field in body) {
         updateData[field] = body[field];
       }
+    }
+
+    // Handle password update if user has permission
+    if (body.password && canEditPassword) {
+      if (body.password.length < 6) {
+        return NextResponse.json(
+          { error: "Password must be at least 6 characters" },
+          { status: 400 }
+        );
+      }
+      const hashedPassword = await bcrypt.hash(body.password, 10);
+      updateData.password = hashedPassword;
+    } else if (body.password && !canEditPassword) {
+      return NextResponse.json(
+        { error: "You do not have permission to update passwords" },
+        { status: 403 }
+      );
     }
 
     const sessionUserId = await getSessionUserId();
