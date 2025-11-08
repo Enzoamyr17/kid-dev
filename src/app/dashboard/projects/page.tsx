@@ -189,6 +189,7 @@ export default function ProjectManagementPage() {
               <TableHead>Company</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Approved Budget Cost</TableHead>
+              {isAddingRow && <TableHead>Workflow Stage</TableHead>}
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -219,15 +220,17 @@ export default function ProjectManagementPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
-                    <Input
-                      value={newProject.approvedBudget}
-                      onChange={(e) => setNewProject({ ...newProject, approvedBudget: e.target.value })}
-                      disabled={isSubmitting}
-                      className="h-8"
-                      placeholder="Approved budget"
-                      type="number"
-                    />
+                  <Input
+                    value={newProject.approvedBudget}
+                    onChange={(e) => setNewProject({ ...newProject, approvedBudget: e.target.value })}
+                    disabled={isSubmitting}
+                    className="h-8"
+                    placeholder="Approved budget"
+                    type="number"
+                  />
+                </TableCell>
+                {isAddingRow && (
+                  <TableCell>
                     <Field
                       type="select"
                       value={newProject.workflowTemplateId}
@@ -236,8 +239,8 @@ export default function ProjectManagementPage() {
                       disabled={isSubmitting}
                       className="h-8 min-w-56"
                     />
-                  </div>
-                </TableCell>
+                  </TableCell>
+                )}  
                 <TableCell>
                   <div className="flex gap-1">
                     <Button
