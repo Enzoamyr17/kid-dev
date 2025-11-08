@@ -130,41 +130,70 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [earliestYear, setEarliestYear] = useState<number>(currentYear);
+  const [latestYear, setLatestYear] = useState<number>(currentYear);
 
   // Monthly breakdown data (uses the main selectedMonth state)
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [monthExpenses, setMonthExpenses] = useState<CompanyExpense[]>([]);
   const [loadingMonthDetails, setLoadingMonthDetails] = useState(false);
 
-  // Generate year options dynamically based on earliest year
+  // Generate year options dynamically based on earliest and latest years
   const yearOptions = [
     { value: "", label: "All Time" },
-    ...Array.from({ length: currentYear - earliestYear + 1 }, (_, i) => {
-      const year = currentYear - i;
+    ...Array.from({ length: latestYear - earliestYear + 1 }, (_, i) => {
+      const year = latestYear - i;
       return { value: String(year), label: String(year) };
     }),
   ];
 
-  // Fetch earliest year on mount to populate year dropdown
+  // Fetch earliest and latest years on mount to populate year dropdown
   useEffect(() => {
-    const fetchEarliestYear = async () => {
+    const fetchYearRange = async () => {
       try {
-        const response = await fetch("/api/dashboard/metrics");
-        if (!response.ok) return;
+        // Fetch earliest transaction and company expense years
+        const [transactionsRes, expensesRes] = await Promise.all([
+          fetch("/api/transactions"),
+          fetch("/api/expenses?active=true"),
+        ]);
 
-        const data = await response.json();
-        if (data.monthlyData && data.monthlyData.length > 0) {
-          const years = data.monthlyData.map((d: { month: number }) => d.month);
-          const minYear = Math.min(...years);
-          setEarliestYear(minYear);
+        let minYear = currentYear;
+        let maxYear = currentYear;
+
+        // Check transactions for earliest and latest years
+        if (transactionsRes.ok) {
+          const transactions = await transactionsRes.json();
+          if (transactions.length > 0) {
+            const years = transactions.map((t: Transaction) =>
+              new Date(t.datePurchased).getFullYear()
+            );
+            minYear = Math.min(minYear, ...years);
+            maxYear = Math.max(maxYear, ...years);
+          }
         }
+
+        // Check company expenses for future years
+        if (expensesRes.ok) {
+          const expenses = await expensesRes.json();
+          if (expenses.length > 0) {
+            const years = expenses
+              .filter((e: CompanyExpense) => e.startOfPayment)
+              .map((e: CompanyExpense) => new Date(e.startOfPayment!).getFullYear());
+            if (years.length > 0) {
+              minYear = Math.min(minYear, ...years);
+              maxYear = Math.max(maxYear, ...years);
+            }
+          }
+        }
+
+        setEarliestYear(minYear);
+        setLatestYear(maxYear);
       } catch (error) {
-        console.error("Error fetching earliest year:", error);
+        console.error("Error fetching year range:", error);
       }
     };
 
-    fetchEarliestYear();
-  }, []);
+    fetchYearRange();
+  }, [currentYear]);
 
   const fetchMetrics = async () => {
     setLoading(true);
