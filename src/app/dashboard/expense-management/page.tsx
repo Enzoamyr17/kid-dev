@@ -89,6 +89,7 @@ export default function ExpenseManagementPage() {
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [newExpense, setNewExpense] = useState<NewExpense>({
     name: "",
     amount: "",
@@ -477,21 +478,29 @@ export default function ExpenseManagementPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Expense Management</h1>
-          <p className="text-muted-foreground">Manage company expenses and recurring payments</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            Note: Amount applies to each occurrence (e.g., ₱10,000 twice monthly = ₱10,000 on 15th + ₱10,000 on 30th)
-          </p>
+      {!isAddingRow && (
+        <div className="flex w-full justify-end gap-2 items-center">
+            <Field
+              type="select"
+              options={[{ value: "", label: "All Months" }, ...MONTHS]}
+              value={selectedMonth}
+              onChange={(value) => setSelectedMonth(value)}
+              placeholder="All Months"
+              className="h-10"
+              disabled={isSubmitting}
+            />            
+            <Button onClick={() => setIsAddingRow(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Expense
+            </Button>
+
         </div>
-        {!isAddingRow && (
-          <Button onClick={() => setIsAddingRow(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Expense
-          </Button>
-        )}
+
+      )}
+      
       </div>
 
+      
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -619,7 +628,58 @@ export default function ExpenseManagementPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              expenses.map((expense) => {
+              expenses.filter((expense) => {
+                // If no month is selected, show all expenses
+                if (!selectedMonth) {
+                  return true;
+                }
+                
+                // If month is selected, filter expenses based on frequency and month matching
+                const isMonthlyOrTwiceMonthly = expense.frequency === "monthly" || expense.frequency === "twice_monthly";
+                
+                // Monthly/Twice Monthly expenses occur every month, so always show them
+                if (isMonthlyOrTwiceMonthly) {
+                  return true;
+                }
+                
+                // Weekly expenses occur every week, so always show them
+                if (expense.frequency === "weekly") {
+                  return true;
+                }
+                
+                // For yearly expenses, check if monthOfYear matches selectedMonth
+                if (expense.frequency === "yearly" && expense.monthOfYear && String(expense.monthOfYear) === selectedMonth) {
+                  return true;
+                }
+                
+                // For quarterly expenses, check if selected month is in the same quarter
+                if (expense.frequency === "quarterly" && expense.monthOfYear) {
+                  const startMonth = expense.monthOfYear;
+                  const selectedMonthNum = Number(selectedMonth);
+                  // Quarters: Q1 (1,4,7,10), Q2 (2,5,8,11), Q3 (3,6,9,12), Q4 (4,7,10,1)
+                  const quarterMonths = [
+                    [1, 4, 7, 10], // Q1
+                    [2, 5, 8, 11], // Q2
+                    [3, 6, 9, 12], // Q3
+                    [4, 7, 10, 1], // Q4
+                  ];
+                  const quarterIndex = Math.floor((startMonth - 1) / 3);
+                  if (quarterMonths[quarterIndex]?.includes(selectedMonthNum)) {
+                    return true;
+                  }
+                }
+                
+                // For one-time expenses, check if specificDate is in the selected month
+                if (expense.frequency === "one_time" && expense.specificDate) {
+                  const expenseDate = new Date(expense.specificDate);
+                  const expenseMonth = expenseDate.getMonth() + 1; // getMonth() returns 0-11
+                  if (expenseMonth === Number(selectedMonth)) {
+                    return true;
+                  }
+                }
+                
+                return false;
+              }).map((expense) => {
                 const status = getExpenseStatus(expense);
                 return (
                   <TableRow key={expense.id}>
@@ -660,6 +720,7 @@ export default function ExpenseManagementPage() {
           </TableBody>
         </Table>
       </div>
+
     </div>
   );
 }
