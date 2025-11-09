@@ -38,7 +38,18 @@ export async function GET(request: NextRequest) {
       where: {
         ...(company_id ? { companyId: Number(company_id) } : {}),
       },
-      include: { company: true, workflow: true, workflowstage: true },
+      include: {
+        company: true,
+        workflow: true,
+        workflowstage: true,
+        transactions: {
+          select: {
+            id: true,
+            cost: true,
+            type: true,
+          },
+        },
+      },
       orderBy: { id: 'desc' },
     });
 

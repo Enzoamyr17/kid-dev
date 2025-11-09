@@ -22,8 +22,14 @@ interface Project {
   companyId: string;
   description: string;
   approvedBudget?: number | null;
+  receivable?: number | null;
   workflowstage?: { id: number; name: string; code: string } | null;
   company: Company;
+  transactions?: Array<{
+    id: number;
+    cost: number;
+    type: string;
+  }>;
 }
 
 export default function ProjectManagementPage() {
@@ -53,7 +59,9 @@ export default function ProjectManagementPage() {
       const response = await fetch("/api/projects");
       const data = await response.json();
       if (!response.ok) throw new Error("Failed to fetch projects");
-      setProjects(data);
+      // Filter out PPROJ (encoded) projects, only show PROJ projects
+      const regularProjects = data.filter((p: Project) => p.code.startsWith('PROJ'));
+      setProjects(regularProjects);
     } catch (error) {
       toast.error("Failed to fetch projects");
       console.error(error);
@@ -96,6 +104,29 @@ export default function ProjectManagementPage() {
         ? Math.max(...currentYearProjects.map((p) => parseInt(p.code.split("-")[1] || "0", 10)))
         : 0;
     return `${prefix}${(maxNumber + 1).toString().padStart(5, "0")}`;
+  };
+
+  // Calculate total expenses for a project
+  const getTotalExpenses = (project: Project) => {
+    if (!project.transactions || project.transactions.length === 0) return 0;
+    return project.transactions
+      .filter((t) => t.type === 'Expense')
+      .reduce((sum, t) => sum + Number(t.cost), 0);
+  };
+
+  // Calculate win/loss (receivable - expenses)
+  const getWinLoss = (project: Project) => {
+    const receivable = Number(project.receivable || 0);
+    const expenses = getTotalExpenses(project);
+    return receivable - expenses;
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    const isNegative = amount < 0;
+    const absoluteAmount = Math.abs(amount);
+    const formatted = `₱${absoluteAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return isNegative ? `-${formatted}` : formatted;
   };
 
 
@@ -188,7 +219,9 @@ export default function ProjectManagementPage() {
               <TableHead>Project Code</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Approved Budget Cost</TableHead>
+              <TableHead className="text-right">Approved Budget</TableHead>
+              <TableHead className="text-right">Expenses</TableHead>
+              <TableHead className="text-right">Win/Loss</TableHead>
               {isAddingRow && <TableHead>Workflow Stage</TableHead>}
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
@@ -224,11 +257,13 @@ export default function ProjectManagementPage() {
                     value={newProject.approvedBudget}
                     onChange={(e) => setNewProject({ ...newProject, approvedBudget: e.target.value })}
                     disabled={isSubmitting}
-                    className="h-8"
-                    placeholder="Approved budget"
+                    className="h-8 text-right"
+                    placeholder="0.00"
                     type="number"
                   />
                 </TableCell>
+                <TableCell className="text-right text-muted-foreground">-</TableCell>
+                <TableCell className="text-right text-muted-foreground">-</TableCell>
                 {isAddingRow && (
                   <TableCell>
                     <Field
@@ -287,39 +322,57 @@ export default function ProjectManagementPage() {
                   <TableCell>
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-full" />
+                  </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-full" />
+                  </TableCell>
                 </TableRow>
               ))
             ) : projects.length === 0 && !isAddingRow ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   No projects found. Click &quot;Add Project&quot; to create one.
                 </TableCell>
               </TableRow>
             ) : (
-              projects.map((project) => (
-                <TableRow key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
-                  <TableCell className="font-medium font-mono">{project.code}</TableCell>
-                  <TableCell>{project.company.companyName}</TableCell>
-                  <TableCell>
-                    {project.description}
-                  </TableCell>
-                  <TableCell
-                    className="cursor-pointer hover:bg-muted/50"
-                  >
-                    {project.approvedBudget ? `₱${Number(project.approvedBudget).toLocaleString()}` : "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(project.id)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Trash2 className="h-4 w-4 text-red-600" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
+              projects.map((project) => {
+                const expenses = getTotalExpenses(project);
+                const winLoss = getWinLoss(project);
+
+                return (
+                  <TableRow key={project.id} onClick={() => router.push(`/dashboard/projects/${project.id}`)}>
+                    <TableCell className="font-medium font-mono">{project.code}</TableCell>
+                    <TableCell>{project.company.companyName}</TableCell>
+                    <TableCell>
+                      {project.description}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {project.approvedBudget ? `₱${Number(project.approvedBudget).toLocaleString()}` : "-"}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(expenses)}
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${winLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(winLoss)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(project.id);
+                        }}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
