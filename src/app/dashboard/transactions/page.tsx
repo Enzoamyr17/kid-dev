@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,11 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Field } from "@/components/ui/field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { Pie } from "react-chartjs-2";
+
+// Register ChartJS components
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface Transaction {
   id: string;
@@ -618,6 +623,104 @@ export default function TransactionsPage() {
     setFilterYear("");
   };
 
+  // Generate colors for charts
+  const generateColors = (count: number) => {
+    const colors = [
+      "rgb(239, 68, 68)",   // red-500
+      "rgb(251, 146, 60)",  // orange-400
+      "rgb(234, 179, 8)",   // yellow-500
+      "rgb(34, 197, 94)",   // green-500
+      "rgb(59, 130, 246)",  // blue-500
+      "rgb(168, 85, 247)",  // purple-500
+      "rgb(236, 72, 153)",  // pink-500
+      "rgb(20, 184, 166)",  // teal-500
+      "rgb(249, 115, 22)",  // orange-500
+      "rgb(139, 92, 246)",  // violet-500
+      "rgb(14, 165, 233)",  // sky-500
+      "rgb(16, 185, 129)",  // emerald-500
+    ];
+    return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+  };
+
+  // Process chart data for General transactions
+  const generalChartData = useMemo(() => {
+    const generalTransactions = filteredTransactions.filter(t => t.transactionType === "general");
+    
+    // Category data
+    const categoryMap = new Map<string, number>();
+    const subCategoryMap = new Map<string, number>();
+    
+    generalTransactions.forEach(transaction => {
+      const cost = Number(transaction.cost) || 0;
+      
+      // Aggregate by category
+      if (transaction.category) {
+        const current = categoryMap.get(transaction.category) || 0;
+        categoryMap.set(transaction.category, current + cost);
+      }
+      
+      // Aggregate by subcategory (without category prefix)
+      if (transaction.subCategory) {
+        const key = transaction.subCategory;
+        const current = subCategoryMap.get(key) || 0;
+        subCategoryMap.set(key, current + cost);
+      }
+    });
+
+    const categoryLabels = Array.from(categoryMap.keys()).sort();
+    const categoryValues = categoryLabels.map(label => categoryMap.get(label) || 0);
+    const categoryColors = generateColors(categoryLabels.length);
+
+    const subCategoryLabels = Array.from(subCategoryMap.keys()).sort();
+    const subCategoryValues = subCategoryLabels.map(label => subCategoryMap.get(label) || 0);
+    const subCategoryColors = generateColors(subCategoryLabels.length);
+
+    return {
+      category: {
+        labels: categoryLabels,
+        values: categoryValues,
+        colors: categoryColors,
+        total: categoryValues.reduce((sum, val) => sum + val, 0),
+      },
+      subCategory: {
+        labels: subCategoryLabels,
+        values: subCategoryValues,
+        colors: subCategoryColors,
+        total: subCategoryValues.reduce((sum, val) => sum + val, 0),
+      },
+    };
+  }, [filteredTransactions]);
+
+  // Process chart data for Project transactions
+  const projectChartData = useMemo(() => {
+    const projectTransactions = filteredTransactions.filter(t => t.transactionType === "project");
+    
+    const categoryMap = new Map<string, number>();
+    
+    projectTransactions.forEach(transaction => {
+      const cost = Number(transaction.cost) || 0;
+      
+      // Aggregate by budget category
+      if (transaction.budgetCategory?.name) {
+        const current = categoryMap.get(transaction.budgetCategory.name) || 0;
+        categoryMap.set(transaction.budgetCategory.name, current + cost);
+      }
+    });
+
+    const categoryLabels = Array.from(categoryMap.keys()).sort();
+    const categoryValues = categoryLabels.map(label => categoryMap.get(label) || 0);
+    const categoryColors = generateColors(categoryLabels.length);
+
+    return {
+      category: {
+        labels: categoryLabels,
+        values: categoryValues,
+        colors: categoryColors,
+        total: categoryValues.reduce((sum, val) => sum + val, 0),
+      },
+    };
+  }, [filteredTransactions]);
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -758,6 +861,249 @@ export default function TransactionsPage() {
           </div>
         </div>
       </div>
+      {/* Charts Section */}
+      {filterType === "all" && (
+        (generalChartData.subCategory.labels.length > 0 || projectChartData.category.labels.length > 0) && (
+          <div className="mb-6 flex gap-4">
+            {/* General Transactions Chart */}
+            {generalChartData.subCategory.labels.length > 0 && (
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold mb-4">General Transactions - {transactionTab === "expense" ? "Expenses" : "Income"}</h2>
+                <div className="bg-white rounded-lg shadow p-6 border flex flex-col">
+                  <h3 className="text-lg font-semibold mb-4">By Subcategory</h3>
+                  <div className="w-full h-[450px]">
+                    <Pie
+                      data={{
+                        labels: generalChartData.subCategory.labels,
+                        datasets: [
+                          {
+                            data: generalChartData.subCategory.values,
+                            backgroundColor: generalChartData.subCategory.colors,
+                            borderColor: generalChartData.subCategory.colors,
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: "left",
+                            labels: {
+                              padding: 12,
+                              font: {
+                                size: 12,
+                              },
+                              boxWidth: 12,
+                              boxHeight: 12,
+                            },
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function (context) {
+                                const label = context.label || "";
+                                const value = context.parsed || 0;
+                                const total = generalChartData.subCategory.total;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                  <div className="mt-4 pt-4 border-t w-full">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium">Total</span>
+                      <span className="font-bold">{formatCurrency(generalChartData.subCategory.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Project Transactions Chart */}
+            {projectChartData.category.labels.length > 0 && (
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold mb-4">Project Transactions - {transactionTab === "expense" ? "Expenses" : "Income"}</h2>
+                <div className="bg-white rounded-lg shadow p-6 border flex flex-col">
+                  <h3 className="text-lg font-semibold mb-4">By Budget Category</h3>
+                  <div className="w-full h-[450px]">
+                    <Pie
+                      data={{
+                        labels: projectChartData.category.labels,
+                        datasets: [
+                          {
+                            data: projectChartData.category.values,
+                            backgroundColor: projectChartData.category.colors,
+                            borderColor: projectChartData.category.colors,
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: "left",
+                            labels: {
+                              padding: 12,
+                              font: {
+                                size: 12,
+                              },
+                              boxWidth: 12,
+                              boxHeight: 12,
+                            },
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function (context) {
+                                const label = context.label || "";
+                                const value = context.parsed || 0;
+                                const total = projectChartData.category.total;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                  <div className="mt-4 pt-4 border-t w-full">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium">Total</span>
+                      <span className="font-bold">{formatCurrency(projectChartData.category.total)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      )}
+
+      {/* General Only Chart */}
+      {filterType === "general" && generalChartData.subCategory.labels.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">General Transactions - {transactionTab === "expense" ? "Expenses" : "Income"}</h2>
+          <div className="bg-white rounded-lg shadow p-6 border max-w-4xl flex flex-col">
+            <h3 className="text-lg font-semibold mb-4">By Subcategory</h3>
+            <div className="w-full h-[500px]">
+              <Pie
+                data={{
+                  labels: generalChartData.subCategory.labels,
+                  datasets: [
+                    {
+                      data: generalChartData.subCategory.values,
+                      backgroundColor: generalChartData.subCategory.colors,
+                      borderColor: generalChartData.subCategory.colors,
+                      borderWidth: 1,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "left",
+                      labels: {
+                        padding: 12,
+                        font: {
+                          size: 12,
+                        },
+                        boxWidth: 12,
+                        boxHeight: 12,
+                      },
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function (context) {
+                          const label = context.label || "";
+                          const value = context.parsed || 0;
+                          const total = generalChartData.subCategory.total;
+                          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                          return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                        },
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+            <div className="mt-4 pt-4 border-t w-full">
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-medium">Total</span>
+                <span className="font-bold">{formatCurrency(generalChartData.subCategory.total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Only Chart */}
+      {filterType === "project" && projectChartData.category.labels.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Project Transactions - {transactionTab === "expense" ? "Expenses" : "Income"}</h2>
+          <div className="bg-white rounded-lg shadow p-6 border max-w-4xl flex flex-col">
+            <h3 className="text-lg font-semibold mb-4">By Budget Category</h3>
+            <div className="w-full h-[500px]">
+              <Pie
+                data={{
+                  labels: projectChartData.category.labels,
+                  datasets: [
+                    {
+                      data: projectChartData.category.values,
+                      backgroundColor: projectChartData.category.colors,
+                      borderColor: projectChartData.category.colors,
+                      borderWidth: 1,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "left",
+                      labels: {
+                        padding: 12,
+                        font: {
+                          size: 12,
+                        },
+                        boxWidth: 12,
+                        boxHeight: 12,
+                      },
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function (context) {
+                          const label = context.label || "";
+                          const value = context.parsed || 0;
+                          const total = projectChartData.category.total;
+                          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                          return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                        },
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+            <div className="mt-4 pt-4 border-t w-full">
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-medium">Total</span>
+                <span className="font-bold">{formatCurrency(projectChartData.category.total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       <div className="rounded-md border">
         <Table>
