@@ -794,25 +794,6 @@ export default function DashboardPage() {
                           )}
                         </p>
                       </div>
-                      <div className="bg-purple-50 rounded-lg p-4">
-                        <p className="text-xs text-muted-foreground mb-1">Company Expenses</p>
-                        <p className="text-2xl font-bold text-purple-700">
-                          {formatCurrency(
-                            monthExpenses.reduce((sum, e) => {
-                              const amount = Number(e.amount);
-                              // Calculate occurrences per month based on frequency
-                              let multiplier = 1;
-                              if (e.frequency === 'weekly') multiplier = 4;
-                              else if (e.frequency === 'twice_monthly') multiplier = 2;
-                              else if (e.frequency === 'monthly') multiplier = 1;
-                              else if (e.frequency === 'quarterly') multiplier = 1/3;
-                              else if (e.frequency === 'yearly') multiplier = 1/12;
-                              else if (e.frequency === 'one_time') multiplier = 0; // Don't count one-time in monthly total
-                              return sum + (amount * multiplier);
-                            }, 0)
-                          )}
-                        </p>
-                      </div>
                     </div>
 
                     {/* Income Transactions Section */}
@@ -957,55 +938,6 @@ export default function DashboardPage() {
                       ) : (
                         <p className="text-center text-muted-foreground py-8 bg-gray-50 rounded-lg">
                           No expense transactions found for this month
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Company Expenses Section */}
-                    <div>
-                      <h4 className="font-semibold mb-3 text-base">Active Company Expenses</h4>
-                      {monthExpenses.length > 0 ? (
-                        <div className="border rounded-lg overflow-hidden">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b bg-gray-50">
-                                <th className="text-left py-3 px-4">Name</th>
-                                <th className="text-left py-3 px-4">Category</th>
-                                <th className="text-left py-3 px-4">Frequency</th>
-                                <th className="text-right py-3 px-4">Amount</th>
-                                <th className="text-left py-3 px-4">Notes</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {monthExpenses.map((expense) => (
-                                <tr key={expense.id} className="border-b hover:bg-gray-50">
-                                  <td className="py-3 px-4 font-medium">{expense.name}</td>
-                                  <td className="py-3 px-4">
-                                    {expense.category ? (
-                                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                                        {expense.category}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground">N/A</span>
-                                    )}
-                                  </td>
-                                  <td className="py-3 px-4 capitalize">
-                                    {expense.frequency.replace(/_/g, " ")}
-                                  </td>
-                                  <td className="text-right py-3 px-4 font-medium">
-                                    {formatCurrency(Number(expense.amount))}
-                                  </td>
-                                  <td className="py-3 px-4 text-muted-foreground">
-                                    {expense.notes || "-"}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p className="text-center text-muted-foreground py-8 bg-gray-50 rounded-lg">
-                          No active company expenses
                         </p>
                       )}
                     </div>

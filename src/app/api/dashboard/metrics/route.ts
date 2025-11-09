@@ -380,10 +380,11 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Fetch ALL general transactions - only completed
+    // Fetch ALL general transactions - only completed EXPENSES
     const generalTransactions = await prisma.transaction.findMany({
       where: {
         transactionType: 'general',
+        type: 'Expense',
         status: 'completed',
         datePurchased: {
           gte: startDate,
