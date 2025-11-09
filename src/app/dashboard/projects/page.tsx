@@ -114,11 +114,19 @@ export default function ProjectManagementPage() {
       .reduce((sum, t) => sum + Number(t.cost), 0);
   };
 
-  // Calculate win/loss (receivable - expenses)
+  // Calculate total income for a project
+  const getTotalIncome = (project: Project) => {
+    if (!project.transactions || project.transactions.length === 0) return 0;
+    return project.transactions
+      .filter((t) => t.type === 'Income')
+      .reduce((sum, t) => sum + Number(t.cost), 0);
+  };
+
+  // Calculate win/loss (income - expenses)
   const getWinLoss = (project: Project) => {
-    const receivable = Number(project.receivable || 0);
+    const income = getTotalIncome(project);
     const expenses = getTotalExpenses(project);
-    return receivable - expenses;
+    return income - expenses;
   };
 
   // Format currency
@@ -221,6 +229,7 @@ export default function ProjectManagementPage() {
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Approved Budget</TableHead>
               <TableHead className="text-right">Expenses</TableHead>
+              <TableHead className="text-right">Income</TableHead>
               <TableHead className="text-right">Win/Loss</TableHead>
               {isAddingRow && <TableHead>Workflow Stage</TableHead>}
               <TableHead className="w-[80px] text-right">Actions</TableHead>
@@ -262,6 +271,7 @@ export default function ProjectManagementPage() {
                     type="number"
                   />
                 </TableCell>
+                <TableCell className="text-right text-muted-foreground">-</TableCell>
                 <TableCell className="text-right text-muted-foreground">-</TableCell>
                 <TableCell className="text-right text-muted-foreground">-</TableCell>
                 {isAddingRow && (
@@ -328,17 +338,21 @@ export default function ProjectManagementPage() {
                   <TableCell>
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
+                  <TableCell>
+                    <Skeleton className="h-4 w-full" />
+                  </TableCell>
                 </TableRow>
               ))
             ) : projects.length === 0 && !isAddingRow ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                   No projects found. Click &quot;Add Project&quot; to create one.
                 </TableCell>
               </TableRow>
             ) : (
               projects.map((project) => {
                 const expenses = getTotalExpenses(project);
+                const income = getTotalIncome(project);
                 const winLoss = getWinLoss(project);
 
                 return (
@@ -353,6 +367,9 @@ export default function ProjectManagementPage() {
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(expenses)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-green-600">
+                      {formatCurrency(income)}
                     </TableCell>
                     <TableCell className={`text-right font-medium ${winLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {formatCurrency(winLoss)}

@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
                 description: category.description,
                 budget: Number(category.budget),
                 color: category.color,
+                type: category.type || 'Expense',
                 expenses,
                 remaining,
                 createdAt: category.createdAt,
@@ -75,7 +76,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { projectId, name, description, budget, color } = body;
+        const { projectId, name, description, budget, color, type } = body;
 
         if (!projectId || !name || budget === undefined) {
             return NextResponse.json(
@@ -94,6 +95,7 @@ export async function POST(req: NextRequest) {
                     description: description || null,
                     budget: parseFloat(budget),
                     color: color || "#3b82f6",
+                    type: type || "Expense",
                 },
             });
         });
@@ -104,6 +106,7 @@ export async function POST(req: NextRequest) {
             description: category.description,
             budget: Number(category.budget),
             color: category.color,
+            type: category.type || 'Expense',
             expenses: 0,
             remaining: Number(category.budget),
             createdAt: category.createdAt,
@@ -174,6 +177,7 @@ export async function PATCH(req: NextRequest) {
             description: category.description,
             budget: Number(category.budget),
             color: category.color,
+            type: category.type || 'Expense',
             expenses,
             remaining,
             createdAt: category.createdAt,

@@ -277,7 +277,7 @@ export default function ProjectEncodingPage() {
               <TableHead>Company</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Project Date</TableHead>
-              <TableHead className="text-right">Income (Receivable)</TableHead>
+              <TableHead className="text-right">Income</TableHead>
               <TableHead className="text-right">Expenses</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>

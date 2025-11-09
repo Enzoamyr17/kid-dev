@@ -15,6 +15,7 @@ interface Category {
     color: string;
     expenses: number;
     remaining: number;
+    type?: string;
 }
 
 interface Transaction {
@@ -53,6 +54,7 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
     const [newCategory, setNewCategory] = useState({
         name: "",
         budget: 0,
+        type: "Expense",
     });
 
     const [newTransaction, setNewTransaction] = useState({
@@ -132,6 +134,7 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                     name: newCategory.name,
                     budget: newCategory.budget,
                     color: "#3b82f6",
+                    type: newCategory.type,
                 }),
             });
 
@@ -142,7 +145,7 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
 
             const createdCategory = await response.json();
             setCategories([...categories, createdCategory]);
-            setNewCategory({ name: "", budget: 0 });
+            setNewCategory({ name: "", budget: 0, type: "Expense" });
             setIsAddingCategory(false);
             toast.success("Category created successfully");
         } catch (error) {
@@ -154,7 +157,7 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
     };
 
     const handleCancelCategory = () => {
-        setNewCategory({ name: "", budget: 0 });
+        setNewCategory({ name: "", budget: 0, type: "Expense" });
         setIsAddingCategory(false);
     };
 
@@ -354,6 +357,7 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                     <TableHeader>
                         <TableRow>
                             <TableHead className="min-w-[150px]">Name</TableHead>
+                            <TableHead>Type</TableHead>
                             <TableHead>Budget</TableHead>
                             <TableHead>Expenses</TableHead>
                             <TableHead>Remaining</TableHead>
@@ -371,6 +375,17 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                                         disabled={isSubmittingCategory}
                                         className="h-8"
                                     />
+                                </TableCell>
+                                <TableCell>
+                                    <select
+                                        value={newCategory.type}
+                                        onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value })}
+                                        disabled={isSubmittingCategory}
+                                        className="h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                                    >
+                                        <option value="Expense">Expense</option>
+                                        <option value="Income">Income</option>
+                                    </select>
                                 </TableCell>
                                 <TableCell>
                                     <Input
@@ -414,6 +429,15 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                                         />
                                     ) : category.name}
                                 </TableCell>
+                                <TableCell>
+                                    <span className={`px-2 py-1 rounded-md text-xs font-medium ${
+                                        category.type === 'Income'
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-red-100 text-red-700'
+                                    }`}>
+                                        {category.type || 'Expense'}
+                                    </span>
+                                </TableCell>
                                 <TableCell
                                     onClick={() => handleCategoryCellClick(category.id, 'budget', category.budget)}
                                     className="cursor-pointer hover:bg-muted/50"
@@ -439,7 +463,7 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
 
                         {categories.length === 0 && !isAddingCategory && (
                             <TableRow>
-                                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                                     No categories yet. Click &quot;Create&quot; to add one.
                                 </TableCell>
                             </TableRow>
