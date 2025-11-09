@@ -82,6 +82,9 @@ export default function TransactionsPage() {
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [availableSubCategories, setAvailableSubCategories] = useState<Record<string, string[]>>({});
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -204,6 +207,9 @@ export default function TransactionsPage() {
       setBudgetCategories([]);
       setNewTransaction(prev => ({ ...prev, categoryId: "" }));
     }
+    // Reset category creation state when project changes
+    setIsAddingCategory(false);
+    setNewCategoryName("");
   }, [newTransaction.projectId]);
 
   const fetchTransactions = async () => {
@@ -326,6 +332,8 @@ export default function TransactionsPage() {
       }
 
       setIsAddingRow(false);
+      setIsAddingCategory(false);
+      setNewCategoryName("");
       setNewTransaction({
         transactionType: "general",
         datePurchased: undefined,
@@ -351,6 +359,8 @@ export default function TransactionsPage() {
 
   const handleCancel = () => {
     setIsAddingRow(false);
+    setIsAddingCategory(false);
+    setNewCategoryName("");
     setNewTransaction({
       transactionType: "general",
       datePurchased: undefined,
@@ -464,6 +474,54 @@ export default function TransactionsPage() {
     } else if (e.key === 'Escape') {
       setEditingCell(null);
       setEditValue("");
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error("Please enter a category name");
+      return;
+    }
+
+    if (!newTransaction.projectId) {
+      toast.error("Please select a project first");
+      return;
+    }
+
+    setIsCreatingCategory(true);
+
+    try {
+      const response = await fetch(`/api/projects/${newTransaction.projectId}/budget-categories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newCategoryName,
+          description: "",
+          budget: 0,
+          color: "#3b82f6",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create category");
+
+      const newCategory = await response.json();
+
+      // Update local state
+      setBudgetCategories(prev => [...prev, newCategory]);
+
+      // Select the newly created category
+      setNewTransaction(prev => ({ ...prev, categoryId: String(newCategory.id) }));
+
+      // Reset form
+      setNewCategoryName("");
+      setIsAddingCategory(false);
+
+      toast.success("Category created successfully");
+    } catch (error) {
+      console.error("Failed to create category:", error);
+      toast.error("Failed to create category");
+    } finally {
+      setIsCreatingCategory(false);
     }
   };
 
@@ -756,15 +814,74 @@ export default function TransactionsPage() {
                         placeholder="Select project"
                         className="h-8"
                       />
-                      <Field
-                        type="select"
-                        value={newTransaction.categoryId}
-                        onChange={(value) => setNewTransaction({ ...newTransaction, categoryId: value })}
-                        options={categoryOptions}
-                        disabled={isSubmitting || !newTransaction.projectId}
-                        placeholder="Select category"
-                        className="h-8"
-                      />
+                      {isAddingCategory ? (
+                        <div className="flex gap-1">
+                          <Input
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleCreateCategory();
+                              else if (e.key === 'Escape') {
+                                setIsAddingCategory(false);
+                                setNewCategoryName("");
+                              }
+                            }}
+                            disabled={isCreatingCategory}
+                            className="h-8 flex-1"
+                            placeholder="Category name"
+                            autoFocus
+                          />
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={handleCreateCategory}
+                            disabled={isCreatingCategory}
+                            className="h-8 w-8"
+                          >
+                            {isCreatingCategory ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Check className="h-4 w-4 text-green-600" />
+                            )}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => {
+                              setIsAddingCategory(false);
+                              setNewCategoryName("");
+                            }}
+                            disabled={isCreatingCategory}
+                            className="h-8 w-8"
+                          >
+                            <X className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <Field
+                            type="select"
+                            value={newTransaction.categoryId}
+                            onChange={(value) => setNewTransaction({ ...newTransaction, categoryId: value })}
+                            options={categoryOptions}
+                            disabled={isSubmitting || !newTransaction.projectId}
+                            placeholder="Select category"
+                            className="h-8"
+                          />
+                          {newTransaction.projectId && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setIsAddingCategory(true)}
+                              disabled={isSubmitting}
+                              className="h-7 w-full text-xs"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add New Category
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-2">
