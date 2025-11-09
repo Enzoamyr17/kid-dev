@@ -31,6 +31,7 @@ export async function GET(
         color: true,
         description: true,
         budget: true,
+        type: true,
       },
       orderBy: {
         name: 'asc',
@@ -64,11 +65,12 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { name, description, budget, color } = body as {
+    const { name, description, budget, color, type } = body as {
       name: string;
       description?: string;
       budget?: number;
       color?: string;
+      type?: string;
     };
 
     if (!name || !name.trim()) {
@@ -101,6 +103,7 @@ export async function POST(
           description: description?.trim() || '',
           budget: budget || 0,
           color: color || '#3b82f6', // Default blue color
+          type: type || 'Expense', // Default to Expense if not specified
         },
       });
     });

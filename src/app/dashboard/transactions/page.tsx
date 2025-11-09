@@ -61,6 +61,7 @@ interface BudgetCategory {
   id: number;
   name: string;
   color: string;
+  type?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -499,6 +500,7 @@ export default function TransactionsPage() {
           description: "",
           budget: 0,
           color: "#3b82f6",
+          type: transactionTab === "expense" ? "Expense" : "Income",
         }),
       });
 
@@ -534,7 +536,13 @@ export default function TransactionsPage() {
     label: `${p.code} - ${p.description}`,
   }));
 
-  const categoryOptions = budgetCategories.map(c => ({
+  // Filter categories by type based on current tab (Income/Expense)
+  const filteredBudgetCategories = budgetCategories.filter(c => {
+    const categoryType = c.type || 'Expense';
+    return transactionTab === 'expense' ? categoryType === 'Expense' : categoryType === 'Income';
+  });
+
+  const categoryOptions = filteredBudgetCategories.map(c => ({
     value: String(c.id),
     label: c.name,
   }));
@@ -580,10 +588,10 @@ export default function TransactionsPage() {
       : []),
   ];
 
-  // Budget category filter options for project transactions
+  // Budget category filter options for project transactions (filtered by type)
   const budgetCategoryFilterOptions = [
     { value: "", label: "All Categories" },
-    ...budgetCategories.map(c => ({ value: String(c.id), label: c.name })),
+    ...filteredBudgetCategories.map(c => ({ value: String(c.id), label: c.name })),
   ];
 
   // Project filter options

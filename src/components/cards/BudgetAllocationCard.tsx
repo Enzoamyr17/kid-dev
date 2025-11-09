@@ -342,14 +342,14 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
 
             </div>
 
-            {/* Budget Allocation Table */}
+            {/* Expense Categories Table */}
             <div className="flex flex-col w-full border rounded-md">
-                <div className="flex justify-between items-center p-4">
-                    <h1 className="text-sm font-medium">Categories</h1>
+                <div className="flex justify-between items-center p-4 bg-red-50/30">
+                    <h1 className="text-sm font-medium">Expense Categories</h1>
                     {!isAddingCategory && (
-                        <Button variant="outline" onClick={() => setIsAddingCategory(true)}>
+                        <Button variant="outline" onClick={() => { setIsAddingCategory(true); setNewCategory({ ...newCategory, type: "Expense" }); }}>
                             <Plus className="h-4 w-4 mr-2" />
-                            Create
+                            Create Expense Category
                         </Button>
                     )}
                 </div>
@@ -357,15 +357,14 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                     <TableHeader>
                         <TableRow>
                             <TableHead className="min-w-[150px]">Name</TableHead>
-                            <TableHead>Type</TableHead>
                             <TableHead>Budget</TableHead>
                             <TableHead>Expenses</TableHead>
                             <TableHead>Remaining</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {/* Add Category Row */}
-                        {isAddingCategory && (
+                        {/* Add Expense Category Row */}
+                        {isAddingCategory && newCategory.type === "Expense" && (
                             <TableRow className="bg-muted/50">
                                 <TableCell>
                                     <Input
@@ -375,17 +374,6 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                                         disabled={isSubmittingCategory}
                                         className="h-8"
                                     />
-                                </TableCell>
-                                <TableCell>
-                                    <select
-                                        value={newCategory.type}
-                                        onChange={(e) => setNewCategory({ ...newCategory, type: e.target.value })}
-                                        disabled={isSubmittingCategory}
-                                        className="h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-                                    >
-                                        <option value="Expense">Expense</option>
-                                        <option value="Income">Income</option>
-                                    </select>
                                 </TableCell>
                                 <TableCell>
                                     <Input
@@ -411,8 +399,8 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                             </TableRow>
                         )}
 
-                        {/* Category Rows */}
-                        {categories.map((category) => (
+                        {/* Expense Category Rows */}
+                        {categories.filter(cat => (cat.type || 'Expense') === 'Expense').map((category) => (
                             <TableRow key={category.id}>
                                 <TableCell
                                     onClick={() => handleCategoryCellClick(category.id, 'name', category.name)}
@@ -428,15 +416,6 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                                             autoFocus
                                         />
                                     ) : category.name}
-                                </TableCell>
-                                <TableCell>
-                                    <span className={`px-2 py-1 rounded-md text-xs font-medium ${
-                                        category.type === 'Income'
-                                            ? 'bg-green-100 text-green-700'
-                                            : 'bg-red-100 text-red-700'
-                                    }`}>
-                                        {category.type || 'Expense'}
-                                    </span>
                                 </TableCell>
                                 <TableCell
                                     onClick={() => handleCategoryCellClick(category.id, 'budget', category.budget)}
@@ -461,10 +440,114 @@ const BudgetAllocationCard = ({ projectBudget, projectId }: { projectBudget: num
                             </TableRow>
                         ))}
 
-                        {categories.length === 0 && !isAddingCategory && (
+                        {categories.filter(cat => (cat.type || 'Expense') === 'Expense').length === 0 && (!isAddingCategory || newCategory.type !== "Expense") && (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                                    No categories yet. Click &quot;Create&quot; to add one.
+                                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                                    No expense categories yet. Click &quot;Create Expense Category&quot; to add one.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            {/* Income Categories Table */}
+            <div className="flex flex-col w-full border rounded-md">
+                <div className="flex justify-between items-center p-4 bg-green-50/30">
+                    <h1 className="text-sm font-medium">Income Categories</h1>
+                    {!isAddingCategory && (
+                        <Button variant="outline" onClick={() => { setIsAddingCategory(true); setNewCategory({ ...newCategory, type: "Income" }); }}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create Income Category
+                        </Button>
+                    )}
+                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="min-w-[150px]">Name</TableHead>
+                            <TableHead>Expected</TableHead>
+                            <TableHead>Actual</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {/* Add Income Category Row */}
+                        {isAddingCategory && newCategory.type === "Income" && (
+                            <TableRow className="bg-muted/50">
+                                <TableCell>
+                                    <Input
+                                        value={newCategory.name}
+                                        onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                                        placeholder="Category name"
+                                        disabled={isSubmittingCategory}
+                                        className="h-8"
+                                    />
+                                </TableCell>
+                                <TableCell>
+                                    <Input
+                                        type="number"
+                                        value={newCategory.budget || ""}
+                                        onChange={(e) => setNewCategory({ ...newCategory, budget: parseFloat(e.target.value) || 0 })}
+                                        placeholder="0.00"
+                                        disabled={isSubmittingCategory}
+                                        className="h-8"
+                                    />
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex gap-1">
+                                        <Button size="icon" variant="ghost" onClick={handleAddCategory} disabled={isSubmittingCategory}>
+                                            {isSubmittingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 text-green-600" />}
+                                        </Button>
+                                        <Button size="icon" variant="ghost" onClick={handleCancelCategory} disabled={isSubmittingCategory}>
+                                            <X className="h-4 w-4 text-red-600" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        )}
+
+                        {/* Income Category Rows */}
+                        {categories.filter(cat => cat.type === 'Income').map((category) => (
+                            <TableRow key={category.id}>
+                                <TableCell
+                                    onClick={() => handleCategoryCellClick(category.id, 'name', category.name)}
+                                    className="cursor-pointer hover:bg-muted/50"
+                                >
+                                    {editingCell?.id === category.id && editingCell?.field === 'name' && editingCell?.type === 'category' ? (
+                                        <Input
+                                            value={editValue}
+                                            onChange={(e) => setEditValue(e.target.value)}
+                                            onBlur={() => saveCategoryEdit(category.id, 'name', category.name)}
+                                            onKeyDown={(e) => handleCategoryKeyPress(e, category.id, 'name', category.name)}
+                                            className="h-8"
+                                            autoFocus
+                                        />
+                                    ) : category.name}
+                                </TableCell>
+                                <TableCell
+                                    onClick={() => handleCategoryCellClick(category.id, 'budget', category.budget)}
+                                    className="cursor-pointer hover:bg-muted/50"
+                                >
+                                    {editingCell?.id === category.id && editingCell?.field === 'budget' && editingCell?.type === 'category' ? (
+                                        <Input
+                                            type="number"
+                                            value={editValue}
+                                            onChange={(e) => setEditValue(e.target.value)}
+                                            onBlur={() => saveCategoryEdit(category.id, 'budget', category.budget)}
+                                            onKeyDown={(e) => handleCategoryKeyPress(e, category.id, 'budget', category.budget)}
+                                            className="h-8"
+                                            autoFocus
+                                        />
+                                    ) : formatCurrency(category.budget)}
+                                </TableCell>
+                                <TableCell>{formatCurrency(category.expenses)}</TableCell>
+                            </TableRow>
+                        ))}
+
+                        {categories.filter(cat => cat.type === 'Income').length === 0 && (!isAddingCategory || newCategory.type !== "Income") && (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                                    No income categories yet. Click &quot;Create Income Category&quot; to add one.
                                 </TableCell>
                             </TableRow>
                         )}
