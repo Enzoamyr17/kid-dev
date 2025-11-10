@@ -522,199 +522,95 @@ export default function DashboardPage() {
           </div>
 
           {/* Charts Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Income Types - Pie Chart */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">Income Types</h3>
-              <div className="flex flex-col items-center">
-                <div className="w-full max-w-xs">
-                  <Pie
-                    data={{
-                      labels: ["Revenue", "Other Income"],
-                      datasets: [
-                        {
-                          data: [
-                            metrics?.summary?.projectIncome || 0,
-                            metrics?.summary?.transactionIncome || 0,
-                          ],
-                          backgroundColor: getColorsForLabels(["Revenue", "Other Income"]),
-                          borderColor: getColorsForLabels(["Revenue", "Other Income"]),
-                          borderWidth: 1,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: true,
-                      plugins: {
-                        legend: {
-                          position: "left",
-                          labels: {
-                            padding: 15,
-                            font: {
-                              size: 12,
-                            },
-                          },
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: function (context) {
-                              const label = context.label || "";
-                              const value = context.parsed || 0;
-                              const total = metrics?.summary?.revenue || 0;
-                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                              return `${label}: ${formatCurrency(value)} (${percentage}%)`;
-                            },
-                          },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-                <div className="mt-6 pt-6 border-t w-full">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium">Total Income</span>
-                    <span className="font-bold text-emerald-600">{formatCurrency(metrics?.summary?.revenue || 0)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Expense Types - Pie Chart */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Expense Types</h3>
-              <div className="flex flex-col items-center">
-                <div className="w-full max-w-xs">
-                  <Pie
-                    data={{
-                      labels: ["Project Expenses", "General Expenses", "Company Expenses"],
-                      datasets: [
-                        {
-                          data: [
-                            metrics?.summary?.projectExpenses || 0,
-                            metrics?.summary?.generalExpenses || 0,
-                            metrics?.summary?.companyExpenses || 0,
-                          ],
-                          backgroundColor: getColorsForLabels(["Project Expenses", "General Expenses", "Company Expenses"]),
-                          borderColor: getColorsForLabels(["Project Expenses", "General Expenses", "Company Expenses"]),
-                          borderWidth: 1,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: true,
-                      plugins: {
-                        legend: {
-                          position: "left",
-                          labels: {
-                            padding: 15,
-                            font: {
-                              size: 12,
-                            },
-                          },
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: function (context) {
-                              const label = context.label || "";
-                              const value = context.parsed || 0;
-                              const total = metrics?.summary?.totalExpenses || 0;
-                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                              return `${label}: ${formatCurrency(value)} (${percentage}%)`;
-                            },
-                          },
-                        },
-                      },
-                    }}
-                  />
-                </div>
-                <div className="mt-6 pt-6 border-t w-full">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium">Total Expenses</span>
-                    <span className="font-bold text-red-600">{formatCurrency(metrics?.summary?.totalExpenses || 0)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Income vs Expenses Bar Graph */}
-            {metrics?.monthlyData && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-4">Income vs Expenses</h3>
-                <Bar
+              <div className="w-full h-[400px]">
+                <Pie
                   data={{
-                    labels: metrics?.monthlyData?.map((data) =>
-                      MONTHS.find((m) => m.value === String(data.month))?.label || ""
-                    ),
+                    labels: ["Revenue", "Other Income"],
                     datasets: [
                       {
-                        label: "Income",
-                        data: metrics?.monthlyData?.map((data) => data.revenue) || [],
-                        backgroundColor: getColorsForSeries(["Income", "Expenses"]).background[0],
-                        borderColor: getColorsForSeries(["Income", "Expenses"]).border[0],
-                        borderWidth: 1,
-                      },
-                      {
-                        label: "Expenses",
-                        data: metrics?.monthlyData?.map((data) => data.totalExpenses) || [],
-                        backgroundColor: getColorsForSeries(["Income", "Expenses"]).background[1],
-                        borderColor: getColorsForSeries(["Income", "Expenses"]).border[1],
+                        data: [
+                          metrics?.summary?.projectIncome || 0,
+                          metrics?.summary?.transactionIncome || 0,
+                        ],
+                        backgroundColor: getColorsForLabels(["Revenue", "Other Income"]),
+                        borderColor: getColorsForLabels(["Revenue", "Other Income"]),
                         borderWidth: 1,
                       },
                     ],
                   }}
                   options={{
                     responsive: true,
-                    maintainAspectRatio: true,
-                    interaction: {
-                      mode: "index",
-                      intersect: false,
-                    },
+                    maintainAspectRatio: false,
                     plugins: {
                       legend: {
-                        position: "top",
-                        labels: {
-                          padding: 15,
-                          font: {
-                            size: 12,
-                          },
-                        },
+                        position: "left",
+                        labels: { padding: 12, font: { size: 12 }, boxWidth: 12, boxHeight: 12 },
                       },
                       tooltip: {
                         callbacks: {
                           label: function (context) {
-                            const label = context.dataset.label || "";
-                            const value = context.parsed.y || 0;
-                            return `${label}: ${formatCurrency(value)}`;
-                          },
-                        },
-                      },
-                    },
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                        ticks: {
-                          callback: function (value) {
-                            return `₱${Number(value).toLocaleString()}`;
+                            const label = context.label || "";
+                            const value = context.parsed || 0;
+                            const total = metrics?.summary?.revenue || 0;
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                           },
                         },
                       },
                     },
                   }}
                 />
-                <div className="mt-6 pt-6 border-t">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium">Active Projects</span>
-                    <span className="font-bold">{metrics?.projectCount || 0}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm mt-2">
-                    <span className="font-medium">Company Expense Items</span>
-                    <span className="font-bold">{metrics?.activeCompanyExpenses || 0}</span>
-                  </div>
-                </div>
               </div>
-            )}
+            </div>
+
+            {/* Expense Types - Pie Chart */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold mb-4">Expense Types</h3>
+              <div className="w-full h-[400px]">
+                <Pie
+                  data={{
+                    labels: ["Project Expenses", "General Expenses", "Company Expenses"],
+                    datasets: [
+                      {
+                        data: [
+                          metrics?.summary?.projectExpenses || 0,
+                          metrics?.summary?.generalExpenses || 0,
+                          metrics?.summary?.companyExpenses || 0,
+                        ],
+                        backgroundColor: getColorsForLabels(["Project Expenses", "General Expenses", "Company Expenses"]),
+                        borderColor: getColorsForLabels(["Project Expenses", "General Expenses", "Company Expenses"]),
+                        borderWidth: 1,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: "left",
+                        labels: { padding: 12, font: { size: 12 }, boxWidth: 12, boxHeight: 12 },
+                      },
+                      tooltip: {
+                        callbacks: {
+                          label: function (context) {
+                            const label = context.label || "";
+                            const value = context.parsed || 0;
+                            const total = metrics?.summary?.totalExpenses || 0;
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Expense Breakdown by Subcategory and Budget Category */}
@@ -806,6 +702,83 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          <div>
+            {/* Income vs Expenses Bar Graph */}
+            {metrics?.monthlyData && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-semibold mb-4">Income vs Expenses</h3>
+                <div className="w-full h-[300px]">
+                  <Bar
+                    data={{
+                      labels: metrics?.monthlyData?.map((data) =>
+                        MONTHS.find((m) => m.value === String(data.month))?.label || ""
+                      ),
+                      datasets: [
+                        {
+                          label: "Income",
+                          data: metrics?.monthlyData?.map((data) => data.revenue) || [],
+                          backgroundColor: getColorsForSeries(["Income", "Expenses"]).background[0],
+                          borderColor: getColorsForSeries(["Income", "Expenses"]).border[0],
+                          borderWidth: 1,
+                        },
+                        {
+                          label: "Expenses",
+                          data: metrics?.monthlyData?.map((data) => data.totalExpenses) || [],
+                          backgroundColor: getColorsForSeries(["Income", "Expenses"]).background[1],
+                          borderColor: getColorsForSeries(["Income", "Expenses"]).border[1],
+                          borderWidth: 1,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      interaction: {
+                        mode: "index",
+                        intersect: false,
+                      },
+                      plugins: {
+                        legend: {
+                          position: "top",
+                          labels: { padding: 12, font: { size: 12 }, boxWidth: 12, boxHeight: 12 },
+                        },
+                        tooltip: {
+                          callbacks: {
+                            label: function (context) {
+                              const label = context.dataset.label || "";
+                              const value = context.parsed.y || 0;
+                              return `${label}: ${formatCurrency(value)}`;
+                            },
+                          },
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          ticks: {
+                            callback: function (value) {
+                              return `₱${Number(value).toLocaleString()}`;
+                            },
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+                <div className="mt-6 pt-6 border-t">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium">Active Projects</span>
+                    <span className="font-bold">{metrics?.projectCount || 0}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mt-2">
+                    <span className="font-medium">Company Expense Items</span>
+                    <span className="font-bold">{metrics?.activeCompanyExpenses || 0}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Monthly/Yearly Breakdown */}
           <div className="bg-white rounded-lg shadow p-6">
