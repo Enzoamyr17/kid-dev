@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Field } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js";
 import { Pie, Bar } from "react-chartjs-2";
+import { getColorsForLabels, getColorsForSeries } from "@/lib/chartColors";
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -136,6 +137,9 @@ export default function DashboardPage() {
   const [monthTransactions, setMonthTransactions] = useState<Transaction[]>([]);
   const [monthExpenses, setMonthExpenses] = useState<CompanyExpense[]>([]);
   const [loadingMonthDetails, setLoadingMonthDetails] = useState(false);
+  // Transactions for charts based on current filters (year and optional month)
+  const [chartTransactions, setChartTransactions] = useState<Transaction[]>([]);
+  const [loadingChartTxns, setLoadingChartTxns] = useState(false);
 
   // Generate year options dynamically based on earliest and latest years
   const yearOptions = [
@@ -225,6 +229,26 @@ export default function DashboardPage() {
       setMonthTransactions([]);
       setMonthExpenses([]);
     }
+    // Fetch transactions for charts based on selected filters (year required, month optional)
+    const fetchChartTxns = async () => {
+      setLoadingChartTxns(true);
+      try {
+        const params = new URLSearchParams();
+        if (selectedYear) params.append("year", selectedYear);
+        if (selectedMonth) params.append("month", selectedMonth);
+        const url = params.toString() ? `/api/transactions?${params.toString()}` : `/api/transactions`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch transactions");
+        const txns = await res.json();
+        setChartTransactions(txns);
+      } catch (e) {
+        console.error("Error fetching chart transactions:", e);
+        setChartTransactions([]);
+      } finally {
+        setLoadingChartTxns(false);
+      }
+    };
+    fetchChartTxns();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedMonth]);
 
@@ -275,6 +299,38 @@ export default function DashboardPage() {
     }
     return selectedYear;
   };
+
+  // Derived chart data: by subcategory (general) and by budget category (project)
+  const expenseBreakdownCharts = useMemo(() => {
+    const expensesOnly = chartTransactions.filter((t) => (t as Transaction).type === "Expense");
+    const generalMap = new Map<string, number>();
+    const projectMap = new Map<string, number>();
+
+    for (const t of expensesOnly) {
+      if (t.transactionType === "general") {
+        const key = (t.subCategory && t.subCategory.trim()) || (t.category || "Uncategorized");
+        generalMap.set(key, (generalMap.get(key) || 0) + Number(t.cost || 0));
+      } else if (t.transactionType === "project") {
+        const key = t.budgetCategory?.name || "Uncategorized";
+        projectMap.set(key, (projectMap.get(key) || 0) + Number(t.cost || 0));
+      }
+    }
+
+    const generalLabels = Array.from(generalMap.keys()).sort();
+    const generalValues = generalLabels.map((l) => generalMap.get(l) || 0);
+    const generalColors = getColorsForLabels(generalLabels);
+    const generalTotal = generalValues.reduce((s, v) => s + v, 0);
+
+    const projectLabels = Array.from(projectMap.keys()).sort();
+    const projectValues = projectLabels.map((l) => projectMap.get(l) || 0);
+    const projectColors = getColorsForLabels(projectLabels);
+    const projectTotal = projectValues.reduce((s, v) => s + v, 0);
+
+    return {
+      general: { labels: generalLabels, values: generalValues, colors: generalColors, total: generalTotal },
+      project: { labels: projectLabels, values: projectValues, colors: projectColors, total: projectTotal },
+    };
+  }, [chartTransactions]);
 
   return (
     <div className="p-6 space-y-6">
@@ -481,14 +537,8 @@ export default function DashboardPage() {
                             metrics?.summary?.projectIncome || 0,
                             metrics?.summary?.transactionIncome || 0,
                           ],
-                          backgroundColor: [
-                            "rgb(16, 185, 129)", // emerald-500
-                            "rgb(52, 123, 211)", // emerald-400
-                          ],
-                          borderColor: [
-                            "rgb(16, 185, 129)",
-                            "rgb(52, 211, 153)",
-                          ],
+                          backgroundColor: getColorsForLabels(["Revenue", "Other Income"]),
+                          borderColor: getColorsForLabels(["Revenue", "Other Income"]),
                           borderWidth: 1,
                         },
                       ],
@@ -498,7 +548,7 @@ export default function DashboardPage() {
                       maintainAspectRatio: true,
                       plugins: {
                         legend: {
-                          position: "bottom",
+                          position: "left",
                           labels: {
                             padding: 15,
                             font: {
@@ -545,16 +595,8 @@ export default function DashboardPage() {
                             metrics?.summary?.generalExpenses || 0,
                             metrics?.summary?.companyExpenses || 0,
                           ],
-                          backgroundColor: [
-                            "rgb(239, 68, 68)", // red-500
-                            "rgb(251, 146, 60)", // orange-400
-                            "rgb(168, 85, 247)", // purple-500
-                          ],
-                          borderColor: [
-                            "rgb(239, 68, 68)",
-                            "rgb(251, 146, 60)",
-                            "rgb(168, 85, 247)",
-                          ],
+                          backgroundColor: getColorsForLabels(["Project Expenses", "General Expenses", "Company Expenses"]),
+                          borderColor: getColorsForLabels(["Project Expenses", "General Expenses", "Company Expenses"]),
                           borderWidth: 1,
                         },
                       ],
@@ -564,7 +606,7 @@ export default function DashboardPage() {
                       maintainAspectRatio: true,
                       plugins: {
                         legend: {
-                          position: "bottom",
+                          position: "left",
                           labels: {
                             padding: 15,
                             font: {
@@ -609,15 +651,15 @@ export default function DashboardPage() {
                       {
                         label: "Income",
                         data: metrics?.monthlyData?.map((data) => data.revenue) || [],
-                        backgroundColor: "rgb(16, 185, 129)", // emerald-500
-                        borderColor: "rgb(16, 185, 129)",
+                        backgroundColor: getColorsForSeries(["Income", "Expenses"]).background[0],
+                        borderColor: getColorsForSeries(["Income", "Expenses"]).border[0],
                         borderWidth: 1,
                       },
                       {
                         label: "Expenses",
                         data: metrics?.monthlyData?.map((data) => data.totalExpenses) || [],
-                        backgroundColor: "rgb(239, 68, 68)", // red-500
-                        borderColor: "rgb(239, 68, 68)",
+                        backgroundColor: getColorsForSeries(["Income", "Expenses"]).background[1],
+                        borderColor: getColorsForSeries(["Income", "Expenses"]).border[1],
                         borderWidth: 1,
                       },
                     ],
@@ -674,6 +716,96 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Expense Breakdown by Subcategory and Budget Category */}
+          {(expenseBreakdownCharts.general.labels.length > 0 || expenseBreakdownCharts.project.labels.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* General - By Subcategory */}
+              {expenseBreakdownCharts.general.labels.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold mb-4">General Transactions - Expenses (By Subcategory)</h3>
+                  <div className="w-full h-[400px]">
+                    <Pie
+                      data={{
+                        labels: expenseBreakdownCharts.general.labels,
+                        datasets: [
+                          {
+                            data: expenseBreakdownCharts.general.values,
+                            backgroundColor: expenseBreakdownCharts.general.colors,
+                            borderColor: expenseBreakdownCharts.general.colors,
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: "left",
+                            labels: { padding: 12, font: { size: 12 }, boxWidth: 12, boxHeight: 12 },
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: (context) => {
+                                const label = context.label || "";
+                                const value = context.parsed || 0;
+                                const total = expenseBreakdownCharts.general.total;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {/* Project - By Budget Category */}
+              {expenseBreakdownCharts.project.labels.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                  <h3 className="text-lg font-semibold mb-4">Project Transactions - Expenses (By Budget Category)</h3>
+                  <div className="w-full h-[400px]">
+                    <Pie
+                      data={{
+                        labels: expenseBreakdownCharts.project.labels,
+                        datasets: [
+                          {
+                            data: expenseBreakdownCharts.project.values,
+                            backgroundColor: expenseBreakdownCharts.project.colors,
+                            borderColor: expenseBreakdownCharts.project.colors,
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: "left",
+                            labels: { padding: 12, font: { size: 12 }, boxWidth: 12, boxHeight: 12 },
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: (context) => {
+                                const label = context.label || "";
+                                const value = context.parsed || 0;
+                                const total = expenseBreakdownCharts.project.total;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+                              },
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Monthly/Yearly Breakdown */}
           <div className="bg-white rounded-lg shadow p-6">

@@ -11,6 +11,7 @@ import { Field } from "@/components/ui/field";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { Pie } from "react-chartjs-2";
+import { getColorsForLabels } from "@/lib/chartColors";
 
 // Register ChartJS components
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -623,25 +624,6 @@ export default function TransactionsPage() {
     setFilterYear("");
   };
 
-  // Generate colors for charts
-  const generateColors = (count: number) => {
-    const colors = [
-      "rgb(239, 68, 68)",   // red-500
-      "rgb(251, 146, 60)",  // orange-400
-      "rgb(234, 179, 8)",   // yellow-500
-      "rgb(34, 197, 94)",   // green-500
-      "rgb(59, 130, 246)",  // blue-500
-      "rgb(168, 85, 247)",  // purple-500
-      "rgb(236, 72, 153)",  // pink-500
-      "rgb(20, 184, 166)",  // teal-500
-      "rgb(249, 115, 22)",  // orange-500
-      "rgb(139, 92, 246)",  // violet-500
-      "rgb(14, 165, 233)",  // sky-500
-      "rgb(16, 185, 129)",  // emerald-500
-    ];
-    return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
-  };
-
   // Process chart data for General transactions
   const generalChartData = useMemo(() => {
     const generalTransactions = filteredTransactions.filter(t => t.transactionType === "general");
@@ -669,11 +651,11 @@ export default function TransactionsPage() {
 
     const categoryLabels = Array.from(categoryMap.keys()).sort();
     const categoryValues = categoryLabels.map(label => categoryMap.get(label) || 0);
-    const categoryColors = generateColors(categoryLabels.length);
+    const categoryColors = getColorsForLabels(categoryLabels);
 
     const subCategoryLabels = Array.from(subCategoryMap.keys()).sort();
     const subCategoryValues = subCategoryLabels.map(label => subCategoryMap.get(label) || 0);
-    const subCategoryColors = generateColors(subCategoryLabels.length);
+    const subCategoryColors = getColorsForLabels(subCategoryLabels);
 
     return {
       category: {
@@ -709,7 +691,7 @@ export default function TransactionsPage() {
 
     const categoryLabels = Array.from(categoryMap.keys()).sort();
     const categoryValues = categoryLabels.map(label => categoryMap.get(label) || 0);
-    const categoryColors = generateColors(categoryLabels.length);
+    const categoryColors = getColorsForLabels(categoryLabels);
 
     return {
       category: {
@@ -728,12 +710,7 @@ export default function TransactionsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
           <p className="text-muted-foreground">Log and track income and expense transactions</p>
         </div>
-        {!isAddingRow && (
-          <Button onClick={() => setIsAddingRow(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Transaction
-          </Button>
-        )}
+
       </div>
 
       {/* Income/Expense Tab */}
@@ -1104,8 +1081,16 @@ export default function TransactionsPage() {
         </div>
       )}
 
-
+      <div className="flex justify-end mb-6">
+        {!isAddingRow && (
+          <Button onClick={() => setIsAddingRow(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Transaction
+          </Button>
+        )}
+      </div>
       <div className="rounded-md border">
+
         <Table>
           <TableHeader>
             <TableRow>

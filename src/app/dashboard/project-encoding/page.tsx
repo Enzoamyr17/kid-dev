@@ -248,6 +248,24 @@ export default function ProjectEncodingPage() {
       .reduce((sum, t) => sum + Number(t.cost), 0);
   };
 
+  // Calculate win/loss = income (receivable) - expenses
+  const getWinLoss = (project: EncodedProject) => {
+    const income = Number(project.receivable || 0);
+    const expenses = getTotalExpense(project);
+    return income - expenses;
+  };
+
+  // Format currency with negative sign before symbol
+  const formatCurrency = (amount: number) => {
+    const isNegative = amount < 0;
+    const absolute = Math.abs(amount);
+    const formatted = `₱${absolute.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+    return isNegative ? `-${formatted}` : formatted;
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -279,6 +297,7 @@ export default function ProjectEncodingPage() {
               <TableHead>Project Date</TableHead>
               <TableHead className="text-right">Income</TableHead>
               <TableHead className="text-right">Expenses</TableHead>
+              <TableHead className="text-right">Win/Loss</TableHead>
               <TableHead className="w-[80px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -366,6 +385,7 @@ export default function ProjectEncodingPage() {
                     inputMode="decimal"
                   />
                 </TableCell>
+                <TableCell className="text-right text-muted-foreground">-</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
                     <Button
@@ -418,12 +438,15 @@ export default function ProjectEncodingPage() {
                   <TableCell>
                     <Skeleton className="h-4 w-full" />
                   </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-full" />
+                </TableCell>
                 </TableRow>
               ))
             ) : projects.length === 0 && !isAddingRow ? (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="text-center text-muted-foreground py-8"
                 >
                   No encoded projects found. Click &quot;Encode Project&quot; to
@@ -448,6 +471,13 @@ export default function ProjectEncodingPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     ₱{getTotalExpense(project).toLocaleString()}
+                  </TableCell>
+                  <TableCell
+                    className={`text-right font-medium ${
+                      getWinLoss(project) >= 0 ? "text-green-600" : "text-red-600"
+                    }`}
+                  >
+                    {formatCurrency(getWinLoss(project))}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
