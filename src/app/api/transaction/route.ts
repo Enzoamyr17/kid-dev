@@ -88,12 +88,26 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // Fetch the budget category to determine the transaction type
+        const budgetCategory = await prisma.budgetCategory.findUnique({
+            where: { id: parseInt(categoryId) },
+            select: { type: true },
+        });
+
+        if (!budgetCategory) {
+            return NextResponse.json(
+                { error: "Budget category not found" },
+                { status: 404 }
+            );
+        }
+
         const userId = await getSessionUserId();
 
         const transaction = await withAuditUser(userId, async (tx) => {
             return await tx.transaction.create({
                 data: {
                     transactionType: "project",
+                    type: budgetCategory.type || "Expense", // Set type based on budget category
                     projectId: parseInt(projectId),
                     categoryId: parseInt(categoryId),
                     itemDescription: description,
