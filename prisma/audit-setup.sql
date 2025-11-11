@@ -262,6 +262,12 @@ CREATE TRIGGER audit_stocktransaction_trigger
     AFTER INSERT OR UPDATE OR DELETE ON "stockTransaction"
     FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
 
+-- CompanyExpense table
+DROP TRIGGER IF EXISTS audit_companyexpense_trigger ON "companyExpense";
+CREATE TRIGGER audit_companyexpense_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON "companyExpense"
+    FOR EACH ROW EXECUTE FUNCTION audit_trigger_function();
+
 -- =====================================================
 -- Verification Query
 -- =====================================================
