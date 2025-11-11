@@ -40,12 +40,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('[API /projects/encode] Received request body:', body);
 
-    const { companyId, companyName, description, projectDate, receivable, expense } = body as {
+    const { companyId, companyName, description, projectDate, projectRevenue, expense } = body as {
       companyId?: number;
       companyName?: string;
       description: string;
       projectDate: string; // ISO date string
-      receivable?: number;
+      projectRevenue?: number;
       expense?: number;
     };
 
@@ -176,12 +176,12 @@ export async function POST(request: NextRequest) {
       code: projectCode,
       companyId: finalCompanyId,
       description,
-      receivable: receivable || 0,
+      projectRevenue: projectRevenue || 0,
       workflowId: workflowTemplate.id,
       workflowStageId: firstStage.id,
     });
 
-    // Create the project with receivable, budget category, and transaction in a single audit context
+    // Create the project with projectRevenue, budget category, and transaction in a single audit context
     const project = await withAuditUser(userId, async (tx) => {
       const newProject = await tx.project.create({
         data: {
@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
           companyId: finalCompanyId,
           description,
           approvedBudget: 0,
-          receivable: receivable || 0,
+          projectRevenue: projectRevenue || 0,
           workflowId: workflowTemplate.id,
           workflowStageId: firstStage.id,
           createdAt: date, // Use the project date as creation date

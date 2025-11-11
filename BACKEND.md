@@ -196,7 +196,7 @@ Array<{
   companyId: number;
   description: string;
   approvedBudget: number;
-  receivable: number | null; // Payment received for past project
+  projectRevenue: number | null; // Project revenue/income for past project
   createdAt: string; // Uses project date, not current date
   updatedAt: string;
   company: Company;
@@ -218,7 +218,7 @@ Create a new encoded past project with simplified budget tracking.
   companyName?: string; // Optional: Search/create company by name
   description: string; // Project name
   projectDate: string; // ISO date - determines year in code (PPROJYY)
-  receivable?: number; // Income/payment received
+  projectRevenue?: number; // Project revenue/income
   expense?: number; // Total project expense
 }
 ```
@@ -236,7 +236,7 @@ Create a new encoded past project with simplified budget tracking.
 - Creates single ProjectTransaction for the expense amount
 - Uses projectDate as createdAt timestamp (not current date)
 - Sets workflowStageId to first available stage (typically "Completed")
-- `receivable` field stores income for dashboard aggregation
+- `projectRevenue` field stores project revenue/income for dashboard aggregation
 - Different from regular projects: simplified single-category budget
 
 ### DELETE `/api/projects/encode?id={id}`
@@ -618,9 +618,9 @@ Array<{
 - Has many: QuotationForm, PrForm, PoForm, BudgetCategory, ProjectTransaction
 - Fields:
   - `approvedBudget`: Budget allocated for project
-  - `receivable`: (Nullable) Payment received - used only for encoded past projects (PPROJ prefix)
-  - Regular projects (PROJ prefix) use QuotationForm bidPrice for income tracking
-  - Past projects (PPROJ prefix) use `receivable` field for income tracking
+  - `projectRevenue`: (Nullable) Project revenue/income - used for both regular and encoded projects
+  - Regular projects (PROJ prefix) can use this field or QuotationForm bidPrice for income tracking
+  - Past projects (PPROJ prefix) use `projectRevenue` field for income tracking
 
 ### WorkflowTemplate
 - Has many: WorkflowStage, Project

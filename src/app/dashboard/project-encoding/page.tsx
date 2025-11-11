@@ -15,7 +15,7 @@ interface EncodedProject {
   code: string;
   companyId: string;
   description: string;
-  receivable?: number | null;
+  projectRevenue?: number | null;
   createdAt: string;
   company: Company;
   budget?: Array<{
@@ -36,7 +36,7 @@ interface NewEncodedProject {
   companyName: string;
   description: string;
   projectDate: Date | undefined;
-  receivable: string;
+  projectRevenue: string;
   expense: string;
 }
 
@@ -51,7 +51,7 @@ export default function ProjectEncodingPage() {
     companyName: "",
     description: "",
     projectDate: undefined,
-    receivable: "",
+    projectRevenue: "",
     expense: "",
   });
 
@@ -126,11 +126,11 @@ export default function ProjectEncodingPage() {
     }
 
     // Validate numeric fields
-    const receivableNum = newProject.receivable ? parseFloat(newProject.receivable) : 0;
+    const projectRevenueNum = newProject.projectRevenue ? parseFloat(newProject.projectRevenue) : 0;
     const expenseNum = newProject.expense ? parseFloat(newProject.expense) : 0;
 
-    if (newProject.receivable && (isNaN(receivableNum) || receivableNum < 0)) {
-      toast.error("Please enter a valid receivable amount");
+    if (newProject.projectRevenue && (isNaN(projectRevenueNum) || projectRevenueNum < 0)) {
+      toast.error("Please enter a valid project revenue amount");
       return;
     }
 
@@ -148,12 +148,12 @@ export default function ProjectEncodingPage() {
         companyName?: string;
         description: string;
         projectDate: string;
-        receivable: number;
+        projectRevenue: number;
         expense: number;
       } = {
         description: newProject.description,
         projectDate: newProject.projectDate.toISOString(),
-        receivable: receivableNum,
+        projectRevenue: projectRevenueNum,
         expense: expenseNum,
       };
 
@@ -196,7 +196,7 @@ export default function ProjectEncodingPage() {
         companyName: "",
         description: "",
         projectDate: undefined,
-        receivable: "",
+        projectRevenue: "",
         expense: "",
       });
       toast.success("Encoded project created successfully");
@@ -217,7 +217,7 @@ export default function ProjectEncodingPage() {
       companyName: "",
       description: "",
       projectDate: undefined,
-      receivable: "",
+      projectRevenue: "",
       expense: "",
     });
   };
@@ -248,9 +248,9 @@ export default function ProjectEncodingPage() {
       .reduce((sum, t) => sum + Number(t.cost), 0);
   };
 
-  // Calculate win/loss = income (receivable) - expenses
+  // Calculate win/loss = income (projectRevenue) - expenses
   const getWinLoss = (project: EncodedProject) => {
-    const income = Number(project.receivable || 0);
+    const income = Number(project.projectRevenue || 0);
     const expenses = getTotalExpense(project);
     return income - expenses;
   };
@@ -355,11 +355,11 @@ export default function ProjectEncodingPage() {
                 </TableCell>
                 <TableCell>
                   <Input
-                    value={newProject.receivable}
+                    value={newProject.projectRevenue}
                     onChange={(e) => {
                       const validValue = handleNumericInput(e.target.value);
                       if (validValue !== null) {
-                        setNewProject({ ...newProject, receivable: validValue });
+                        setNewProject({ ...newProject, projectRevenue: validValue });
                       }
                     }}
                     disabled={isSubmitting}
@@ -465,8 +465,8 @@ export default function ProjectEncodingPage() {
                     {new Date(project.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-right">
-                    {project.receivable
-                      ? `₱${Number(project.receivable).toLocaleString()}`
+                    {project.projectRevenue
+                      ? `₱${Number(project.projectRevenue).toLocaleString()}`
                       : "₱0"}
                   </TableCell>
                   <TableCell className="text-right">

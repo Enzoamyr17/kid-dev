@@ -466,15 +466,32 @@ export async function GET(request: NextRequest) {
     // Count only active (non-encoded) projects
     const activeProjects = allProjects.filter(p => p.code.startsWith('PROJ'));
 
-    // Calculate project income (sum of receivable from ALL projects including encoded)
-    const projectIncome = allProjects.reduce(
-      (sum, project) => sum + Number(project.receivable || 0),
+    // Calculate project income (sum of receivable from ALL projects including encoded + project income transactions)
+    const projectIncomeTransactions = await prisma.transaction.findMany({
+      where: {
+        transactionType: 'project',
+        type: 'Income',
+        datePurchased: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+    });
+
+    const projectTransactionIncome = projectIncomeTransactions.reduce(
+      (sum, t) => sum + Number(t.cost),
       0
     );
 
-    // Calculate transaction income (sum of income transactions)
+    const projectIncome = allProjects.reduce(
+      (sum, project) => sum + Number(project.projectRevenue || 0),
+      0
+    ) + projectTransactionIncome;
+
+    // Calculate transaction income (sum of GENERAL income transactions only)
     const incomeTransactions = await prisma.transaction.findMany({
       where: {
+        transactionType: 'general',
         type: 'Income',
         datePurchased: {
           gte: startDate,
@@ -504,18 +521,30 @@ export async function GET(request: NextRequest) {
     // Calculate Current Funds (all-time cumulative balance)
     // Fetch ALL income and expenses regardless of date filter
     const allTimeProjects = await prisma.project.findMany({
-      select: { receivable: true },
+      select: { projectRevenue: true },
     });
-    const allTimeProjectIncome = allTimeProjects.reduce(
-      (sum, project) => sum + Number(project.receivable || 0),
+    const allTimeProjectReceivables = allTimeProjects.reduce(
+      (sum, project) => sum + Number(project.projectRevenue || 0),
       0
     );
 
-    const allTimeIncomeTransactions = await prisma.transaction.findMany({
-      where: { type: 'Income' },
+    // Project income transactions (all-time)
+    const allTimeProjectIncomeTransactions = await prisma.transaction.findMany({
+      where: { transactionType: 'project', type: 'Income' },
       select: { cost: true },
     });
-    const allTimeTransactionIncome = allTimeIncomeTransactions.reduce(
+    const allTimeProjectTransactionIncome = allTimeProjectIncomeTransactions.reduce(
+      (sum, transaction) => sum + Number(transaction.cost),
+      0
+    );
+    const allTimeProjectIncome = allTimeProjectReceivables + allTimeProjectTransactionIncome;
+
+    // General income transactions (all-time)
+    const allTimeGeneralIncomeTransactions = await prisma.transaction.findMany({
+      where: { transactionType: 'general', type: 'Income' },
+      select: { cost: true },
+    });
+    const allTimeTransactionIncome = allTimeGeneralIncomeTransactions.reduce(
       (sum, transaction) => sum + Number(transaction.cost),
       0
     );
@@ -707,16 +736,25 @@ export async function GET(request: NextRequest) {
           );
         }, 0);
 
-        // Project income for this month (include all projects)
+        // Project income for this month (include all projects + project income transactions)
         const monthProjects = allProjects.filter(
           (p) => p.createdAt >= monthStart && p.createdAt <= monthEnd
         );
-        const monthProjectIncome = monthProjects.reduce(
-          (sum, p) => sum + Number(p.receivable || 0),
+        const monthProjectReceivables = monthProjects.reduce(
+          (sum, p) => sum + Number(p.projectRevenue || 0),
           0
         );
 
-        // Transaction income for this month
+        const monthProjectIncomeTransactions = projectIncomeTransactions.filter(
+          (t) => t.datePurchased >= monthStart && t.datePurchased <= monthEnd
+        );
+        const monthProjectTransactionIncome = monthProjectIncomeTransactions.reduce(
+          (sum, t) => sum + Number(t.cost),
+          0
+        );
+        const monthProjectIncome = monthProjectReceivables + monthProjectTransactionIncome;
+
+        // Transaction income for this month (general only)
         const monthIncomeTransactions = incomeTransactions.filter(
           (t) => t.datePurchased >= monthStart && t.datePurchased <= monthEnd
         );
@@ -813,16 +851,25 @@ export async function GET(request: NextRequest) {
           );
         }, 0);
 
-        // Project income for this year
+        // Project income for this year (include all projects + project income transactions)
         const yearProjects = allProjects.filter(
           (p) => p.createdAt >= yearStart && p.createdAt <= yearEnd
         );
-        const yearProjectIncome = yearProjects.reduce(
-          (sum, p) => sum + Number(p.receivable || 0),
+        const yearProjectReceivables = yearProjects.reduce(
+          (sum, p) => sum + Number(p.projectRevenue || 0),
           0
         );
 
-        // Transaction income for this year
+        const yearProjectIncomeTransactions = projectIncomeTransactions.filter(
+          (t) => t.datePurchased >= yearStart && t.datePurchased <= yearEnd
+        );
+        const yearProjectTransactionIncome = yearProjectIncomeTransactions.reduce(
+          (sum, t) => sum + Number(t.cost),
+          0
+        );
+        const yearProjectIncome = yearProjectReceivables + yearProjectTransactionIncome;
+
+        // Transaction income for this year (general only)
         const yearIncomeTransactions = incomeTransactions.filter(
           (t) => t.datePurchased >= yearStart && t.datePurchased <= yearEnd
         );

@@ -22,7 +22,7 @@ interface Project {
   companyId: string;
   description: string;
   approvedBudget?: number | null;
-  receivable?: number | null;
+  projectRevenue?: number | null;
   workflowstage?: { id: number; name: string; code: string } | null;
   company: Company;
   transactions?: Array<{
