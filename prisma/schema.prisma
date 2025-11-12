@@ -192,23 +192,24 @@ model BudgetCategory {
 }
 
 model Transaction {
-  id              Int                     @id @default(autoincrement())
-  transactionType ExpenseTransactionType
-  datePurchased   DateTime                @db.Date
-  type            String?                 @default("Expense")
-  projectId       Int?
-  categoryId      Int?
-  category        String?                 @db.VarChar(255)
-  subCategory     String?                 @db.VarChar(255)
-  itemDescription String
-  cost            Decimal                 @db.Decimal(12, 2)
-  status          ExpenseTransactionStatus
-  note            String?
-  link            String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt
-  budgetCategory  BudgetCategory?         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  project         Project?                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id               Int                      @id @default(autoincrement())
+  transactionType  ExpenseTransactionType
+  datePurchased    DateTime                 @db.Date
+  type             String?                  @default("Expense")
+  projectId        Int?
+  categoryId       Int?
+  category         String?                  @db.VarChar(255)
+  subCategory      String?                  @db.VarChar(255)
+  itemDescription  String
+  cost             Decimal                  @db.Decimal(12, 2)
+  status           ExpenseTransactionStatus
+  note             String?
+  link             String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  budgetCategory   BudgetCategory?          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  project          Project?                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stockTransaction StockTransaction?
 
   @@map("transaction")
 }
@@ -395,19 +396,24 @@ model ProductPrice {
 }
 
 model StockTransaction {
-  id          Int               @id @default(autoincrement())
-  productId   Int
-  type        TransactionType
-  quantity    Int
-  referenceId String?           @db.VarChar(255)
-  status      TransactionStatus
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  remarks     String?
-  product     Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id                   Int               @id @default(autoincrement())
+  productId            Int
+  type                 TransactionType
+  quantity             Int
+  referenceId          String?           @db.VarChar(255)
+  status               TransactionStatus
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  remarks              String?
+  unitPrice            Decimal?          @db.Decimal(12, 2)
+  totalCost            Decimal?          @db.Decimal(12, 2)
+  expenseTransactionId Int?              @unique
+  product              Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  expenseTransaction   Transaction?      @relation(fields: [expenseTransactionId], references: [id], onDelete: SetNull)
 
   @@index([productId])
   @@index([referenceId])
+  @@index([expenseTransactionId])
   @@map("stockTransaction")
 }
 

@@ -210,6 +210,8 @@ export function Field(props: FieldProps) {
         const allowNegative = props.min !== undefined && props.min < 0
         const pattern = allowNegative ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/
 
+        console.log('Field number input:', { inputValue, allowNegative, min: props.min, pattern })
+
         if (!pattern.test(inputValue)) {
           return
         }

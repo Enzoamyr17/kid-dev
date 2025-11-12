@@ -32,7 +32,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { productId, type, quantity, referenceId, status, remarks } = body;
+    const {
+      productId,
+      type,
+      quantity,
+      referenceId,
+      status,
+      remarks,
+      unitPrice,
+      datePurchased,
+      category,
+      subCategory
+    } = body;
 
     // Validate required fields
     if (!productId || !type || quantity === undefined || !status) {
@@ -60,22 +71,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const qty = parseFloat(quantity);
+
+    // Validate unitPrice for positive quantity adjustments and incoming stock
+    if ((type === "adjustment" && qty > 0) || type === "incoming") {
+      if (!unitPrice || parseFloat(unitPrice) <= 0) {
+        return NextResponse.json(
+          { error: "Unit price is required for incoming stock and positive adjustments" },
+          { status: 400 }
+        );
+      }
+    }
+
     const userId = await getSessionUserId();
 
     // Create transaction and update product stock in a single transaction
     const result = await withAuditUser(userId, async (tx) => {
-      // Create the stock transaction
-      const transaction = await tx.stockTransaction.create({
-        data: {
-          productId: parseInt(productId),
-          type,
-          quantity: parseFloat(quantity),
-          referenceId: referenceId || null,
-          status,
-          remarks: remarks || null,
-        },
-      });
-
       // Get current product
       const product = await tx.product.findUnique({
         where: { id: parseInt(productId) },
@@ -85,14 +96,51 @@ export async function POST(request: NextRequest) {
         throw new Error("Product not found");
       }
 
+      let expenseTransactionId = null;
+
+      // Create expense transaction for incoming stock or positive adjustments
+      if (unitPrice && qty > 0 && (type === "adjustment" || type === "incoming")) {
+        const totalCost = qty * parseFloat(unitPrice);
+        const purchaseDate = datePurchased ? new Date(datePurchased) : new Date();
+
+        const expenseTransaction = await tx.transaction.create({
+          data: {
+            transactionType: "general",
+            type: "Expense",
+            datePurchased: purchaseDate,
+            category: category || "Inventory Purchase",
+            subCategory: subCategory || product.name,
+            itemDescription: `Stock purchase: ${product.name} - ${qty} units @ ₱${parseFloat(unitPrice).toFixed(2)}`,
+            cost: totalCost,
+            status: "completed",
+            note: remarks || null,
+          },
+        });
+
+        expenseTransactionId = expenseTransaction.id;
+      }
+
+      // Create the stock transaction
+      const transaction = await tx.stockTransaction.create({
+        data: {
+          productId: parseInt(productId),
+          type,
+          quantity: qty,
+          referenceId: referenceId || null,
+          status,
+          remarks: remarks || null,
+          unitPrice: unitPrice ? parseFloat(unitPrice) : null,
+          totalCost: unitPrice && qty > 0 ? qty * parseFloat(unitPrice) : null,
+          expenseTransactionId,
+        },
+      });
+
       // Update product stock based on transaction type and status
       const stockUpdate: {
         incomingStock?: number;
         outgoingStock?: number;
         currentStock?: number;
       } = {};
-
-      const qty = parseFloat(quantity);
 
       switch (type) {
         case "incoming":

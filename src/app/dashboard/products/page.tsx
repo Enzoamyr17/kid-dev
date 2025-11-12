@@ -53,6 +53,10 @@ export default function ProductsPage() {
   const [adjustmentProduct, setAdjustmentProduct] = useState<Product | null>(null);
   const [adjustmentQuantity, setAdjustmentQuantity] = useState("");
   const [adjustmentRemarks, setAdjustmentRemarks] = useState("");
+  const [adjustmentUnitPrice, setAdjustmentUnitPrice] = useState("");
+  const [adjustmentDate, setAdjustmentDate] = useState<Date>(new Date());
+  const [adjustmentCategory, setAdjustmentCategory] = useState("");
+  const [adjustmentSubCategory, setAdjustmentSubCategory] = useState("");
   const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState(false);
   const [newProduct, setNewProduct] = useState<NewProduct>({
     sku: "",
@@ -410,6 +414,15 @@ export default function ProductsPage() {
       return;
     }
 
+    // Validate unit price for positive adjustments
+    if (qty > 0) {
+      const unitPrice = parseFloat(adjustmentUnitPrice);
+      if (isNaN(unitPrice) || unitPrice <= 0) {
+        toast.error("Please enter a valid unit price for adding stock");
+        return;
+      }
+    }
+
     setIsSubmittingAdjustment(true);
 
     // Store old stock value for rollback
@@ -424,27 +437,44 @@ export default function ProductsPage() {
     );
 
     try {
+      const requestBody: Record<string, unknown> = {
+        productId: adjustmentProduct.id,
+        type: "adjustment",
+        quantity: qty,
+        status: "completed",
+        remarks: adjustmentRemarks || null,
+      };
+
+      // Add pricing fields for positive adjustments
+      if (qty > 0) {
+        requestBody.unitPrice = parseFloat(adjustmentUnitPrice);
+        requestBody.datePurchased = adjustmentDate.toISOString();
+        if (adjustmentCategory) requestBody.category = adjustmentCategory;
+        if (adjustmentSubCategory) requestBody.subCategory = adjustmentSubCategory;
+      }
+
       const response = await fetch("/api/stock-transactions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          productId: adjustmentProduct.id,
-          type: "adjustment",
-          quantity: qty,
-          status: "completed",
-          remarks: adjustmentRemarks || null,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) throw new Error("Failed to create stock adjustment");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create stock adjustment");
+      }
 
       toast.success(`Stock adjusted successfully. New stock: ${newStock}`);
       setIsStockAdjustmentOpen(false);
       setAdjustmentProduct(null);
       setAdjustmentQuantity("");
       setAdjustmentRemarks("");
+      setAdjustmentUnitPrice("");
+      setAdjustmentDate(new Date());
+      setAdjustmentCategory("");
+      setAdjustmentSubCategory("");
     } catch (error) {
       console.error("Error adjusting stock:", error);
 
@@ -455,7 +485,7 @@ export default function ProductsPage() {
         )
       );
 
-      toast.error("Failed to adjust stock");
+      toast.error(error instanceof Error ? error.message : "Failed to adjust stock");
     } finally {
       setIsSubmittingAdjustment(false);
     }
@@ -746,6 +776,10 @@ export default function ProductsPage() {
                           setAdjustmentProduct(product);
                           setAdjustmentQuantity("");
                           setAdjustmentRemarks("");
+                          setAdjustmentUnitPrice("");
+                          setAdjustmentDate(new Date());
+                          setAdjustmentCategory("");
+                          setAdjustmentSubCategory("");
                           setIsStockAdjustmentOpen(true);
                         }}
                         title="Adjust Stock"
@@ -906,7 +940,7 @@ export default function ProductsPage() {
 
       {/* Stock Adjustment Sidebar */}
       <Sheet open={isStockAdjustmentOpen} onOpenChange={setIsStockAdjustmentOpen}>
-        <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
           <SheetHeader>
             <SheetTitle>Adjust Stock</SheetTitle>
             <SheetDescription>
@@ -932,15 +966,75 @@ export default function ProductsPage() {
               </div>
 
               <Field
-                type="number"
+                type="text"
                 label="Adjustment Quantity"
                 value={adjustmentQuantity}
-                onChange={(value) => setAdjustmentQuantity(String(value))}
+                onChange={setAdjustmentQuantity}
                 placeholder="e.g., +10 or -5"
               />
               <p className="text-xs text-muted-foreground">
                 Enter a positive number to add stock or a negative number to remove stock.
               </p>
+
+              {/* Show pricing fields only for positive adjustments (adding stock) */}
+              {adjustmentQuantity && parseFloat(adjustmentQuantity) > 0 && (
+                <>
+                  <div className="pt-2 space-y-4">
+                    <div className="border-t pt-4">
+                      <h3 className="text-sm font-semibold mb-3">Purchase Information</h3>
+
+                      <div className="space-y-4">
+                        <Field
+                          type="number"
+                          label="Unit Price"
+                          value={adjustmentUnitPrice}
+                          onChange={(value) => setAdjustmentUnitPrice(String(value))}
+                          placeholder="0.00"
+                        />
+
+                        <Field
+                          type="date"
+                          label="Date Purchased"
+                          value={adjustmentDate}
+                          onChange={(value) => setAdjustmentDate(value as Date)}
+                        />
+
+                        <Field
+                          type="text"
+                          label="TransactionCategory (Optional)"
+                          value={adjustmentCategory}
+                          onChange={setAdjustmentCategory}
+                          placeholder="e.g., Inventory Purchase"
+                        />
+
+                        <Field
+                          type="text"
+                          label="TransactionSub Category (Optional)"
+                          value={adjustmentSubCategory}
+                          onChange={setAdjustmentSubCategory}
+                          placeholder="e.g., Office Supplies"
+                        />
+                      </div>
+                    </div>
+
+                    {adjustmentUnitPrice && !isNaN(parseFloat(adjustmentUnitPrice)) && (
+                      <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-green-900 dark:text-green-100 uppercase tracking-wide">
+                            Total Cost
+                          </p>
+                          <p className="text-2xl font-bold text-green-900 dark:text-green-100">
+                            ₱{(parseFloat(adjustmentQuantity) * parseFloat(adjustmentUnitPrice)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-xs text-green-700 dark:text-green-300">
+                            {adjustmentQuantity} units × ₱{parseFloat(adjustmentUnitPrice).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {adjustmentQuantity && !isNaN(parseFloat(adjustmentQuantity)) && (
                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
@@ -980,6 +1074,10 @@ export default function ProductsPage() {
                     setAdjustmentProduct(null);
                     setAdjustmentQuantity("");
                     setAdjustmentRemarks("");
+                    setAdjustmentUnitPrice("");
+                    setAdjustmentDate(new Date());
+                    setAdjustmentCategory("");
+                    setAdjustmentSubCategory("");
                   }}
                   disabled={isSubmittingAdjustment}
                 >
